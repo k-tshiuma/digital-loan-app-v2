@@ -1,10 +1,16 @@
 import { ApplicationConfig, DocumentTypeInfo, CanonicalStatus } from '../types';
 
+export const SUPPORT_CONFIG = {
+  phoneNumber: '+972-3-555-0199',
+  displayPhone: '03-555-0199',
+  email: 'support@quickloan.co.il',
+};
+
 export const DEFAULT_APP_CONFIG: ApplicationConfig = {
   minLoanAmountNis: 500,
   maxLoanAmountNis: 10000,
   amountIncrementNis: 500,
-  allowedRepaymentPeriodsMonths: [3, 6, 9, 12],
+  allowedRepaymentPeriodsMonths: [3, 6, 9],
   eligibleRepaymentSources: [
     'Bank transfer',
     'Salary deduction',
@@ -63,10 +69,36 @@ export const LOAN_PERIOD_OPTIONS = [
   { months: 3, label: '3 Mos' },
   { months: 6, label: '6 Mos' },
   { months: 9, label: '9 Mos' },
-  { months: 12, label: '12 Mos' },
 ];
 
-export const GRACE_PERIOD_OPTIONS = [0, 1, 2, 3];
+export const MAX_REPAYMENT_PERIOD_MONTHS = 9;
+
+export interface ServiceFeeTier {
+  minAmount: number;
+  maxAmount: number;
+  feeNis: number;
+}
+
+/**
+ * Service fee table mapping loan amount ranges to a fixed fee.
+ */
+export const SERVICE_FEE_TIERS: ServiceFeeTier[] = [
+  { minAmount: 500, maxAmount: 2000, feeNis: 120 },
+  { minAmount: 2001, maxAmount: 4000, feeNis: 220 },
+  { minAmount: 4001, maxAmount: 7000, feeNis: 350 },
+  { minAmount: 7001, maxAmount: 10000, feeNis: 480 },
+];
+
+export function getServiceFeeForAmount(
+  amount: number,
+  tiers: ServiceFeeTier[] = SERVICE_FEE_TIERS
+): number {
+  if (amount <= 0) return 0;
+  const match = tiers.find((t) => amount >= t.minAmount && amount <= t.maxAmount);
+  if (match) return match.feeNis;
+  if (amount < (tiers[0]?.minAmount ?? 500)) return tiers[0]?.feeNis ?? 120;
+  return tiers[tiers.length - 1]?.feeNis ?? 480;
+}
 
 export const VISA_TYPES = [
   { code: 'b1_agri', id: 'b1_agri', label: 'B-1 Work Visa (Agriculture / חקלאות)' },
@@ -202,6 +234,9 @@ export function calculateLoanRepayment(
   periodMonths: number,
   config: ApplicationConfig = DEFAULT_APP_CONFIG
 ): {
+  baseMonthlyRepaymentNis: number;
+  serviceFeeNis: number;
+  monthlyServiceFeeNis: number;
   monthlyPaymentNis: number;
   totalRepaymentNis: number;
   totalInterestNis: number;
@@ -210,6 +245,9 @@ export function calculateLoanRepayment(
 } {
   if (principalAmount <= 0 || periodMonths <= 0) {
     return {
+      baseMonthlyRepaymentNis: 0,
+      serviceFeeNis: 0,
+      monthlyServiceFeeNis: 0,
       monthlyPaymentNis: 0,
       totalRepaymentNis: 0,
       totalInterestNis: 0,
@@ -220,20 +258,24 @@ export function calculateLoanRepayment(
 
   const monthlyRate = config.defaultInterestRatePercent / 100 / 12;
   const factor = Math.pow(1 + monthlyRate, periodMonths);
-  const monthlyPrincipalAndInterest = Math.round(
+  const baseMonthlyRepaymentNis = Math.round(
     (principalAmount * (monthlyRate * factor)) / (factor - 1)
   );
 
-  const monthlyFeePortion = Math.round(config.managementFeeNis / periodMonths);
-  const monthlyPaymentNis = monthlyPrincipalAndInterest + monthlyFeePortion;
+  const serviceFeeNis = getServiceFeeForAmount(principalAmount);
+  const monthlyServiceFeeNis = Math.round(serviceFeeNis / periodMonths);
+  const monthlyPaymentNis = baseMonthlyRepaymentNis + monthlyServiceFeeNis;
   const totalRepaymentNis = monthlyPaymentNis * periodMonths;
-  const totalInterestNis = totalRepaymentNis - principalAmount - config.managementFeeNis;
+  const totalInterestNis = totalRepaymentNis - principalAmount - serviceFeeNis;
 
   return {
+    baseMonthlyRepaymentNis,
+    serviceFeeNis,
+    monthlyServiceFeeNis,
     monthlyPaymentNis,
     totalRepaymentNis,
     totalInterestNis,
-    managementFeeNis: config.managementFeeNis,
+    managementFeeNis: serviceFeeNis,
     interestRatePercent: config.defaultInterestRatePercent,
   };
 }

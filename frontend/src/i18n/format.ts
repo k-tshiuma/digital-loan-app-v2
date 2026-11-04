@@ -7,6 +7,9 @@ const LOCALES: Record<Language, string> = {
   th: 'th-TH',
   zh: 'zh-CN',
   tl: 'en-PH',
+  ar: 'ar-IL',
+  fr: 'fr-FR',
+  es: 'es-ES',
 };
 const TIME_ZONE = 'Asia/Jerusalem';
 const EMPTY = '—';

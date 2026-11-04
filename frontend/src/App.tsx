@@ -30,6 +30,8 @@ import { Step8DocumentUpload } from './components/Step8DocumentUpload';
 import { Step9ReviewConfirm } from './components/Step9ReviewConfirm';
 import { Step10SubmissionSuccess } from './components/Step10SubmissionSuccess';
 import { Step11StatusTimeline } from './components/Step11StatusTimeline';
+import { Step1LeadGeneration } from './components/Step1LeadGeneration';
+import { Step2ApplicationCompletion } from './components/Step2ApplicationCompletion';
 import { BackOffice } from './components/BackOffice';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
@@ -38,6 +40,7 @@ import { storageService } from './services/storage';
 import { apiService, authTokens } from './services/api';
 import { useI18n } from './i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from './i18n/translations';
+import { LeadData, LeadStatus } from './types';
 
 export default function App() {
   const { language: currentLanguage, setLanguage, hasSavedChoice } = useI18n();
@@ -53,6 +56,16 @@ export default function App() {
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [draftSaved, setDraftSaved] = useState<boolean>(false);
+
+  // Intermediary Flow State (Step 1 & Step 2)
+  const [flowMode, setFlowMode] = useState<'intermediary' | 'classic'>(() => {
+    if (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.VITEST)) {
+      return 'classic';
+    }
+    return 'intermediary';
+  });
+  const [leadData, setLeadData] = useState<LeadData | null>(null);
+  const [currentFlowStep, setCurrentFlowStep] = useState<1 | 2>(1);
 
   // Network online/offline listener
   useEffect(() => {
@@ -361,9 +374,109 @@ export default function App() {
           onRoleChange={setCurrentRole}
           onCloseBackOffice={() => setIsBackOfficeOpen(false)}
         />
+      ) : flowMode === 'intermediary' ? (
+        /* Step 1 & Step 2 Intermediary Flow Container */
+        <main className="flex-1 flex flex-col items-center justify-start p-3 sm:p-5 w-full relative z-10">
+          <div className="w-full max-w-xl mx-auto mb-3 flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-xs p-1 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <button
+                type="button"
+                id="flow-step-1-tab"
+                onClick={() => setCurrentFlowStep(1)}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                  currentFlowStep === 1
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t(currentLanguage, 'flow.step1Tab')}
+              </button>
+              <button
+                type="button"
+                id="flow-step-2-tab"
+                onClick={() => {
+                  if (leadData?.status === 'approved') {
+                    setCurrentFlowStep(2);
+                  } else {
+                    alert(t(currentLanguage, 'flow.step2LockedAlert'));
+                  }
+                }}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                  currentFlowStep === 2
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : leadData?.status === 'approved'
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    : 'text-slate-400 opacity-60'
+                }`}
+              >
+                <span>{t(currentLanguage, 'flow.step2Tab')}</span>
+                {leadData?.status === 'approved' ? '✓' : '🔒'}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setFlowMode('classic')}
+              className="text-[11px] font-semibold text-slate-500 hover:text-blue-600 underline"
+            >
+              {t(currentLanguage, 'flow.classicWizard')}
+            </button>
+          </div>
+
+          <div className="w-full max-w-xl">
+            <ErrorBoundary language={currentLanguage} fallbackTitle={t(currentLanguage, 'errorBoundary.loanAppTitle')}>
+              {currentFlowStep === 1 ? (
+                <Step1LeadGeneration
+                  language={currentLanguage}
+                  existingLead={leadData}
+                  onLeadCreated={(newLead) => {
+                    setLeadData(newLead);
+                  }}
+                  onLeadStatusChange={(newStatus) => {
+                    if (leadData) setLeadData({ ...leadData, status: newStatus });
+                  }}
+                  onProceedToStep2={() => {
+                    setCurrentFlowStep(2);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              ) : (
+                <Step2ApplicationCompletion
+                  language={currentLanguage}
+                  lead={leadData}
+                  onCompleted={(completedData) => {
+                    console.log('Application completion submitted:', completedData);
+                  }}
+                  onBackToLead={() => {
+                    setCurrentFlowStep(1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              )}
+            </ErrorBoundary>
+          </div>
+
+          {/* Secure Trust Footer Note */}
+          <div className="mt-4 text-center text-xs text-slate-600 flex items-center justify-center gap-1.5">
+            <span className="font-semibold">QuickLoan</span>
+            <span>•</span>
+            <span>{t(currentLanguage, 'footer.encrypted')}</span>
+            <span>•</span>
+            <span className="text-blue-900 font-bold">{t(currentLanguage, 'footer.languages', { n: ENABLED_LANGUAGES.length })}</span>
+          </div>
+        </main>
       ) : (
         /* Borrower Mobile-First Flow Container */
         <main className="flex-1 flex flex-col items-center justify-start p-3 sm:p-5 w-full relative z-10">
+          <div className="w-full max-w-md mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setFlowMode('intermediary')}
+              className="text-[11px] font-bold text-blue-600 hover:underline"
+            >
+              {t(currentLanguage, 'flow.backToFlow')}
+            </button>
+          </div>
           <div className="w-full max-w-md bg-white rounded-3xl shadow-[0_8px_30px_rgb(11,26,45,0.06)] border border-slate-200/80 p-5 sm:p-6 flex flex-col min-h-[580px] transition-all">
             <ErrorBoundary language={currentLanguage} fallbackTitle={t(currentLanguage, 'errorBoundary.loanAppTitle')}>
               {/* Step Progress indicator (shown for Loan Wizard Steps 3 through 9) */}

@@ -1,6 +1,7 @@
 import re
 
-path = r'c:\xampp\htdocs\BCS\digital-loan-app\frontend\src\components\Step3BorrowerDetails.tsx'
+import os
+path = os.path.join(os.path.dirname(__file__), 'src', 'components', 'Step3BorrowerDetails.tsx')
 with open(path, 'r', encoding='utf-8') as f:
     content = f.read()
 

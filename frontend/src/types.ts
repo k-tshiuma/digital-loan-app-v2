@@ -1,4 +1,4 @@
-export type Language = 'en' | 'he' | 'th' | 'zh' | 'tl';
+export type Language = 'en' | 'he' | 'th' | 'zh' | 'tl' | 'ar' | 'fr' | 'es';
 
 export type CanonicalStatus =
   | 'Received'
@@ -121,7 +121,9 @@ export interface ResidencyDetails {
 }
 
 export interface EmploymentDetails {
-  employerName: string;
+  employerName: string; // Label hint: the company owner's full name
+  companyName?: string; // Replaces old "Employer's Company" field
+  manpowerAgent?: string; // Free text, OPTIONAL
   staffingAgencyName?: string;
   employmentStartDate?: string; // YYYY-MM-DD
   jobTenureMonths: number;
@@ -135,8 +137,8 @@ export interface LoanRequest {
   loanPurpose: LoanPurpose;
   otherPurposeDetails?: string;
   repaymentPeriodMonths: number;
-  gracePeriodMonths?: number;
   repaymentSource: RepaymentSource;
+  serviceFeeNis?: number;
   estimatedMonthlyPaymentNis: number;
   totalRepaymentNis: number;
 }
@@ -391,4 +393,63 @@ export interface FundingIntegrationRecord {
   lastAttemptAt?: string;
   completedAt?: string;
   createdAt: string;
+}
+
+// ----------------------------------------------------
+// Lead & Application Completion Types (Modular Intermediary Architecture)
+// ----------------------------------------------------
+
+export type LeadStatus = 'pending' | 'approved' | 'rejected';
+
+export interface FileAttachment {
+  name: string;
+  size?: number;
+  type?: string;
+  dataUrl?: string;
+}
+
+export interface LeadData {
+  id: string;
+  email: string;
+  password?: string;
+  fullName: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  address: string;
+  passportDoc?: FileAttachment | UploadedFile | null;
+  visaDoc?: FileAttachment | UploadedFile | null;
+  payslipDoc?: FileAttachment | UploadedFile | null;
+  employerName: string; // company owner's full name
+  companyName: string; // company name
+  manpowerAgent?: string; // free text, OPTIONAL
+  requestedLoanAmountNis: number;
+  repaymentPeriodMonths: number;
+  serviceFeeNis: number;
+  displayedMonthlyPaymentNis: number;
+  status: LeadStatus;
+  createdAt: string;
+}
+
+export type SponsorType = 'israeli' | 'foreign';
+
+export interface Sponsor {
+  id: string;
+  type: SponsorType;
+  name: string;
+  idNumber?: string; // Israeli sponsor: ID number
+  passportDoc?: FileAttachment | UploadedFile | null; // Foreign sponsor: passport (image/PDF)
+  visaDoc?: FileAttachment | UploadedFile | null; // Foreign sponsor: visa (image/PDF)
+}
+
+export interface Step2CompletionData {
+  requestedLoanAmountNis?: number;
+  repaymentPeriodMonths?: number;
+  monthlyPaymentNis?: number;
+  serviceFeeNis?: number;
+  agreedToTerms?: boolean;
+  agreedToServiceFee?: boolean;
+  bankAccount: BankAccountDetails;
+  sponsors: Sponsor[];
+  bankAccountAuthorizationDoc?: FileAttachment | UploadedFile | null;
+  submittedAt?: string;
 }

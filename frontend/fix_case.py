@@ -1,6 +1,6 @@
 import os, re
 
-dir_path = r'C:\xampp\htdocs\BCS\digital-loan-app\frontend\src\components'
+dir_path = os.path.join(os.path.dirname(__file__), 'src', 'components')
 
 for root, _, files in os.walk(dir_path):
     for file in files:

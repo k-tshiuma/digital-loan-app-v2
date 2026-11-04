@@ -5,7 +5,6 @@ import {
   LOAN_PERIOD_OPTIONS,
   LOAN_PURPOSE_OPTIONS,
   REPAYMENT_SOURCE_OPTIONS,
-  GRACE_PERIOD_OPTIONS,
   ISRAELI_BANKS,
   calculateLoanRepayment,
   DEFAULT_APP_CONFIG,
@@ -42,9 +41,6 @@ export const Step6LoanDetails: React.FC<Step6LoanDetailsProps> = ({
   );
   const [otherPurposeDetails, setOtherPurposeDetails] = useState<string>(
     initialData?.otherPurposeDetails || ''
-  );
-  const [gracePeriodMonths, setGracePeriodMonths] = useState<number>(
-    initialData?.gracePeriodMonths || 0
   );
   const [repaymentSource, setRepaymentSource] = useState<string>(
     initialData?.repaymentSource || 'Bank transfer'
@@ -120,7 +116,6 @@ export const Step6LoanDetails: React.FC<Step6LoanDetailsProps> = ({
         loanPurpose: loanPurpose as any,
         otherPurposeDetails: loanPurpose === 'Other' ? otherPurposeDetails : undefined,
         repaymentPeriodMonths: repaymentMonths as any,
-        gracePeriodMonths: gracePeriodMonths,
         repaymentSource: repaymentSource as any,
         estimatedMonthlyPaymentNis: calculation.monthlyPaymentNis,
         totalRepaymentNis: calculation.totalRepaymentNis,
@@ -204,35 +199,6 @@ export const Step6LoanDetails: React.FC<Step6LoanDetailsProps> = ({
                   }`}
                 >
                   {t(language, 'wizard.monthsShort', { n: opt.months })}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Grace Period */}
-        <div className="space-y-1.5">
-          <label htmlFor="grace-period-select" className="block text-xs font-bold text-slate-700 ">
-            {t(language, 'gracePeriodLabel')} <span className="text-red-500">*</span>
-          </label>
-          <p className="text-[11px] text-slate-500 mb-2">
-            {t(language, 'gracePeriodHint')}
-          </p>
-          <div className="grid grid-cols-4 gap-2">
-            {GRACE_PERIOD_OPTIONS.map((months) => {
-              const isSelected = gracePeriodMonths === months;
-              return (
-                <button
-                  key={months}
-                  type="button"
-                  onClick={() => setGracePeriodMonths(months)}
-                  className={`py-3 px-2 rounded-xl text-center border font-bold text-xs transition-all ${
-                    isSelected
-                      ? 'bg-blue-900 text-white border-blue-900 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  {months === 0 ? t(language, 'wizard.none') : t(language, 'wizard.monthsShort', { n: months })}
                 </button>
               );
             })}

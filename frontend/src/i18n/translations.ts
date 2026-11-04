@@ -50,6 +50,33 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     enabled: false,
   },
   {
+    code: 'ar',
+    name: 'Arabic',
+    nativeName: 'العربية',
+    abbr: 'AR',
+    dir: 'rtl',
+    flag: '🇸🇦',
+    enabled: false,
+  },
+  {
+    code: 'fr',
+    name: 'French',
+    nativeName: 'Français',
+    abbr: 'FR',
+    dir: 'ltr',
+    flag: '🇫🇷',
+    enabled: false,
+  },
+  {
+    code: 'es',
+    name: 'Spanish',
+    nativeName: 'Español',
+    abbr: 'ES',
+    dir: 'ltr',
+    flag: '🇪🇸',
+    enabled: false,
+  },
+  {
     code: 'tl',
     name: 'Filipino',
     nativeName: 'Tagalog',
@@ -1529,6 +1556,9 @@ export const BASE_TRANSLATIONS: Record<Language, Record<string, string>> = {
     guarantorUploadNotice: 'Hihilingin sa iyo na mag-upload ng kopya ng ID/Pasaporte ng iyong guarantor sa hakbang ng mga dokumento.',
     selfGuaranteedLabel: 'Walang guarantor (Sariling aplikasyon)',
   },
+  ar: {},
+  fr: {},
+  es: {},
 };
 
 /** All UI strings: the base dictionaries plus every group in ./messages. */

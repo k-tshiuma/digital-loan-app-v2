@@ -8,7 +8,7 @@ import { MESSAGE_MODULES } from '../messages';
 const COMPONENTS = path.resolve(__dirname, '../../components');
 
 // Files still being converted. Empty since Phase 3 finished; add a file here only temporarily.
-const PENDING = new Set<string>([]);
+const PENDING = new Set<string>();
 
 const APP = path.resolve(__dirname, '../../App.tsx');
 const files = fs.readdirSync(COMPONENTS).filter((f) => f.endsWith('.tsx'));
