@@ -1,3 +1,4 @@
+import { normalizeFlowDetail } from './flowDetail';
 import {
   User,
   LoanApplication,
@@ -310,5 +311,127 @@ export const apiService = {
 
   async updateCreditRules(rules: Partial<CreditRules>): Promise<{ rules: CreditRules; rescored: number }> {
     return request('/config/credit-rules', { method: 'PUT', body: { rules }, scope: 'staff' });
+  },
+
+  // -------------------------------------------------------------------------
+  // 3-Step Approval Workflow Endpoints
+  // -------------------------------------------------------------------------
+  async flowRegister(details: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    password: string;
+    code: string;
+    language?: Language;
+    registration: { disclaimerAccepted: boolean; locationGranted: boolean };
+  }): Promise<{ user: User; token: string; application: import('../types').FlowApplicationView }> {
+    const res = await request<{ user: User; token: string; application: import('../types').FlowApplicationView }>(
+      '/flow/register',
+      { method: 'POST', body: details, auth: false }
+    );
+    authTokens.set(res.token);
+    return res;
+  },
+
+  async flowGoogle(body: {
+    idToken?: string;
+    demo?: { email: string; name: string };
+    language?: Language;
+    registration?: { disclaimerAccepted: boolean; locationGranted: boolean };
+  }): Promise<{ user: User; token: string; application: import('../types').FlowApplicationView }> {
+    const res = await request<{ user: User; token: string; application: import('../types').FlowApplicationView }>(
+      '/flow/google',
+      { method: 'POST', body, auth: false }
+    );
+    authTokens.set(res.token);
+    return res;
+  },
+
+  async flowStaffLogin(email: string, password: string): Promise<{ token: string; staff: { id: string; email: string; fullName: string; role: StaffRole } }> {
+    const res = await request<{ token: string; staff: { id: string; email: string; fullName: string; role: StaffRole } }>(
+      '/auth/staff-login',
+      { method: 'POST', body: { email, password }, auth: false }
+    );
+    authTokens.setStaff(res.staff.role, res.token);
+    return res;
+  },
+
+  async getFlowApplication(): Promise<import('../types').FlowApplicationView> {
+    const res = await request<{ application: import('../types').FlowApplicationView }>('/flow/application');
+    return res.application;
+  },
+
+  async submitRegistrationConsent(payload: { disclaimerAccepted: boolean; locationGranted: boolean }): Promise<import('../types').FlowApplicationView> {
+    const res = await request<{ application: import('../types').FlowApplicationView }>(
+      '/flow/application/registration-consent',
+      { method: 'POST', body: payload }
+    );
+    return res.application;
+  },
+
+  async saveFlowStepDraft(step: number, data: any): Promise<import('../types').FlowApplicationView> {
+    const res = await request<{ application: import('../types').FlowApplicationView }>(
+      `/flow/application/steps/${step}/draft`,
+      { method: 'PUT', body: { data } }
+    );
+    return res.application;
+  },
+
+  async submitFlowStep(step: number, data?: any): Promise<import('../types').FlowApplicationView> {
+    const res = await request<{ application: import('../types').FlowApplicationView }>(
+      `/flow/application/steps/${step}/submit`,
+      { method: 'POST', body: { data } }
+    );
+    return res.application;
+  },
+
+  async getCurrentTerms(): Promise<{ terms: Record<string, import('../types').TermsVersionRecord> }> {
+    return request('/flow/terms/current');
+  },
+
+  // Staff Back Office Flow
+  async listFlowApplications(params?: { group?: string; status?: string; q?: string }): Promise<{
+    applications: any[];
+    counts: { total: number; byGroup: Record<string, number>; byStatus: Record<string, number> };
+  }> {
+    const query = new URLSearchParams();
+    if (params?.group) query.set('group', params.group);
+    if (params?.status) query.set('status', params.status);
+    if (params?.q) query.set('q', params.q);
+    const qs = query.toString();
+    return request(`/flow/applications${qs ? `?${qs}` : ''}`, { scope: 'staff' });
+  },
+
+  async getFlowApplicationDetail(id: string, revealBank = false): Promise<any> {
+    const raw = await request(`/flow/applications/${id}${revealBank ? '?revealBank=1' : ''}`, { scope: 'staff' });
+    return normalizeFlowDetail(raw);
+  },
+
+  async submitStepDecision(id: string, step: number, decision: 'approve' | 'reject' | 'request_changes', note?: string): Promise<any> {
+    return request(`/flow/applications/${id}/steps/${step}/decision`, {
+      method: 'POST',
+      body: { decision, note },
+      scope: 'staff',
+    });
+  },
+
+  async submitFinalDecision(id: string, payload: { status: string; reason?: string; missingNote?: string }): Promise<any> {
+    return request(`/flow/applications/${id}/final-decision`, {
+      method: 'POST',
+      body: payload,
+      scope: 'staff',
+    });
+  },
+
+  async sendApplicantStaffMessage(id: string, message: string): Promise<any> {
+    return request(`/flow/applications/${id}/message`, {
+      method: 'POST',
+      body: { message },
+      scope: 'staff',
+    });
+  },
+
+  async getFlowSummary(): Promise<{ summary: any }> {
+    return request('/flow/summary', { scope: 'staff' });
   },
 };

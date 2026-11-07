@@ -79,6 +79,24 @@ export const status: MessageModule = {
     'reason.docUploaded': 'Borrower uploaded the requested document.',
     'reason.docUploadedFile': 'Borrower uploaded an additional document: {file}',
     'reason.statusUpdatedTo': 'Status updated to {status}',
+    // 3-step workflow status labels
+    'flowStatus.LEAD_REGISTERED': 'Lead / Registered',
+    'flowStatus.PENDING_STEP1_APPROVAL': 'Pending Step 1 Approval',
+    'flowStatus.STEP1_CHANGES_REQUESTED': 'Step 1 – Changes Requested',
+    'flowStatus.STEP1_APPROVED': 'Step 1 Approved – Step 2 Pending',
+    'flowStatus.PENDING_STEP2_APPROVAL': 'Pending Step 2 Approval',
+    'flowStatus.STEP2_CHANGES_REQUESTED': 'Step 2 – Changes Requested',
+    'flowStatus.STEP2_APPROVED': 'Step 2 Approved – Step 3 Pending',
+    'flowStatus.PENDING_FINAL_PROCESSING': 'Final Application Submitted – Pending Final Processing',
+    'flowStatus.LOAN_APPROVED': 'Loan Approved',
+    'flowStatus.LOAN_REJECTED': 'Loan Rejected',
+    // Flow groups
+    'flowGroup.in_progress': 'In Progress',
+    'flowGroup.pending': 'Pending Review',
+    'flowGroup.approved_stage': 'Stage Approved',
+    'flowGroup.completed': 'Completed (Processing)',
+    'flowGroup.approved_final': 'Loan Approved',
+    'flowGroup.rejected': 'Rejected',
     // @en-end
   },
   he: {
@@ -159,6 +177,24 @@ export const status: MessageModule = {
     'reason.docUploaded': 'הלווה העלה את המסמך המבוקש.',
     'reason.docUploadedFile': 'הלווה העלה מסמך נוסף: {file}',
     'reason.statusUpdatedTo': 'הסטטוס עודכן: {status}',
+    // 3-step workflow status labels
+    'flowStatus.LEAD_REGISTERED': 'ליד / רשום',
+    'flowStatus.PENDING_STEP1_APPROVAL': 'ממתין לאישור שלב 1',
+    'flowStatus.STEP1_CHANGES_REQUESTED': 'שלב 1 – נדרשים תיקונים',
+    'flowStatus.STEP1_APPROVED': 'שלב 1 אושר – שלב 2 ממתין',
+    'flowStatus.PENDING_STEP2_APPROVAL': 'ממתין לאישור שלב 2',
+    'flowStatus.STEP2_CHANGES_REQUESTED': 'שלב 2 – נדרשים תיקונים',
+    'flowStatus.STEP2_APPROVED': 'שלב 2 אושר – שלב 3 ממתין',
+    'flowStatus.PENDING_FINAL_PROCESSING': 'הבקשה הסופית הוגשה – ממתינה לטיפול סופי',
+    'flowStatus.LOAN_APPROVED': 'ההלוואה אושרה',
+    'flowStatus.LOAN_REJECTED': 'ההלוואה נדחתה',
+    // Flow groups
+    'flowGroup.in_progress': 'בתהליך',
+    'flowGroup.pending': 'ממתין לבדיקה',
+    'flowGroup.approved_stage': 'שלב אושר',
+    'flowGroup.completed': 'הושלם (בטיפול סופי)',
+    'flowGroup.approved_final': 'הלוואה אושרה',
+    'flowGroup.rejected': 'נדחתה',
     // @he-end
   },
 };

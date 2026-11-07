@@ -32,6 +32,8 @@ import { Step10SubmissionSuccess } from './components/Step10SubmissionSuccess';
 import { Step11StatusTimeline } from './components/Step11StatusTimeline';
 import { Step1LeadGeneration } from './components/Step1LeadGeneration';
 import { Step2ApplicationCompletion } from './components/Step2ApplicationCompletion';
+import { Step3FinalSubmission } from './components/Step3FinalSubmission';
+import { FlowStatusHub } from './components/FlowStatusHub';
 import { BackOffice } from './components/BackOffice';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
@@ -40,7 +42,7 @@ import { storageService } from './services/storage';
 import { apiService, authTokens } from './services/api';
 import { useI18n } from './i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from './i18n/translations';
-import { LeadData, LeadStatus } from './types';
+import { LeadData, LeadStatus, FlowApplicationView, Step1FormData, Step2FormData, Step3FormData, TermsVersionRecord } from './types';
 
 export default function App() {
   const { language: currentLanguage, setLanguage, hasSavedChoice } = useI18n();
@@ -65,7 +67,41 @@ export default function App() {
     return 'intermediary';
   });
   const [leadData, setLeadData] = useState<LeadData | null>(null);
-  const [currentFlowStep, setCurrentFlowStep] = useState<1 | 2>(1);
+  const [currentFlowStep, setCurrentFlowStep] = useState<1 | 2 | 3 | 'hub'>(1);
+  const [flowApplication, setFlowApplication] = useState<FlowApplicationView | null>(null);
+  const [flowTerms, setFlowTerms] = useState<Record<string, TermsVersionRecord> | null>(null);
+
+  // Load flow application & terms for authenticated users
+  useEffect(() => {
+    if (apiService.isAuthenticated()) {
+      apiService
+        .getFlowApplication()
+        .then((app) => {
+          if (app) {
+            setFlowApplication(app);
+            if (app.flowStatus !== 'LEAD_REGISTERED') {
+              if (app.unlockedStep === 2 && app.stepStates[2] === 'available') {
+                setCurrentFlowStep(2);
+              } else if (app.unlockedStep === 3 && app.stepStates[3] === 'available') {
+                setCurrentFlowStep(3);
+              } else {
+                setCurrentFlowStep('hub');
+              }
+            }
+          }
+        })
+        .catch(() => {});
+
+      apiService
+        .getCurrentTerms()
+        .then((res) => {
+          if (res?.terms) {
+            setFlowTerms(res.terms);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentUser]);
 
   // Network online/offline listener
   useEffect(() => {
@@ -337,6 +373,8 @@ export default function App() {
     apiService.logout(); // drop the borrower token too, or a reload would sign the user back in
     setCurrentUser(null);
     setApplication(null);
+    setFlowApplication(null);
+    setCurrentFlowStep(1);
     setCurrentStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -375,7 +413,7 @@ export default function App() {
           onCloseBackOffice={() => setIsBackOfficeOpen(false)}
         />
       ) : flowMode === 'intermediary' ? (
-        /* Step 1 & Step 2 Intermediary Flow Container */
+        /* 3-Step Loan Flow Container */
         <main className="flex-1 flex flex-col items-center justify-start p-3 sm:p-5 w-full relative z-10">
           <div className="w-full max-w-xl mx-auto mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-xs p-1 rounded-2xl border border-slate-200/80 shadow-2xs">
@@ -383,19 +421,21 @@ export default function App() {
                 type="button"
                 id="flow-step-1-tab"
                 onClick={() => setCurrentFlowStep(1)}
-                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                   currentFlowStep === 1
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {t(currentLanguage, 'flow.step1Tab')}
+                <span>{t(currentLanguage, 'flow.step1Tab')}</span>
+                {flowApplication?.stepStates[1] === 'approved' ? '✓' : ''}
               </button>
+
               <button
                 type="button"
                 id="flow-step-2-tab"
                 onClick={() => {
-                  if (leadData?.status === 'approved') {
+                  if ((flowApplication?.unlockedStep ?? 1) >= 2 || leadData?.status === 'approved') {
                     setCurrentFlowStep(2);
                   } else {
                     alert(t(currentLanguage, 'flow.step2LockedAlert'));
@@ -404,14 +444,59 @@ export default function App() {
                 className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                   currentFlowStep === 2
                     ? 'bg-purple-600 text-white shadow-xs'
-                    : leadData?.status === 'approved'
+                    : (flowApplication?.unlockedStep ?? 1) >= 2 || leadData?.status === 'approved'
                     ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                     : 'text-slate-400 opacity-60'
                 }`}
               >
                 <span>{t(currentLanguage, 'flow.step2Tab')}</span>
-                {leadData?.status === 'approved' ? '✓' : '🔒'}
+                {(flowApplication?.unlockedStep ?? 1) >= 2 || leadData?.status === 'approved' ? (
+                  flowApplication?.stepStates[2] === 'approved' ? '✓' : ''
+                ) : (
+                  '🔒'
+                )}
               </button>
+
+              <button
+                type="button"
+                id="flow-step-3-tab"
+                onClick={() => {
+                  if ((flowApplication?.unlockedStep ?? 1) >= 3) {
+                    setCurrentFlowStep(3);
+                  } else {
+                    alert(t(currentLanguage, 'flow.step3LockedAlert'));
+                  }
+                }}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                  currentFlowStep === 3
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : (flowApplication?.unlockedStep ?? 1) >= 3
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    : 'text-slate-400 opacity-60'
+                }`}
+              >
+                <span>{t(currentLanguage, 'flow.step3Tab')}</span>
+                {(flowApplication?.unlockedStep ?? 1) >= 3 ? (
+                  flowApplication?.isCompleted ? '✓' : ''
+                ) : (
+                  '🔒'
+                )}
+              </button>
+
+              {flowApplication && (
+                <button
+                  type="button"
+                  id="flow-status-tab"
+                  onClick={() => setCurrentFlowStep('hub')}
+                  className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                    currentFlowStep === 'hub'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {t(currentLanguage, 'flow.statusTab')}
+                </button>
+              )}
             </div>
 
             <button
@@ -425,9 +510,127 @@ export default function App() {
 
           <div className="w-full max-w-xl">
             <ErrorBoundary language={currentLanguage} fallbackTitle={t(currentLanguage, 'errorBoundary.loanAppTitle')}>
-              {currentFlowStep === 1 ? (
+              {currentFlowStep === 'hub' && flowApplication ? (
+                <FlowStatusHub
+                  application={flowApplication}
+                  language={currentLanguage}
+                  onNavigateToStep={(step) => {
+                    setCurrentFlowStep(step as 1 | 2 | 3);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              ) : currentFlowStep === 2 ? (
+                <Step2ApplicationCompletion
+                  language={currentLanguage}
+                  initialData={flowApplication?.steps[2]?.data}
+                  defaultAmount={
+                    flowApplication?.loanBreakdown?.requestedAmountNis ||
+                    flowApplication?.steps[1]?.data?.loan?.requestedAmountNis ||
+                    5000
+                  }
+                  isReadOnly={
+                    flowApplication?.stepStates[2] === 'pending' ||
+                    flowApplication?.stepStates[2] === 'approved'
+                  }
+                  onSubmit={async (step2Data) => {
+                    const updated = await apiService.submitFlowStep(2, step2Data);
+                    if (updated) {
+                      setFlowApplication(updated);
+                      setCurrentFlowStep('hub');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  lead={leadData}
+                  onCompleted={(completedData) => {
+                    console.log('Application completion submitted:', completedData);
+                  }}
+                  onBackToLead={() => {
+                    setCurrentFlowStep(1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              ) : currentFlowStep === 3 ? (
+                <Step3FinalSubmission
+                  language={currentLanguage}
+                  breakdown={flowApplication?.loanBreakdown || null}
+                  initialData={flowApplication?.steps[3]?.data}
+                  termsVersions={flowTerms || {}}
+                  isReadOnly={
+                    flowApplication?.stepStates[3] === 'submitted' ||
+                    flowApplication?.isCompleted
+                  }
+                  onSubmit={async (step3Data) => {
+                    const updated = await apiService.submitFlowStep(3, step3Data);
+                    if (updated) {
+                      setFlowApplication(updated);
+                      setCurrentFlowStep('hub');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  onBack={() => {
+                    setCurrentFlowStep(2);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+              ) : (
                 <Step1LeadGeneration
                   language={currentLanguage}
+                  initialData={flowApplication?.steps[1]?.data}
+                  userPhone={currentUser?.phoneNumber}
+                  userEmail={currentUser?.email}
+                  userName={currentUser?.fullName}
+                  hasCompletedDisclaimer={!!flowApplication}
+                  isReadOnly={
+                    flowApplication?.stepStates[1] === 'pending' ||
+                    flowApplication?.stepStates[1] === 'approved'
+                  }
+                  onRegisterAccount={async (creds) => {
+                    const res = await apiService.flowRegister({
+                      fullName: creds.fullName,
+                      email: creds.email,
+                      phoneNumber: creds.phoneNumber,
+                      password: creds.password,
+                      code: creds.code,
+                      language: currentLanguage,
+                      registration: {
+                        disclaimerAccepted: true,
+                        locationGranted: true,
+                      },
+                    });
+                    if (res?.user) {
+                      setCurrentUser(storageService.adoptUser(res.user));
+                    }
+                    if (res?.application) {
+                      setFlowApplication(res.application);
+                    }
+                  }}
+                  onGoogleSignIn={async (demo) => {
+                    const res = await apiService.flowGoogle({
+                      demo: {
+                        email: demo?.email || 'google_user@gmail.com',
+                        name: demo?.name || 'Google Applicant',
+                      },
+                      language: currentLanguage,
+                      registration: {
+                        disclaimerAccepted: true,
+                        locationGranted: true,
+                      },
+                    });
+                    if (res?.user) {
+                      setCurrentUser(storageService.adoptUser(res.user));
+                    }
+                    if (res?.application) {
+                      setFlowApplication(res.application);
+                    }
+                  }}
+                  onSubmit={async (step1Data) => {
+                    const updated = await apiService.submitFlowStep(1, step1Data);
+                    if (updated) {
+                      setFlowApplication(updated);
+                      setCurrentFlowStep('hub');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
                   existingLead={leadData}
                   onLeadCreated={(newLead) => {
                     setLeadData(newLead);
@@ -437,18 +640,6 @@ export default function App() {
                   }}
                   onProceedToStep2={() => {
                     setCurrentFlowStep(2);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                />
-              ) : (
-                <Step2ApplicationCompletion
-                  language={currentLanguage}
-                  lead={leadData}
-                  onCompleted={(completedData) => {
-                    console.log('Application completion submitted:', completedData);
-                  }}
-                  onBackToLead={() => {
-                    setCurrentFlowStep(1);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 />

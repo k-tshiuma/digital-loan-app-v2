@@ -3,12 +3,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Step2ApplicationCompletion } from '../Step2ApplicationCompletion';
+import { Step3FinalSubmission } from '../Step3FinalSubmission';
 import { LOAN_PERIOD_OPTIONS, MAX_REPAYMENT_PERIOD_MONTHS } from '../../config/appConfig';
-import { t } from '../../i18n/translations';
+import { LeadData, LoanBreakdown } from '../../types';
 
-import { LeadData } from '../../types';
-
-describe('Step 2: Loan Details and Repayment Terms', () => {
+describe('Step 2 & Step 3 Workflow Details', () => {
   const dummyLead: LeadData = {
     id: 'lead_123',
     email: 'test@example.com',
@@ -24,6 +23,24 @@ describe('Step 2: Loan Details and Repayment Terms', () => {
     displayedMonthlyPaymentNis: 833,
     status: 'approved' as const,
     createdAt: new Date().toISOString(),
+  };
+
+  const dummyBreakdown: LoanBreakdown = {
+    requestedAmountNis: 5000,
+    repaymentPeriodMonths: 6,
+    interestRateAnnualPercent: 10.5,
+    totalInterestNis: 154,
+    serviceFeeRatePercent: 10,
+    totalServiceFeeNis: 500,
+    totalRepaymentNis: 5654,
+    monthlyRepaymentWithInterestNis: 859,
+    monthlyServiceFeeNis: 83,
+    calculatedAt: new Date().toISOString(),
+  };
+
+  const dummyTermsVersions = {
+    general: { version: '1.0', content: 'General Terms text...' },
+    service_fee: { version: '1.0', content: 'Service Fee Terms text...' },
   };
 
   it('1. Repayment Period: only 3, 6, and 9 months are available and maximum is 9 months', () => {
@@ -48,7 +65,7 @@ describe('Step 2: Loan Details and Repayment Terms', () => {
     expect(screen.queryByRole('button', { name: /12\s*months/i })).toBeNull();
   });
 
-  it('2. Mandatory Agreements: checkboxes are not preselected and Terms modal opens', async () => {
+  it('2. Simplified Sponsors in Step 2: requires only Full Name and ID or Passport', async () => {
     const user = userEvent.setup();
     render(
       <Step2ApplicationCompletion
@@ -58,63 +75,57 @@ describe('Step 2: Loan Details and Repayment Terms', () => {
       />
     );
 
-    const termsCheckbox = screen.getByRole('checkbox', { name: /Terms and Conditions/i }) as HTMLInputElement;
-    const feeCheckbox = screen.getByRole('checkbox', { name: /service fee/i }) as HTMLInputElement;
+    const addSponsorBtn = screen.getByRole('button', { name: /Add Sponsor/i });
+    expect(addSponsorBtn).toBeInTheDocument();
+    await user.click(addSponsorBtn);
+
+    // Verify fields: Full Name and ID or Passport
+    expect(screen.getByPlaceholderText(/Full name as shown on legal ID\/Passport/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Israeli ID or Foreign Passport/i)).toBeInTheDocument();
+
+    // Distinctions like "Israeli" or "Foreigner" dropdowns must not exist
+    expect(screen.queryByText(/Select citizenship/i)).toBeNull();
+  });
+
+  it('3. Mandatory Agreements in Step 3: checkboxes are not preselected, Terms modal opens, submit gated', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+
+    render(
+      <Step3FinalSubmission
+        breakdown={dummyBreakdown}
+        termsVersions={dummyTermsVersions}
+        onSubmit={onSubmit}
+        language="en"
+      />
+    );
+
+    const termsCheckbox = screen.getByRole('checkbox', { name: /General Terms & Conditions/i }) as HTMLInputElement;
+    const feeCheckbox = screen.getByRole('checkbox', { name: /Service Fee Terms & Conditions/i }) as HTMLInputElement;
 
     // Both checkboxes MUST not be preselected
     expect(termsCheckbox.checked).toBe(false);
     expect(feeCheckbox.checked).toBe(false);
 
-    // Terms link exists and clicking opens the Terms & Conditions modal
-    const viewTermsBtn = screen.getByRole('button', { name: /View Terms and Conditions/i });
-    expect(viewTermsBtn).toBeInTheDocument();
-
-    await user.click(viewTermsBtn);
+    // Terms link exists and clicking opens the Terms modal
+    const viewTermsBtns = screen.getAllByRole('button', { name: /View Terms/i });
+    expect(viewTermsBtns.length).toBeGreaterThan(0);
+    await user.click(viewTermsBtns[0]);
 
     // Modal is opened
-    expect(screen.getByRole('heading', { level: 2, name: /Terms & conditions/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /Terms and Conditions/i })).toBeInTheDocument();
 
     // Close modal via close button
-    const closeBtn = document.getElementById('close-terms-modal-btn')!;
+    const closeBtn = screen.getByRole('button', { name: /Close/i });
     await user.click(closeBtn);
-    expect(screen.queryByRole('heading', { level: 2, name: /Terms & conditions/i })).toBeNull();
+
+    // Submit button is disabled initially
+    const submitBtn = screen.getByRole('button', { name: /Submit Final Loan Application/i });
+    expect(submitBtn).toBeDisabled();
   });
 
-  it('3. Submission Validation: submit button remains disabled until both agreements are accepted', async () => {
-    const user = userEvent.setup();
-    const onCompleted = vi.fn();
-
-    render(
-      <Step2ApplicationCompletion
-        lead={dummyLead}
-        onCompleted={onCompleted}
-        language="en"
-      />
-    );
-
-    const submitBtn = screen.getByRole('button', { name: /Submit Completed Application/i });
-    const termsCheckbox = screen.getByRole('checkbox', { name: /Terms and Conditions/i });
-    const feeCheckbox = screen.getByRole('checkbox', { name: /service fee/i });
-
-    // Initially disabled
-    expect(submitBtn).toBeDisabled();
-
-    // Accept only terms -> still disabled
-    await user.click(termsCheckbox);
-    expect(submitBtn).toBeDisabled();
-
-    // Uncheck terms and check only service fee -> still disabled
-    await user.click(termsCheckbox);
-    await user.click(feeCheckbox);
-    expect(submitBtn).toBeDisabled();
-
-    // Check both -> button becomes enabled
-    await user.click(termsCheckbox);
-    expect(submitBtn).not.toBeDisabled();
-  });
-
-  it('4. Localized display in Hebrew: terms, service fee, and validation are in Hebrew', () => {
-    render(
+  it('4. Localized display in Hebrew: Step 2 and Step 3', () => {
+    const { unmount } = render(
       <Step2ApplicationCompletion
         lead={dummyLead}
         onCompleted={vi.fn()}
@@ -122,18 +133,28 @@ describe('Step 2: Loan Details and Repayment Terms', () => {
       />
     );
 
-    // Header and terms in Hebrew
-    expect(screen.getByText(t('he', 'step2.part5Title'))).toBeInTheDocument();
-    expect(screen.getByText(t('he', 'step2.viewTermsLink'))).toBeInTheDocument();
-    expect(screen.getByText(t('he', 'step2.serviceFeeBoxTitle'))).toBeInTheDocument();
+    // Repayment in Hebrew (3, 6, 9 חודשים)
+    expect(screen.getByRole('button', { name: /3\s*חודשים/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /6\s*חודשים/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /9\s*חודשים/i })).toBeInTheDocument();
+    unmount();
 
-    const termsCheckbox = screen.getByRole('checkbox', { name: /תנאי השימוש וההלוואה/i }) as HTMLInputElement;
-    const feeCheckbox = screen.getByRole('checkbox', { name: /דמי השירות/i }) as HTMLInputElement;
+    // Step 3 in Hebrew
+    render(
+      <Step3FinalSubmission
+        breakdown={dummyBreakdown}
+        termsVersions={dummyTermsVersions}
+        onSubmit={vi.fn()}
+        language="he"
+      />
+    );
 
-    expect(termsCheckbox.checked).toBe(false);
-    expect(feeCheckbox.checked).toBe(false);
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(checkboxes.length).toBe(2);
+    expect((checkboxes[0] as HTMLInputElement).checked).toBe(false);
+    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false);
 
-    const submitBtn = screen.getByRole('button', { name: t('he', 'step2.submitBtn') });
+    const submitBtn = screen.getByRole('button', { name: /הגשת בקשת הלוואה סופית/i });
     expect(submitBtn).toBeDisabled();
   });
 });

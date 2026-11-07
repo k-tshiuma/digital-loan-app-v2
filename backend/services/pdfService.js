@@ -186,9 +186,17 @@ function makeCanvas(doc, lang) {
  * Stream a formatted PDF summary of a loan application to an HTTP response.
  * @param {Object} app              Parsed application object
  * @param {import('express').Response} res
- * @param {{ includeRisk?: boolean, lang?: string }} options
- *   includeRisk: risk data is only shown to staff. lang: 'en' or 'he' (see resolvePdfLanguage).
+ * @param {{ includeRisk?: boolean, maskBankAccount?: boolean, lang?: string }} options
+ *   includeRisk: risk data is only shown to staff. maskBankAccount: show only the last 4 digits of the
+ *   account number (staff copies). lang: 'en' or 'he' (see resolvePdfLanguage).
  */
+/** Keeps only the last 4 digits, e.g. ****5678. */
+function maskAccountNumber(value) {
+  if (!value) return value;
+  const s = String(value);
+  return s.length <= 4 ? '****' : `****${s.slice(-4)}`;
+}
+
 function streamApplicationPdf(app, res, options = {}) {
   const lang = resolvePdfLanguage(options.lang, app.language);
   const L = makeLabels(lang);
@@ -309,7 +317,7 @@ function streamApplicationPdf(app, res, options = {}) {
   if (bAccount.bankName || bAccount.accountNumber) {
     row(L.field('bankName'), bAccount.bankName);
     row(L.field('branch'), bAccount.branchNumber);
-    row(L.field('account'), bAccount.accountNumber);
+    row(L.field('account'), ltr(options.maskBankAccount ? maskAccountNumber(bAccount.accountNumber) : bAccount.accountNumber));
     row(L.field('holder'), bAccount.accountHolderName);
   } else {
     row(L.field('bankAccount'), app.bankAccountConfirmed ? L.field('bankConfirmed') : L.field('bankPending'));

@@ -16,6 +16,9 @@ const { sendSms } = require('./services/smsService');
 const { sendEmail } = require('./services/emailService');
 const { resolveMessageLanguage, msg, statusName, statusMessage } = require('./services/messages');
 const { streamApplicationPdf } = require('./services/pdfService');
+const createFlowRoutes = require('./routes/flow');
+const { groupOf } = require('./services/workflow');
+const { ensureSeeded: ensureTermsSeeded } = require('./services/terms');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -162,10 +165,56 @@ const otpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
 
+function checkOtp(phoneNumber, code) {
+  const phone = normalizePhone(phoneNumber);
+  const cleanCode = String(code || '').trim();
+  const record = otpStore.get(phone);
+  let valid = false;
+
+  if (record) {
+    if (record.expiresAt < Date.now()) {
+      otpStore.delete(phone);
+      return { ok: false, status: 400, error: 'OTP code has expired. Please request a new code.' };
+    }
+    if (record.attempts >= MAX_CODE_ATTEMPTS) {
+      otpStore.delete(phone);
+      return { ok: false, status: 429, error: 'Too many attempts. Please request a new code.' };
+    }
+    valid = record.codeHash === hashCode(cleanCode) || record.code === cleanCode;
+    if (!valid) record.attempts += 1;
+  }
+
+  if (!valid && DEMO_MODE) {
+    if (cleanCode === '123456' || (cleanCode.length === 6 && /^\d{6}$/.test(cleanCode))) {
+      valid = true;
+    }
+  }
+
+  if (!valid) {
+    return { ok: false, status: 400, error: 'Incorrect verification code. Please try again.' };
+  }
+  otpStore.delete(phone);
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Application helpers
 // ---------------------------------------------------------------------------
-const APP_JSON_FIELDS = ['borrowerDetails', 'residencyDetails', 'employmentDetails', 'loanRequest', 'guarantor', 'digitalSignature', 'bankAccount', 'eligibilityBreakdown'];
+const APP_JSON_FIELDS = [
+  'borrowerDetails',
+  'residencyDetails',
+  'employmentDetails',
+  'loanRequest',
+  'guarantor',
+  'digitalSignature',
+  'bankAccount',
+  'eligibilityBreakdown',
+  'step1Data',
+  'step2Data',
+  'step3Data',
+  'loanBreakdown',
+  'staffMessage',
+];
 const APP_JSON_ARRAY_FIELDS = ['documents', 'consents', 'statusHistory', 'riskFlags', 'guarantors'];
 
 function parseApp(row) {
@@ -440,33 +489,11 @@ app.post('/api/users/verify-otp', async (req, res) => {
   const phone = normalizePhone(req.body.phoneNumber);
   const code = String(req.body.code || '').trim();
   const preferredLanguage = req.body.preferredLanguage || 'en';
-  const record = otpStore.get(phone);
-
-  let valid = false;
-  if (record) {
-    if (record.expiresAt < Date.now()) {
-      otpStore.delete(phone);
-      return res.status(400).json({ success: false, error: 'OTP code has expired. Please request a new code.' });
-    }
-    if (record.attempts >= MAX_CODE_ATTEMPTS) {
-      otpStore.delete(phone);
-      return res.status(429).json({ success: false, error: 'Too many attempts. Please request a new code.' });
-    }
-    valid = record.codeHash === hashCode(code) || record.code === code;
-    if (!valid) record.attempts += 1;
+  
+  const otpResult = checkOtp(phone, code);
+  if (!otpResult.ok) {
+    return res.status(otpResult.status).json({ success: false, error: otpResult.error });
   }
-
-  // Testing Phase & Demo Mode: Allow any phone number matching format and accept generated OTP, 123456, or any 6-digit code
-  if (!valid && DEMO_MODE) {
-    if (code === '123456' || (code.length === 6 && /^\d{6}$/.test(code))) {
-      valid = true;
-    }
-  }
-
-  if (!valid) {
-    return res.status(400).json({ success: false, error: 'Incorrect verification code. Please try again.' });
-  }
-  otpStore.delete(phone);
 
   const now = new Date().toISOString();
   let user = await dbGet('SELECT * FROM users WHERE phoneNumber = ?', [phone]);
@@ -613,10 +640,35 @@ app.post('/api/auth/staff-token', (req, res) => {
   res.json({ success: true, token: signStaffToken(role), role });
 });
 
+const flowRoutes = createFlowRoutes({
+  DEMO_MODE,
+  BCRYPT_ROUNDS,
+  JWT_SECRET,
+  normalizePhone,
+  sanitizeUser,
+  signUserToken,
+  isStaff,
+  requireStaff,
+  checkOtp,
+  nextRequestNumber,
+  parseApp,
+  broadcastAppEvent,
+  sendSms,
+  sendEmail,
+  notifyStatusChange,
+  resolveMessageLanguage,
+});
+
+// Register public flow endpoints (e.g. registration, Google demo/auth, staff login)
+flowRoutes.registerPublic(app);
+
 // ===========================================================================
 // PROTECTED ROUTES — everything below requires a valid JWT
 // ===========================================================================
 app.use('/api', authenticate);
+
+// Register protected flow endpoints (step draft, submit, back office review, etc.)
+flowRoutes.registerProtected(app);
 
 app.get('/api/users/me', async (req, res) => {
   if (isStaff(req)) return res.json({ success: true, staff: { role: req.auth.role } });
@@ -745,8 +797,24 @@ app.get('/api/uploads/:filename', async (req, res) => {
 // --- Applications -----------------------------------------------------------
 
 app.get('/api/applications', requireStaff(), async (_req, res) => {
-  const rows = await dbAll('SELECT * FROM applications WHERE isSubmitted = 1 ORDER BY submittedAt DESC');
-  res.json({ success: true, applications: rows.map(parseApp) });
+  // 3-step flow applications are only marked isSubmitted after the last step, but staff must see them
+  // from registration on (step 1 and 2 need a Back Office decision), so include every flow application.
+  const rows = await dbAll(
+    'SELECT * FROM applications WHERE isSubmitted = 1 OR flowVersion = 2 ORDER BY COALESCE(submittedAt, updatedAt, createdAt) DESC'
+  );
+  res.json({
+    success: true,
+    applications: rows.map((row) => {
+      const app = parseApp(row);
+      if (!app.flowStatus) return app;
+      // Flow applications: bank account number masked; staff reveal it (audited) via GET /api/flow/applications/:id?revealBank=1.
+      // Legacy rows are left whole because the Back Office saves them back through PUT /api/applications/:id.
+      const masked = { ...app, group: groupOf(app.flowStatus) };
+      if (masked.bankAccount) masked.bankAccount = flowRoutes.maskBank(masked.bankAccount);
+      if (masked.step3Data && masked.step3Data.bank) masked.step3Data = { ...masked.step3Data, bank: flowRoutes.maskBank(masked.step3Data.bank) };
+      return masked;
+    }),
+  });
 });
 
 function evaluateReusableDocuments(documents, residencyDetails, sourceAppId) {
@@ -982,6 +1050,15 @@ app.put('/api/applications/:id', async (req, res) => {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }
 
+  // Lock legacy PUT for 3-step approval workflow applications (flowVersion = 2)
+  if (prev && prev.flowVersion === 2) {
+    return res.status(409).json({
+      success: false,
+      code: 'FLOW_V2_LOCKED',
+      error: 'This application uses the 3-step approval workflow and must be updated via /api/flow endpoints.',
+    });
+  }
+
   const next = { ...incoming, id, updatedAt: now, createdAt: (prev && prev.createdAt) || incoming.createdAt || now };
   // Risk data and eligibility scores are computed server-side only to prevent tampering.
   delete next.riskScore; delete next.riskLevel; delete next.riskFlags;
@@ -1147,7 +1224,8 @@ app.all('/api/applications/:id/pdf', async (req, res) => {
 
   try {
     // ?lang=he|en picks the PDF language (staff send their UI language); default: the application's language.
-    streamApplicationPdf(a, res, { includeRisk: isStaff(req), lang: req.query.lang });
+    // Staff copies mask the bank account number; the borrower's own copy shows it in full.
+    streamApplicationPdf(a, res, { includeRisk: isStaff(req), maskBankAccount: isStaff(req), lang: req.query.lang });
   } catch (err) {
     console.error('Error generating PDF:', err);
     if (!res.headersSent) {
