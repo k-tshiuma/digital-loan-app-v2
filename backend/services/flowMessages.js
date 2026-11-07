@@ -222,4 +222,4 @@ function flowMessage(lang, event, params = {}) {
   return { title, body, sms, emailSubject: `QuickLoan: ${title}`, emailHtml };
 }
 
-module.exports = { FLOW_EVENTS, FLOW_STATUS_NAMES, flowStatusName, flowMessage };
+module.exports = { FLOW_EVENTS, FLOW_STATUS_NAMES, FLOW_TEXTS: T, flowStatusName, flowMessage };
