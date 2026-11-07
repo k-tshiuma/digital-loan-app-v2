@@ -775,7 +775,8 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                   <span className="text-[10px] text-amber-700 block ps-4">
                     {t(language, 'fi.msg.sentBy', {
                       role: t(language, `role.${detail.staffMessage.senderRole}`),
-                      date: formatDateTime(detail.staffMessage.sentAt, language),
+                      // LTR isolate (U+2066…U+2069) keeps "date, time" in order inside Hebrew text.
+                      date: `⁦${formatDateTime(detail.staffMessage.sentAt, language)}⁩`,
                     })}
                   </span>
                 </div>

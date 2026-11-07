@@ -43,6 +43,13 @@ export function normalizeFlowDetail(raw: any): any {
           monthlyRepaymentWithInterestNis: lb.monthlyRepaymentWithInterestNis ?? lb.monthlyLoanRepaymentNis,
         }
       : null,
+    staffMessage: app.staffMessage
+      ? {
+          ...app.staffMessage,
+          senderRole: app.staffMessage.senderRole ?? app.staffMessage.byRole,
+          sentAt: app.staffMessage.sentAt ?? app.staffMessage.at,
+        }
+      : null,
     termsAcceptances: (raw.acceptances || []).map((a: any) => ({ ...a, hash: a.hash ?? a.textSha256 })),
     reviews: (raw.reviews || []).map((r: any) => ({
       ...r,
