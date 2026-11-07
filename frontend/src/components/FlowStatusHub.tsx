@@ -46,13 +46,19 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
       case 'changes_requested':
         return <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />;
       case 'available':
-        return <div className="w-4 h-4 rounded-full border-2 border-blue-600 bg-white shrink-0" />;
+        return <span className="block w-4 h-4 rounded-full border-2 border-blue-600 bg-white shrink-0" />;
       case 'rejected':
         return <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />;
       default:
         return <Lock className="w-4 h-4 text-slate-400 shrink-0" />;
     }
   };
+
+  const stepCards = [
+    { step: 1 as const, title: t(language, 'hub.step1Title'), sub: t(language, 'hub.step1Sub') },
+    { step: 2 as const, title: t(language, 'hub.step2Title'), sub: t(language, 'hub.step2Sub') },
+    { step: 3 as const, title: t(language, 'hub.step3Title'), sub: t(language, 'hub.step3Sub') },
+  ];
 
   const getStatusBadgeColor = (flowStatus: string) => {
     if (flowStatus.includes('APPROVED')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -119,74 +125,35 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
         </h2>
 
         <div className="space-y-2.5">
-          {/* STEP 1 CARD */}
-          <div
-            onClick={() => onNavigateToStep(1)}
-            className="p-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 flex items-center justify-between transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              {getStepIcon(application.stepStates[1])}
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-800 block">
-                  {t(language, 'hub.step1Title')}
+          {stepCards.map(({ step, title, sub }) => {
+            const unlocked = step === 1 || application.unlockedStep >= step;
+            return (
+              <button
+                key={step}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => onNavigateToStep(step)}
+                className={`w-full text-start p-3.5 rounded-2xl border flex items-center justify-between transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                  unlocked
+                    ? 'border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 cursor-pointer'
+                    : 'border-slate-100 bg-slate-50/20 opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  {getStepIcon(application.stepStates[step])}
+                  <span className="space-y-0.5">
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {title}
+                    </span>
+                    <span className="text-[11px] text-slate-500 block">
+                      {sub}
+                    </span>
+                  </span>
                 </span>
-                <span className="text-[11px] text-slate-500 block">
-                  {t(language, 'hub.step1Sub')}
-                </span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />
-          </div>
-
-          {/* STEP 2 CARD */}
-          <div
-            onClick={() => {
-              if (application.unlockedStep >= 2) onNavigateToStep(2);
-            }}
-            className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
-              application.unlockedStep >= 2
-                ? 'border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 cursor-pointer'
-                : 'border-slate-100 bg-slate-50/20 opacity-60 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              {getStepIcon(application.stepStates[2])}
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-800 block">
-                  {t(language, 'hub.step2Title')}
-                </span>
-                <span className="text-[11px] text-slate-500 block">
-                  {t(language, 'hub.step2Sub')}
-                </span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />
-          </div>
-
-          {/* STEP 3 CARD */}
-          <div
-            onClick={() => {
-              if (application.unlockedStep >= 3) onNavigateToStep(3);
-            }}
-            className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
-              application.unlockedStep >= 3
-                ? 'border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 cursor-pointer'
-                : 'border-slate-100 bg-slate-50/20 opacity-60 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              {getStepIcon(application.stepStates[3])}
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-800 block">
-                  {t(language, 'hub.step3Title')}
-                </span>
-                <span className="text-[11px] text-slate-500 block">
-                  {t(language, 'hub.step3Sub')}
-                </span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />
-          </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -48,7 +48,7 @@ function makeApp(overrides: Partial<FlowApplicationView> = {}): FlowApplicationV
   } as FlowApplicationView;
 }
 
-const card = (title: RegExp) => screen.getByText(title).closest('div[class*="rounded-2xl"]') as HTMLElement;
+const card = (title: RegExp) => screen.getByRole('button', { name: title });
 
 describe('FlowStatusHub', () => {
   it('shows the status, reference and applicant summary while Step 1 is pending', () => {
@@ -68,12 +68,42 @@ describe('FlowStatusHub', () => {
     const onNavigate = vi.fn();
     render(<FlowStatusHub application={makeApp()} language="en" onNavigateToStep={onNavigate} />);
 
+    expect(card(/Step 1: Registration & Loan Application/)).toBeEnabled();
+    expect(card(/Step 2: Sponsors & Loan Duration/)).toBeDisabled();
+    expect(card(/Step 3: Bank Details & Final Submission/)).toBeDisabled();
+
     await user.click(card(/Step 2: Sponsors & Loan Duration/));
     await user.click(card(/Step 3: Bank Details & Final Submission/));
     expect(onNavigate).not.toHaveBeenCalled();
 
     await user.click(card(/Step 1: Registration & Loan Application/));
     expect(onNavigate).toHaveBeenCalledWith(1);
+  });
+
+  it('step cards work from the keyboard and skip locked steps', async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    const app = makeApp({
+      flowStatus: 'STEP1_APPROVED',
+      unlockedStep: 2,
+      stepStates: { 1: 'approved', 2: 'available', 3: 'locked' },
+    });
+    render(<FlowStatusHub application={app} language="en" onNavigateToStep={onNavigate} />);
+
+    await user.tab();
+    expect(card(/Step 1: Registration & Loan Application/)).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onNavigate).toHaveBeenLastCalledWith(1);
+
+    await user.tab();
+    expect(card(/Step 2: Sponsors & Loan Duration/)).toHaveFocus();
+    await user.keyboard(' ');
+    expect(onNavigate).toHaveBeenLastCalledWith(2);
+
+    // Step 3 is locked, so Tab moves past it.
+    await user.tab();
+    expect(card(/Step 3: Bank Details & Final Submission/)).not.toHaveFocus();
+    expect(onNavigate).toHaveBeenCalledTimes(2);
   });
 
   it('offers the next step once it is unlocked', async () => {
