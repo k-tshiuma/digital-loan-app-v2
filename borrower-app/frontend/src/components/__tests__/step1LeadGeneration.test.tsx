@@ -1,9 +1,11 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Step1LeadGeneration } from '../Step1LeadGeneration';
 import { STEP1_ORIGIN_COUNTRIES } from '@quickloan/ui-core/config/appConfig';
-import { Step1FormData, UploadedDocRef } from '@quickloan/ui-core/types';
+import { FlowApplicationView, Step1FormData, UploadedDocRef } from '@quickloan/ui-core/types';
+import { ApiError } from '../../services/api';
 
 const EXPECTED_COUNTRIES = [
   'China',
@@ -21,6 +23,13 @@ const EXPECTED_COUNTRIES = [
   'Tanzania',
   'Uganda',
 ];
+
+const samuel: FlowApplicationView['account'] = {
+  fullName: 'Samuel Okello',
+  phoneNumber: '0521234567',
+  email: 'samuel@example.com',
+  authProvider: 'password',
+};
 
 const dummyDoc = (name: string): UploadedDocRef => ({
   filename: `stored_${name}`,
@@ -43,7 +52,7 @@ describe('Step1LeadGeneration – Additional Employee Information Fields', () =>
     render(
       <Step1LeadGeneration
         language="en"
-        hasCompletedDisclaimer
+        account={samuel}
         onSubmit={vi.fn().mockResolvedValue(undefined)}
       />
     );
@@ -84,7 +93,7 @@ describe('Step1LeadGeneration – Additional Employee Information Fields', () =>
     render(
       <Step1LeadGeneration
         language="he"
-        hasCompletedDisclaimer
+        account={samuel}
         onSubmit={vi.fn().mockResolvedValue(undefined)}
       />
     );
@@ -105,7 +114,7 @@ describe('Step1LeadGeneration – Additional Employee Information Fields', () =>
     render(
       <Step1LeadGeneration
         language="en"
-        hasCompletedDisclaimer
+        account={samuel}
         initialData={{
           personal: {
             fullName: 'Samuel Okello',
@@ -160,7 +169,7 @@ describe('Step1LeadGeneration – Additional Employee Information Fields', () =>
     render(
       <Step1LeadGeneration
         language="en"
-        hasCompletedDisclaimer
+        account={samuel}
         initialData={{
           personal: {
             fullName: 'Samuel Okello',
@@ -197,6 +206,7 @@ describe('Step1LeadGeneration – Additional Employee Information Fields', () =>
     expect(submitted!.personal).toEqual({
       fullName: 'Samuel Okello',
       phoneNumber: '0521234567',
+      email: 'samuel@example.com',
       dateOfBirth: '1990-04-12',
       address: 'Allenby 22, Tel Aviv',
       passportNumber: 'KE8899001',
@@ -208,5 +218,116 @@ describe('Step1LeadGeneration – Additional Employee Information Fields', () =>
     });
     expect(submitted!.employment.monthlySalaryNis).toBe(8450);
     expect(submitted!.employment.salaryCurrency).toBe('ILS');
+  });
+});
+
+const account: FlowApplicationView['account'] = {
+  fullName: 'Somchai Prasrt',
+  phoneNumber: '+972501234567',
+  email: 'somchai@example.com',
+  authProvider: 'password',
+};
+
+const doc = (name: string) => ({ filename: name, fileUrl: `/uploads/${name}`, originalName: name, mimeType: 'application/pdf', size: 10 });
+const filled: Step1FormData = {
+  personal: {
+    fullName: '', phoneNumber: '', dateOfBirth: '1988-05-14', address: 'Herzl St 45, Tel Aviv',
+    passportNumber: 'TH7744112', countryOfOrigin: 'Thailand', visaStartDate: '2025-06-01', visaExpiryDate: '2028-05-31',
+    monthlySalaryNis: 8200, salaryCurrency: 'ILS',
+  },
+  documents: { passport: doc('passport.pdf'), visa: doc('visa.pdf'), payslip: doc('payslip.pdf') },
+  employment: { employerName: 'Yossi Cohen', companyName: 'Cohen Citrus Groves Ltd' },
+  loan: { requestedAmountNis: 5000 },
+};
+
+const nameInput = () => screen.getByLabelText(/Full Name/) as HTMLInputElement;
+const submit = () => screen.getByRole('button', { name: /Submit/ });
+
+describe('Step1LeadGeneration (identity from the account)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('has no registration, location or Google sign-up inside Step 1', () => {
+    render(<Step1LeadGeneration language="en" account={account} onSubmit={vi.fn()} />);
+    expect(screen.queryByText('Location required')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Google/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Account Credentials')).not.toBeInTheDocument();
+  });
+
+  it('pre-fills name, phone and email from the account and protects them', () => {
+    render(<Step1LeadGeneration language="en" account={account} onSubmit={vi.fn()} />);
+    expect(nameInput()).toHaveValue('Somchai Prasrt');
+    expect(nameInput()).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Phone Number')).toHaveValue('+972501234567');
+    expect(screen.getByLabelText('Phone Number')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Email Address')).toHaveValue('somchai@example.com');
+    expect(screen.getByLabelText('Email Address')).toHaveAttribute('readonly');
+  });
+
+  it('submits the account details unchanged when no correction is made', async () => {
+    const u = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<Step1LeadGeneration language="en" account={account} initialData={filled} onSubmit={onSubmit} />);
+
+    await u.click(submit());
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const personal = onSubmit.mock.calls[0][0].personal;
+    expect(personal).toMatchObject({ fullName: 'Somchai Prasrt', phoneNumber: '+972501234567', email: 'somchai@example.com' });
+    expect(personal.legalNameConfirmed).toBeUndefined();
+  });
+
+  it('allows a legal-name correction only with the passport confirmation', async () => {
+    const u = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<Step1LeadGeneration language="en" account={account} initialData={filled} onSubmit={onSubmit} />);
+
+    await u.click(screen.getByRole('button', { name: 'Correct my legal name' }));
+    expect(nameInput()).not.toHaveAttribute('readonly');
+    await u.clear(nameInput());
+    await u.type(nameInput(), 'Somchai Prasert');
+    await u.click(submit());
+    expect(screen.getByText('Please confirm that the corrected name matches your passport.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await u.click(screen.getByRole('checkbox', { name: /full legal name/ }));
+    await u.click(submit());
+    expect(onSubmit.mock.calls[0][0].personal).toMatchObject({ fullName: 'Somchai Prasert', legalNameConfirmed: true });
+  });
+
+  it('restores the account name when the correction is cancelled', async () => {
+    const u = userEvent.setup();
+    render(<Step1LeadGeneration language="en" account={account} onSubmit={vi.fn()} />);
+    await u.click(screen.getByRole('button', { name: 'Correct my legal name' }));
+    await u.type(nameInput(), 'xx');
+    await u.click(screen.getByRole('button', { name: 'Cancel correction' }));
+    expect(nameInput()).toHaveValue('Somchai Prasrt');
+    expect(nameInput()).toHaveAttribute('readonly');
+  });
+
+  it('rejects names with characters that cannot be on a passport', async () => {
+    const u = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<Step1LeadGeneration language="en" account={account} initialData={filled} onSubmit={onSubmit} />);
+    await u.click(screen.getByRole('button', { name: 'Correct my legal name' }));
+    await u.clear(nameInput());
+    await u.type(nameInput(), 'Somchai <b>');
+    await u.click(screen.getByRole('checkbox', { name: /full legal name/ }));
+    await u.click(submit());
+    expect(screen.getByText('Use letters, spaces, hyphens and apostrophes only.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows the server field error for an unconfirmed name', async () => {
+    const u = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new ApiError('Please complete all required fields.', 422, { code: 'VALIDATION', fieldErrors: { fullName: 'legal_name_unconfirmed' } }));
+    render(<Step1LeadGeneration language="en" account={account} initialData={filled} onSubmit={onSubmit} />);
+    await u.click(submit());
+    expect(await screen.findByText('Please confirm that the corrected name matches your passport.')).toBeInTheDocument();
+  });
+
+  it('shows a previous correction', () => {
+    const corrected = { ...filled, personal: { ...filled.personal, fullName: 'Somchai Prasert', nameCorrection: { previousName: 'Somchai Prasrt', correctedName: 'Somchai Prasert', confirmedAt: '2026-11-01T00:00:00Z' } } };
+    render(<Step1LeadGeneration language="en" account={{ ...account, fullName: 'Somchai Prasert' }} initialData={corrected} onSubmit={vi.fn()} />);
+    expect(screen.getByText('Corrected legal name (previously: Somchai Prasrt)')).toBeInTheDocument();
   });
 });

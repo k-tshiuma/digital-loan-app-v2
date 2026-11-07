@@ -54,6 +54,30 @@ describe('FlowApplicationInspector', () => {
     expect(screen.getByText('Green Farms')).toBeInTheDocument();
   });
 
+  it('shows the recorded registration consent and a legal-name correction', () => {
+    setup('PENDING_STEP1_APPROVAL', 'credit_reviewer', {
+      application: {
+        step1Data: {
+          personal: {
+            fullName: 'Somchai Prasert', phoneNumber: '050-1234567', email: 'somchai@example.com',
+            nameCorrection: { previousName: 'Somchai Prasrt', correctedName: 'Somchai Prasert', confirmedAt: '2026-11-01T00:00:00Z' },
+          },
+          registration: { disclaimerAcceptedAt: '2026-11-01T00:00:00Z', locationGranted: true },
+        },
+      },
+    });
+
+    expect(screen.getByText('Legal name corrected by the applicant (account name was: Somchai Prasrt)')).toBeInTheDocument();
+    expect(screen.getByText('Granted ✓')).toBeInTheDocument();
+    expect(screen.getByText('Accepted ✓')).toBeInTheDocument();
+  });
+
+  it('does not claim a consent that was not recorded', () => {
+    setup('PENDING_STEP1_APPROVAL');
+    expect(screen.queryByText('Granted ✓')).toBeNull();
+    expect(screen.getAllByText('Not given')).toHaveLength(2);
+  });
+
   it('lets a credit reviewer approve the pending step, with the note', async () => {
     const { user, onApproveStep } = setup('PENDING_STEP1_APPROVAL');
 

@@ -141,7 +141,7 @@ export const apiService = {
     password: string;
     code: string;
     language?: Language;
-    registration: { disclaimerAccepted: boolean; locationGranted: boolean };
+    registration: import('@quickloan/ui-core/types').RegistrationConsent;
     /** Files uploaded in this form before the account existed; the backend moves them to the new account. */
     uploadedFiles?: string[];
   }): Promise<{ user: User; token: string; application: import('@quickloan/ui-core/types').FlowApplicationView }> {
@@ -157,7 +157,7 @@ export const apiService = {
     idToken?: string;
     demo?: { email: string; name: string };
     language?: Language;
-    registration?: { disclaimerAccepted: boolean; locationGranted: boolean };
+    registration?: import('@quickloan/ui-core/types').RegistrationConsent;
   }): Promise<{ user: User; token: string; application: import('@quickloan/ui-core/types').FlowApplicationView }> {
     const res = await request<{ user: User; token: string; application: import('@quickloan/ui-core/types').FlowApplicationView }>(
       '/flow/google',
@@ -172,12 +172,22 @@ export const apiService = {
     return res.application;
   },
 
-  async submitRegistrationConsent(payload: { disclaimerAccepted: boolean; locationGranted: boolean }): Promise<import('@quickloan/ui-core/types').FlowApplicationView> {
+  async submitRegistrationConsent(payload: import('@quickloan/ui-core/types').RegistrationConsent): Promise<import('@quickloan/ui-core/types').FlowApplicationView> {
     const res = await request<{ application: import('@quickloan/ui-core/types').FlowApplicationView }>(
       '/flow/application/registration-consent',
       { method: 'POST', body: payload }
     );
     return res.application;
+  },
+
+  /** Adds a contact detail the account is missing (phone needs an SMS code). Existing details cannot be changed. */
+  async completeFlowAccountContact(payload: { phoneNumber?: string; code?: string; email?: string }): Promise<{ user: User; application: import('@quickloan/ui-core/types').FlowApplicationView | null }> {
+    const res = await request<{ user: User; token: string; application: import('@quickloan/ui-core/types').FlowApplicationView | null }>(
+      '/flow/account/contact',
+      { method: 'POST', body: payload }
+    );
+    authTokens.set(res.token);
+    return res;
   },
 
   async saveFlowStepDraft(step: number, data: any): Promise<import('@quickloan/ui-core/types').FlowApplicationView> {

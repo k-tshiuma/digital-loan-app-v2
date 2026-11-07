@@ -213,10 +213,20 @@ async function runTests() {
     assert.strictEqual(otpRes.status, 200);
     const demoCode = otpRes.body.demoCode || '123456';
 
-    // Register applicant with regulatory disclaimer
+    // Location access and the disclaimer are both mandatory before an account is created
+    const regBase = { fullName: 'Somchai Prasrt', email: `somchai_${Date.now()}@example.com`, password: 'StrongPassword123!', phoneNumber: testPhone, code: demoCode, language: 'en' };
+    const noLocation = await request('POST', '/api/flow/register', { ...regBase, registration: { disclaimerAccepted: true, locationGranted: false } });
+    assert.strictEqual(noLocation.status, 400);
+    assert.strictEqual(noLocation.body.code, 'LOCATION_REQUIRED');
+    const noDisclaimer = await request('POST', '/api/flow/register', { ...regBase, registration: { disclaimerAccepted: false, locationGranted: true } });
+    assert.strictEqual(noDisclaimer.status, 400);
+    assert.strictEqual(noDisclaimer.body.code, 'DISCLAIMER_REQUIRED');
+    console.log('  ✓ PASS: Registration refused without location access or without the disclaimer\n');
+
+    // Register applicant with location + regulatory disclaimer (the name has a typo, corrected in Step 1 below)
     const regRes = await request('POST', '/api/flow/register', {
-      fullName: 'Somchai Prasert',
-      email: `somchai_${Date.now()}@example.com`,
+      fullName: 'Somchai Prasrt',
+      email: regBase.email,
       password: 'StrongPassword123!',
       phoneNumber: testPhone,
       code: demoCode,
@@ -224,16 +234,52 @@ async function runTests() {
       registration: {
         disclaimerAccepted: true,
         locationGranted: true,
+        location: { latitude: 32.08531, longitude: 34.78177, accuracy: 25 },
       },
     });
     assert.strictEqual(regRes.status, 200, `Registration failed: ${JSON.stringify(regRes.body)}`);
     assert(regRes.body.token, 'Registration should return auth token');
     const applicantToken = regRes.body.token;
     const appId = regRes.body.application.id;
+    const accountPhone = regRes.body.user.phoneNumber;
+    assert.strictEqual(regRes.body.application.needsRegistrationConsent, false);
 
     assert.strictEqual(regRes.body.application.flowStatus, 'LEAD_REGISTERED');
     assert.strictEqual(regRes.body.application.unlockedStep, 1);
     console.log('  ✓ PASS: Applicant registered with LEAD_REGISTERED status\n');
+
+    // 3b. Google: a new Google account is only created through registration, then adds a verified phone
+    console.log('--- 3b. GOOGLE REGISTRATION & ACCOUNT COMPLETION ---');
+    const gEmail = `g_${Date.now()}@gmail.com`;
+    const gNoReg = await request('POST', '/api/flow/google', { demo: { email: gEmail, name: 'Maria Santos' }, language: 'en' });
+    assert.strictEqual(gNoReg.status, 400);
+    assert.strictEqual(gNoReg.body.code, 'REGISTRATION_REQUIRED');
+    const gNoLoc = await request('POST', '/api/flow/google', { demo: { email: gEmail, name: 'Maria Santos' }, registration: { disclaimerAccepted: true, locationGranted: false } });
+    assert.strictEqual(gNoLoc.body.code, 'LOCATION_REQUIRED');
+    const gReg = await request('POST', '/api/flow/google', { demo: { email: gEmail, name: 'Maria Santos' }, language: 'en', registration: { disclaimerAccepted: true, locationGranted: true } });
+    assert.strictEqual(gReg.status, 200, JSON.stringify(gReg.body));
+    const gToken = gReg.body.token;
+    assert.strictEqual(gReg.body.application.account.phoneNumber, null);
+    const gSignIn = await request('POST', '/api/flow/google', { demo: { email: gEmail, name: 'Maria Santos' } });
+    assert.strictEqual(gSignIn.status, 200, 'An existing Google account signs in without registering again');
+    const gStep1 = await request('POST', '/api/flow/application/steps/1/submit', { data: { personal: { fullName: 'Maria Santos' } } }, gToken);
+    assert.strictEqual(gStep1.status, 422);
+    assert.strictEqual(gStep1.body.fieldErrors.phoneNumber, 'account_incomplete');
+    const gPhone = '053' + Math.floor(1000000 + Math.random() * 9000000);
+    const gOtp = await request('POST', '/api/users/request-otp', { phoneNumber: gPhone });
+    const takenPhone = await request('POST', '/api/flow/account/contact', { phoneNumber: testPhone, code: '123456' }, gToken);
+    assert.strictEqual(takenPhone.status, 409, 'A phone number of another account cannot be added');
+    const gContact = await request('POST', '/api/flow/account/contact', { phoneNumber: gPhone, code: gOtp.body.demoCode || '123456' }, gToken);
+    assert.strictEqual(gContact.status, 200, JSON.stringify(gContact.body));
+    assert(gContact.body.application.account.phoneNumber, 'Account now has a phone number');
+    const gChange = await request('POST', '/api/flow/account/contact', { phoneNumber: '0541112233', code: '123456' }, gContact.body.token);
+    assert.strictEqual(gChange.status, 409);
+    assert.strictEqual(gChange.body.code, 'CONTACT_LOCKED');
+    const gEmailChange = await request('POST', '/api/flow/account/contact', { email: 'other@example.com' }, gContact.body.token);
+    assert.strictEqual(gEmailChange.body.code, 'CONTACT_LOCKED');
+    const consentNoLoc = await request('POST', '/api/flow/application/registration-consent', { disclaimerAccepted: true, locationGranted: false }, gContact.body.token);
+    assert.strictEqual(consentNoLoc.body.code, 'LOCATION_REQUIRED');
+    console.log('  ✓ PASS: Google registration needs location + disclaimer; a missing phone is added once with an SMS code and then locked\n');
 
     // Try accessing Step 2 before Step 1 is submitted/approved -> MUST BE REJECTED 403
     console.log('--- 4. ENFORCE SEQUENTIAL GATING ---');
@@ -256,12 +302,40 @@ async function runTests() {
     assert.strictEqual(visaDoc.status, 200);
     assert.strictEqual(payslipDoc.status, 200);
 
+    const step1Rest = {
+      documents: { passport: passDoc.body.file, visa: visaDoc.body.file, payslip: payslipDoc.body.file },
+      employment: { employerName: 'Yossi Cohen', companyName: 'Cohen Citrus Groves Ltd' },
+      loan: { requestedAmountNis: 5000 },
+    };
+    // A name that differs from the account is a legal-name correction and must be confirmed
+    const unconfirmedName = await request('POST', '/api/flow/application/steps/1/submit', {
+      data: { personal: { fullName: 'Somchai Prasert', dateOfBirth: '1988-05-14', address: 'Herzl St 45, Tel Aviv' }, ...step1Rest },
+    }, applicantToken);
+    assert.strictEqual(unconfirmedName.status, 422);
+    assert.strictEqual(unconfirmedName.body.fieldErrors.fullName, 'legal_name_unconfirmed');
+    const badName = await request('POST', '/api/flow/application/steps/1/submit', {
+      data: { personal: { fullName: '<script>', legalNameConfirmed: true, dateOfBirth: '1988-05-14', address: 'Herzl St 45, Tel Aviv' }, ...step1Rest },
+    }, applicantToken);
+    assert.strictEqual(badName.status, 422);
+    assert.strictEqual(badName.body.fieldErrors.fullName, 'invalid');
+    // A draft with an unconfirmed name change keeps the account name; the phone always comes from the account
+    const draftRes = await request('PUT', '/api/flow/application/steps/1/draft', {
+      data: { personal: { fullName: 'Someone Else', phoneNumber: '0500000000', dateOfBirth: '1988-05-14' } },
+    }, applicantToken);
+    assert.strictEqual(draftRes.status, 200);
+    assert.strictEqual(draftRes.body.application.steps[1].data.personal.fullName, 'Somchai Prasrt');
+    assert.strictEqual(draftRes.body.application.steps[1].data.personal.phoneNumber, accountPhone);
+    console.log('  ✓ PASS: Unconfirmed or invalid legal-name changes are refused; drafts keep the account name and phone\n');
+
+
     // Validate the 4 mandatory Step 1 employee fields before submission
     const missingNewFieldsRes = await request('POST', '/api/flow/application/steps/1/submit', {
       data: {
         personal: {
           fullName: 'Somchai Prasert',
-          phoneNumber: testPhone,
+          legalNameConfirmed: true,
+          phoneNumber: '0500000000',
+          email: 'attacker@example.com',
           dateOfBirth: '1988-05-14',
           address: 'Herzl St 45, Tel Aviv',
         },
@@ -320,12 +394,14 @@ async function runTests() {
     assert.strictEqual(invalidCountryAndVisaRangeRes.body.fieldErrors.monthlySalaryNis, 'required');
     console.log('  ✓ PASS: Mandatory validation enforces passportNumber, countryOfOrigin, visa validity period, and monthlySalaryNis\n');
 
-    // Submit Step 1
+    // Submit Step 1 (confirmed name correction; phone/email in the body are ignored in favour of the account)
     const step1SubmitRes = await request('POST', '/api/flow/application/steps/1/submit', {
       data: {
         personal: {
           fullName: 'Somchai Prasert',
-          phoneNumber: testPhone,
+          legalNameConfirmed: true,
+          phoneNumber: '0500000000',
+          email: 'attacker@example.com',
           dateOfBirth: '1988-05-14',
           address: 'Herzl St 45, Tel Aviv',
           passportNumber: 'TH7744112',
@@ -384,6 +460,14 @@ async function runTests() {
     assert.strictEqual(queueRow.visaStartDate, '2025-06-01');
     assert.strictEqual(queueRow.visaExpiryDate, '2028-05-31');
     assert.strictEqual(queueRow.monthlySalaryNis, 8200);
+
+    // Identity: phone and email from the account, the confirmed name correction recorded
+    const s1Personal = step1SubmitRes.body.application.steps[1].data.personal;
+    assert.strictEqual(s1Personal.phoneNumber, accountPhone, 'Step 1 phone must come from the account');
+    assert.strictEqual(s1Personal.email, regBase.email, 'Step 1 email must come from the account');
+    assert.strictEqual(s1Personal.nameCorrection.previousName, 'Somchai Prasrt');
+    const meAfterS1 = await request('GET', '/api/users/me', null, applicantToken);
+    assert.strictEqual(meAfterS1.body.user.fullName, 'Somchai Prasert', 'A confirmed correction updates the account name');
     console.log('  ✓ PASS: Step 1 submitted; all 4 new employee fields saved & synchronized to Back Office\n');
 
     // Try modifying Step 1 while pending -> MUST BE REJECTED 409
@@ -516,6 +600,8 @@ async function runTests() {
     assert.strictEqual(fullApp.acceptances.length, 2, 'Must record 2 terms acceptances (general + service fee)');
     assert.strictEqual(fullApp.submissions.length, 3, 'Must record snapshots for steps 1, 2, and 3');
     assert(fullApp.audit.length >= 7, 'Comprehensive audit trail must be recorded');
+    assert(fullApp.audit.some((r) => r.action === 'LEGAL_NAME_CORRECTED' && r.metadata.from === 'Somchai Prasrt'), 'Name correction must be audited');
+    assert.strictEqual(fullApp.application.step1Data.registration.location.latitude, 32.09, 'Position is stored coarsely');
     console.log('  ✓ PASS: Back Office centralized view contains all steps, documents, terms acceptances, and audit entries\n');
 
     // 9. Final Decision (Approved)
@@ -548,10 +634,11 @@ async function runTests() {
       assert.strictEqual(res.status, 200, `Registration failed: ${JSON.stringify(res.body)}`);
       return { phone, token: res.body.token, userId: res.body.user.id, appId: res.body.application.id };
     };
-    const step1Payload = (phone, docs) => ({
+    // Same name as the account (a different one would be a legal-name correction).
+    const step1Payload = (phone, docs, fullName) => ({
       data: {
         personal: {
-          fullName: 'Guest Uploader',
+          fullName,
           phoneNumber: phone,
           dateOfBirth: '1990-01-01',
           address: 'Allenby 1, Tel Aviv',
@@ -597,7 +684,7 @@ async function runTests() {
     assert.strictEqual(preSubmitBoRes.status, 200);
     assert.strictEqual(preSubmitBoRes.body.application.borrowerDetails.countryOfOrigin, '', 'Unsubmitted flowVersion=2 lead must never default countryOfOrigin to Thailand');
 
-    const adoptedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(adopter.phone, guestDocs), adopter.token);
+    const adoptedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(adopter.phone, guestDocs, 'Adopter Applicant'), adopter.token);
     assert.strictEqual(adoptedSubmit.status, 200, `Step 1 with adopted documents failed: ${JSON.stringify(adoptedSubmit.body)}`);
     const postSubmitBoRes = await request('GET', `/api/flow/applications/${adopter.appId}`, null, reviewerToken);
     assert.strictEqual(postSubmitBoRes.body.application.step1Data.personal.countryOfOrigin, 'Nigeria');
@@ -611,7 +698,7 @@ async function runTests() {
     // Without adoption the server reports each rejected document as a field error the form can highlight.
     const strayDocs = { passport: await guestUpload('passport.pdf'), visa: await guestUpload('visa.pdf'), payslip: await guestUpload('payslip.pdf') };
     const nonAdopter = await registerApplicant('Plain Applicant');
-    const rejectedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(nonAdopter.phone, strayDocs), nonAdopter.token);
+    const rejectedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(nonAdopter.phone, strayDocs, 'Plain Applicant'), nonAdopter.token);
     assert.strictEqual(rejectedSubmit.status, 422);
     assert.deepStrictEqual(rejectedSubmit.body.fieldErrors, { passport: 'required', visa: 'required', payslip: 'required' });
     console.log('  ✓ PASS: Unowned documents come back as passport/visa/payslip field errors\n');

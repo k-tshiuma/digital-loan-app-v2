@@ -378,6 +378,15 @@
       "system_admin": 403,
       "funding_entity": 403
     },
+    "POST /api/flow/account/contact": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 400,
+      "customer_service": 403,
+      "credit_reviewer": 403,
+      "system_admin": 403,
+      "funding_entity": 403
+    },
     "PUT /api/flow/application/steps/:bad/draft": {
       "none": 401,
       "badToken": 401,
@@ -858,6 +867,15 @@
       "funding_entity": 403
     },
     "POST /api/flow/application/registration-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 400,
+      "customer_service": 403,
+      "credit_reviewer": 403,
+      "system_admin": 403,
+      "funding_entity": 403
+    },
+    "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
       "borrower": 400,
@@ -1354,6 +1372,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/flow/account/contact": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 400,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "PUT /api/flow/application/steps/:bad/draft": {
       "none": 401,
       "badToken": 401,
@@ -1834,6 +1861,15 @@
       "funding_entity": 404
     },
     "POST /api/flow/application/registration-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
+    },
+    "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
       "borrower": 401,
@@ -2330,6 +2366,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/flow/account/contact": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 400,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "PUT /api/flow/application/steps/:bad/draft": {
       "none": 401,
       "badToken": 401,
@@ -2810,6 +2855,15 @@
       "funding_entity": 404
     },
     "POST /api/flow/application/registration-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
+    },
+    "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
       "borrower": 401,

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Shield,
-  MapPin,
   CheckCircle2,
   AlertCircle,
   UploadCloud,
@@ -14,14 +12,13 @@ import {
   Building,
   Briefcase,
   Users,
-  Eye,
-  EyeOff,
-  Clock,
   Sparkles,
   ArrowRight,
   Globe,
+  PencilLine,
 } from 'lucide-react';
 import {
+  FlowApplicationView,
   Step1FormData,
   UploadedDocRef,
   Language,
@@ -37,34 +34,33 @@ import { apiService, ApiError } from '../services/api';
 interface Step1LeadGenerationProps {
   language?: Language;
   initialData?: Step1FormData | null;
-  userPhone?: string | null;
-  userEmail?: string | null;
-  userName?: string | null;
-  hasCompletedDisclaimer?: boolean;
+  /** The signed-in account: name, phone and email are pre-filled from it and protected. */
+  account?: FlowApplicationView['account'];
   isReadOnly?: boolean;
   onSubmit?: (data: Step1FormData) => Promise<void>;
-  onRegisterAccount?: (creds: {
-    fullName: string;
-    email: string;
-    phoneNumber: string;
-    password: string;
-    code: string;
-    uploadedFiles: string[];
-  }) => Promise<void>;
   existingLead?: any;
   onLeadCreated?: (lead: any) => void;
   onLeadStatusChange?: (status: any) => void;
   onProceedToStep2?: () => void;
 }
 
-type Step1Phase = 'location' | 'disclaimer' | 'form';
+const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
+const tidyName = (v: string | null | undefined) => String(v || '').replace(/\s+/g, ' ').trim();
+const sameName = (a: string, b: string) => tidyName(a).toLowerCase() === tidyName(b).toLowerCase();
+
+// Server error codes for the identity fields. Phone and email are not editable here, so their errors
+// show as one account message.
+const IDENTITY_ERROR_KEYS: Record<string, string> = {
+  legal_name_unconfirmed: 'entry.err.legalNameUnconfirmed',
+  invalid: 'entry.err.nameInvalid',
+  required: 'lead.err.fullName',
+  account_incomplete: 'entry.err.accountIncomplete',
+};
 
 // Backend validation field (services/flowValidation.js validateStep1, /api/flow/register) ->
 // [form error slot, message key]. Document errors from the server mean the file was not accepted
 // for this account, so the applicant is asked to upload it again.
 const SERVER_FIELD_ERRORS: Record<string, [string, string]> = {
-  fullName: ['fullName', 'lead.err.fullName'],
-  phoneNumber: ['phoneNumber', 'lead.err.phoneNumber'],
   dateOfBirth: ['dateOfBirth', 'lead.err.dob'],
   address: ['address', 'lead.err.address'],
   passportNumber: ['passportNumber', 'lead.err.passportNumber'],
@@ -78,8 +74,6 @@ const SERVER_FIELD_ERRORS: Record<string, [string, string]> = {
   employerName: ['employerName', 'lead.err.employer'],
   companyName: ['companyName', 'lead.err.company'],
   requestedAmountNis: ['requestedAmountNis', 'lead.err.amount'],
-  email: ['email', 'lead.err.email'],
-  password: ['password', 'lead.err.password'],
 };
 
 type FieldErrorMap = Record<string, string>;
@@ -87,6 +81,11 @@ type FieldErrorMap = Record<string, string>;
 function mapServerFieldErrors(fieldErrors: FieldErrorMap, language: Language): FieldErrorMap {
   const errs: FieldErrorMap = {};
   for (const [field, code] of Object.entries(fieldErrors)) {
+    if (field === 'fullName' || field === 'phoneNumber' || field === 'email') {
+      const slot = field === 'fullName' ? 'fullName' : 'account';
+      errs[slot] = t(language, IDENTITY_ERROR_KEYS[code] || (slot === 'fullName' ? 'lead.err.fullName' : 'entry.err.accountIncomplete'));
+      continue;
+    }
     const entry = SERVER_FIELD_ERRORS[field];
     if (!entry) continue;
     const key =
@@ -100,36 +99,27 @@ function mapServerFieldErrors(fieldErrors: FieldErrorMap, language: Language): F
   return errs;
 }
 
+/**
+ * Step 1 (data only). Sign-in, registration, location access and the conditions happen before this screen
+ * (FlowEntry). Name, phone and email come from the account; the name can be corrected to the passport name.
+ */
 export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
   language = 'en',
   initialData,
-  userPhone,
-  userEmail,
-  userName,
-  hasCompletedDisclaimer = false,
+  account,
   isReadOnly = false,
   onSubmit,
-  onRegisterAccount,
-  existingLead,
-  onLeadCreated,
-  onLeadStatusChange,
-  onProceedToStep2,
 }) => {
-  // Navigation internal phase
-  const [phase, setPhase] = useState<Step1Phase>(() =>
-    hasCompletedDisclaimer ? 'form' : 'location'
-  );
+  const accountName = tidyName(account?.fullName);
+  const accountPhone = account?.phoneNumber || '';
+  const accountEmail = account?.email || '';
 
-  // Location & Disclaimer states
-  const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
-  const [hasAgreedToDisclaimer, setHasAgreedToDisclaimer] = useState(false);
-  const [disclaimerError, setDisclaimerError] = useState<string | null>(null);
-
-  // Form Fields: Personal Details
-  const [fullName, setFullName] = useState(initialData?.personal?.fullName || userName || '');
-  const [phoneNumber, setPhoneNumber] = useState(initialData?.personal?.phoneNumber || userPhone || '');
+  // Form Fields: Personal Details. The name is the account name unless a legal-name correction is in progress.
+  const savedName = tidyName(initialData?.personal?.fullName);
+  const [fullName, setFullName] = useState(savedName || accountName);
+  const [isCorrectingName, setIsCorrectingName] = useState(!accountName || (!!savedName && !sameName(savedName, accountName)));
+  const [legalNameConfirmed, setLegalNameConfirmed] = useState(false);
+  const nameCorrection = initialData?.personal?.nameCorrection || null;
   const [dateOfBirth, setDateOfBirth] = useState(initialData?.personal?.dateOfBirth || '');
   const [address, setAddress] = useState(initialData?.personal?.address || '');
   const [passportNumber, setPassportNumber] = useState(initialData?.personal?.passportNumber || '');
@@ -140,14 +130,6 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     const initSalary = initialData?.personal?.monthlySalaryNis ?? initialData?.employment?.monthlySalaryNis;
     return typeof initSalary === 'number' && initSalary > 0 ? String(initSalary) : '';
   });
-
-  // Form Fields: Account Credentials (if registering as new user)
-  const [email, setEmail] = useState(userEmail || '');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   // Uploaded Documents
   const [passportDoc, setPassportDoc] = useState<UploadedDocRef | null>(initialData?.documents?.passport || null);
@@ -169,42 +151,6 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-
-  const handleRequestLocation = () => {
-    setIsRequestingLocation(true);
-    setLocationError(null);
-
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setHasLocationPermission(true);
-      setIsRequestingLocation(false);
-      setPhase('disclaimer');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        setIsRequestingLocation(false);
-        setHasLocationPermission(true);
-        setPhase('disclaimer');
-      },
-      () => {
-        setIsRequestingLocation(false);
-        setHasLocationPermission(true);
-        setPhase('disclaimer');
-      },
-      { timeout: 5000 }
-    );
-  };
-
-  const handleDisclaimerSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!hasAgreedToDisclaimer) {
-      setDisclaimerError(t(language, 'lead.disclaimerError'));
-      return;
-    }
-    setDisclaimerError(null);
-    setPhase('form');
-  };
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -240,32 +186,15 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     }
   };
 
-  const handleRequestOtp = async () => {
-    const clean = phoneNumber.replace(/\D/g, '');
-    if (!clean || clean.length < 7) {
-      setFormErrors((prev) => ({ ...prev, phoneNumber: t(language, 'lead.err.phoneNumber') }));
-      return;
-    }
-    setIsSendingOtp(true);
-    try {
-      const res = await apiService.requestOtp(phoneNumber, language);
-      setIsOtpSent(true);
-      if (res.demoCode) {
-        setOtpCode(res.demoCode);
-      }
-    } catch (err: any) {
-      setServerError(localizeError(err, language));
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
-
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
 
-    if (!fullName.trim()) errs.fullName = t(language, 'lead.err.fullName');
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 7) errs.phoneNumber = t(language, 'lead.err.phoneNumber');
+    const name = tidyName(fullName);
+    const isNameChange = !!accountName && !sameName(name, accountName);
+    if (!name) errs.fullName = t(language, 'lead.err.fullName');
+    else if (!NAME_RE.test(name)) errs.fullName = t(language, 'entry.err.nameInvalid');
+    else if (isNameChange && !legalNameConfirmed) errs.fullName = t(language, 'entry.err.legalNameUnconfirmed');
+    if (!accountPhone || !accountEmail) errs.account = t(language, 'entry.err.accountIncomplete');
     if (!dateOfBirth) errs.dateOfBirth = t(language, 'lead.err.dob');
     if (!address.trim()) errs.address = t(language, 'lead.err.address');
 
@@ -294,13 +223,6 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     if (!employerName.trim()) errs.employerName = t(language, 'lead.err.employer');
     if (!companyName.trim()) errs.companyName = t(language, 'lead.err.company');
 
-    // Account registration credentials if not logged in
-    if (onRegisterAccount) {
-      if (!email.trim() || !email.includes('@')) errs.email = t(language, 'lead.err.email');
-      if (!password || password.length < 8) errs.password = t(language, 'lead.err.password');
-      if (!otpCode || otpCode.trim().length !== 6) errs.otpCode = t(language, 'lead.err.otpCode');
-    }
-
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -313,24 +235,15 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
 
     setIsSubmitting(true);
     try {
-      if (onRegisterAccount) {
-        await onRegisterAccount({
-          fullName: fullName.trim(),
-          email: email.trim(),
-          phoneNumber: phoneNumber.trim(),
-          password,
-          code: otpCode.trim(),
-          uploadedFiles: [passportDoc, visaDoc, payslipDoc]
-            .map((doc) => doc?.filename)
-            .filter((f): f is string => !!f),
-        });
-      }
-
       const salaryValue = Math.round(Number(monthlySalary) * 100) / 100;
+      const name = tidyName(fullName);
       await onSubmit?.({
         personal: {
-          fullName: fullName.trim(),
-          phoneNumber: phoneNumber.trim(),
+          fullName: name,
+          legalNameConfirmed: !!accountName && !sameName(name, accountName) ? legalNameConfirmed : undefined,
+          // The server always takes phone and email from the account; they are sent for display only.
+          phoneNumber: accountPhone,
+          email: accountEmail,
           dateOfBirth,
           address: address.trim(),
           passportNumber: passportNumber.trim(),
@@ -372,99 +285,18 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     }
   };
 
-  // 1. LOCATION SCREEN
-  if (phase === 'location') {
-    return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
-        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-          <MapPin className="w-8 h-8" />
-        </div>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 text-center mb-3">
-          {t(language, 'lead.locationTitle')}
-        </h1>
-        <p className="text-sm text-slate-600 text-center mb-6 leading-relaxed">
-          {t(language, 'lead.locationDesc')}
-        </p>
+  const cancelNameCorrection = () => {
+    setFullName(accountName);
+    setLegalNameConfirmed(false);
+    setIsCorrectingName(false);
+    setFormErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.fullName;
+      return copy;
+    });
+  };
 
-        {locationError && (
-          <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 shrink-0 text-amber-600" />
-            <span>{locationError}</span>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleRequestLocation}
-          disabled={isRequestingLocation}
-          className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          {isRequestingLocation ? (
-            <span>{t(language, 'lead.checkingPermission')}</span>
-          ) : (
-            <>
-              <Shield className="w-4 h-4" />
-              <span>{t(language, 'lead.grantLocation')}</span>
-            </>
-          )}
-        </button>
-      </div>
-    );
-  }
-
-  // 2. REGULATORY DISCLAIMER
-  if (phase === 'disclaimer') {
-    return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
-        <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-          <Shield className="w-8 h-8" />
-        </div>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 text-center mb-2">
-          {t(language, 'lead.disclaimerTitle')}
-        </h1>
-        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 text-center mb-6">
-          {t(language, 'lead.disclaimerBadge')}
-        </p>
-
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 text-xs text-slate-700 space-y-3 mb-6 max-h-60 overflow-y-auto leading-relaxed">
-          <p className="font-semibold text-slate-900">{t(language, 'lead.disclaimerP1')}</p>
-          <p>{t(language, 'lead.disclaimerP2')}</p>
-          <p>{t(language, 'lead.disclaimerP3')}</p>
-        </div>
-
-        <form onSubmit={handleDisclaimerSubmit} className="space-y-6">
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={hasAgreedToDisclaimer}
-              onChange={(e) => setHasAgreedToDisclaimer(e.target.checked)}
-              className="mt-0.5 w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-            />
-            <span className="text-xs text-slate-700 leading-normal font-medium">
-              {t(language, 'lead.disclaimerConsent')}
-            </span>
-          </label>
-
-          {disclaimerError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{disclaimerError}</span>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>{t(language, 'lead.continueToReg')}</span>
-            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  // 3. REGISTRATION & STEP 1 FORM (Reorganized order: Personal -> Account -> Docs -> Employment -> Loan)
+  // STEP 1 FORM (Personal -> Employee & visa info -> Docs -> Employment -> Loan)
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
       {/* Header */}
@@ -493,49 +325,117 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
             {t(language, 'lead.personalDetailsTitle')}
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+          <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+            <Lock className="w-3 h-3 shrink-0" />
+            {t(language, 'entry.lockedHint')}
+          </p>
+
+          {/* Full name: protected; can only be corrected to the legal (passport) name, with confirmation */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label htmlFor="step1-fullname" className="text-xs font-bold text-slate-700">
                 {t(language, 'lead.fullNameLabel')} <span className="text-red-500">*</span>
               </label>
+              {!isReadOnly && accountName && !isCorrectingName && (
+                <button
+                  type="button"
+                  id="correct-legal-name-btn"
+                  onClick={() => setIsCorrectingName(true)}
+                  className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <PencilLine className="w-3 h-3" />
+                  {t(language, 'entry.correctName')}
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <User className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
               <input
+                id="step1-fullname"
                 type="text"
                 value={fullName}
-                disabled={isReadOnly}
-                onChange={(e) => setFullName(e.target.value)}
+                readOnly={isReadOnly || !isCorrectingName}
+                aria-readonly={isReadOnly || !isCorrectingName}
+                onChange={(e) => {
+                  setFullName(e.target.value);
+                  setLegalNameConfirmed(false);
+                }}
                 placeholder={t(language, 'lead.fullNamePlaceholder')}
-                className={`w-full px-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                  formErrors.fullName ? 'border-red-500' : 'border-slate-200'
-                }`}
+                className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                  isCorrectingName && !isReadOnly ? 'bg-white' : 'bg-slate-100 text-slate-700 cursor-default'
+                } ${formErrors.fullName ? 'border-red-500' : 'border-slate-200'}`}
               />
-              {formErrors.fullName && (
-                <p className="text-[11px] text-red-500 mt-1">{formErrors.fullName}</p>
-              )}
             </div>
+            {nameCorrection && sameName(nameCorrection.correctedName, fullName) && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                {t(language, 'entry.nameCorrected', { name: nameCorrection.previousName })}
+              </p>
+            )}
+            {isCorrectingName && !isReadOnly && accountName && (
+              <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                <p className="text-[11px] text-amber-900 leading-relaxed">{t(language, 'entry.correctNameHint')}</p>
+                {!sameName(fullName, accountName) && (
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      id="legal-name-confirm"
+                      checked={legalNameConfirmed}
+                      onChange={(e) => setLegalNameConfirmed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-semibold text-slate-800">{t(language, 'entry.legalNameConfirm')}</span>
+                  </label>
+                )}
+                <button type="button" onClick={cancelNameCorrection} className="text-[11px] font-bold text-slate-600 hover:underline cursor-pointer">
+                  {t(language, 'entry.cancelCorrection')}
+                </button>
+              </div>
+            )}
+            {formErrors.fullName && <p className="text-[11px] text-red-500 mt-1">{formErrors.fullName}</p>}
+          </div>
 
+          {/* Phone and email: always from the account */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {t(language, 'lead.phoneLabel')} <span className="text-red-500">*</span>
+              <label htmlFor="step1-phone" className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.phoneLabel')}
               </label>
               <div className="relative">
-                <Phone className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
+                <Phone className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
                 <input
+                  id="step1-phone"
                   type="tel"
-                  value={phoneNumber}
-                  disabled={isReadOnly}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="050-123-4567"
+                  value={accountPhone}
+                  readOnly
+                  aria-readonly
                   dir="ltr"
-                  className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                    formErrors.phoneNumber ? 'border-red-500' : 'border-slate-200'
-                  }`}
+                  className="w-full ps-10 pe-9 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-100 text-slate-700 cursor-default"
                 />
+                <Lock className="w-3.5 h-3.5 text-slate-400 absolute end-3.5 top-3" />
               </div>
-              {formErrors.phoneNumber && (
-                <p className="text-[11px] text-red-500 mt-1">{formErrors.phoneNumber}</p>
-              )}
+              <p className="text-[10px] text-slate-400 mt-1">{t(language, 'entry.fromAccount')}</p>
+            </div>
+            <div>
+              <label htmlFor="step1-email" className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.emailLabel')}
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
+                <input
+                  id="step1-email"
+                  type="email"
+                  value={accountEmail}
+                  readOnly
+                  aria-readonly
+                  dir="ltr"
+                  className="w-full ps-10 pe-9 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-100 text-slate-700 cursor-default"
+                />
+                <Lock className="w-3.5 h-3.5 text-slate-400 absolute end-3.5 top-3" />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">{t(language, 'entry.fromAccount')}</p>
             </div>
           </div>
+          {formErrors.account && <p className="text-[11px] text-red-500">{formErrors.account}</p>}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -580,101 +480,6 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
             </div>
           </div>
         </div>
-
-        {/* REORGANIZED SECTION 2: Account Credentials (for unregistered users) */}
-        {onRegisterAccount && (
-          <div className="space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-blue-600" />
-              {t(language, 'lead.credentialsTitle')}
-            </h2>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {t(language, 'lead.emailLabel')} <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com" /* i18n-ignore */
-                  dir="ltr"
-                  className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                    formErrors.email ? 'border-red-500' : 'border-slate-200'
-                  }`}
-                />
-              </div>
-              {formErrors.email && (
-                <p className="text-[11px] text-red-500 mt-1">{formErrors.email}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {t(language, 'lead.passwordLabel')} <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t(language, 'lead.passwordPlaceholder')}
-                  dir="ltr"
-                  className={`w-full ps-10 pe-10 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                    formErrors.password ? 'border-red-500' : 'border-slate-200'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute end-3.5 top-3 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {formErrors.password && (
-                <p className="text-[11px] text-red-500 mt-1">{formErrors.password}</p>
-              )}
-            </div>
-
-            {/* OTP verification block */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700">{t(language, 'lead.otpCodeLabel')}</span>
-                <button
-                  type="button"
-                  onClick={handleRequestOtp}
-                  disabled={isSendingOtp}
-                  className="text-xs text-blue-600 font-bold hover:underline"
-                >
-                  {isSendingOtp
-                    ? t(language, 'lead.sendingOtp')
-                    : isOtpSent
-                    ? t(language, 'lead.resendOtp')
-                    : t(language, 'lead.sendOtp')}
-                </button>
-              </div>
-
-              {isOtpSent && (
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
-                  dir="ltr"
-                  className="w-full text-center text-sm font-mono tracking-widest py-2 rounded-xl border border-slate-300 bg-white"
-                />
-              )}
-              {formErrors.otpCode && (
-                <p className="text-[11px] text-red-500">{formErrors.otpCode}</p>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* ADDITIONAL EMPLOYEE & VISA INFORMATION (Immediately above Documents) */}
         <div className="space-y-4" data-testid="step1-employee-info-section">
