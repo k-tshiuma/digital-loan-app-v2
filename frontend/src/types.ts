@@ -396,6 +396,175 @@ export interface FundingIntegrationRecord {
 }
 
 // ----------------------------------------------------
+// 3-Step Approval Workflow Types
+// ----------------------------------------------------
+
+export type FlowStatus =
+  | 'LEAD_REGISTERED'
+  | 'PENDING_STEP1_APPROVAL'
+  | 'STEP1_CHANGES_REQUESTED'
+  | 'STEP1_APPROVED'
+  | 'PENDING_STEP2_APPROVAL'
+  | 'STEP2_CHANGES_REQUESTED'
+  | 'STEP2_APPROVED'
+  | 'PENDING_FINAL_PROCESSING'
+  | 'LOAN_APPROVED'
+  | 'LOAN_REJECTED';
+
+export type FlowStatusGroup =
+  | 'in_progress'
+  | 'pending'
+  | 'approved_stage'
+  | 'completed'
+  | 'approved_final'
+  | 'rejected';
+
+export type StepVisualState =
+  | 'locked'
+  | 'available'
+  | 'draft'
+  | 'changes_requested'
+  | 'pending'
+  | 'approved'
+  | 'submitted'
+  | 'rejected';
+
+export interface SimplifiedSponsor {
+  id: string;
+  fullName: string;
+  idOrPassportNumber: string;
+}
+
+export interface UploadedDocRef {
+  filename: string;
+  fileUrl: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt?: string;
+}
+
+export interface Step1FormData {
+  personal: {
+    fullName: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+  };
+  documents: {
+    passport: UploadedDocRef | null;
+    visa: UploadedDocRef | null;
+    payslip: UploadedDocRef | null;
+  };
+  employment: {
+    employerName: string;
+    companyName: string;
+    manpowerAgent?: string;
+  };
+  loan: {
+    requestedAmountNis: number;
+  };
+  registration?: {
+    disclaimerAcceptedAt?: string;
+    disclaimerVersion?: string;
+    locationRequested?: boolean;
+    locationGranted?: boolean;
+  };
+}
+
+export interface Step2FormData {
+  loan: {
+    requestedAmountNis: number;
+    repaymentPeriodMonths: number;
+  };
+  sponsors: SimplifiedSponsor[];
+}
+
+export interface Step3FormData {
+  bank: {
+    bankName: string;
+    bankCode?: string;
+    branchNumber: string;
+    accountNumber: string;
+    accountHolderName: string;
+  };
+  bankDocument: UploadedDocRef | null;
+  terms: {
+    generalVersion: string;
+    serviceFeeVersion: string;
+    generalAccepted: boolean;
+    serviceFeeAccepted: boolean;
+  };
+}
+
+export interface LoanBreakdown {
+  requestedAmountNis: number;
+  repaymentPeriodMonths: number;
+  interestRatePercent: number;
+  totalInterestNis: number;
+  totalServiceFeeNis: number;
+  monthlyLoanRepaymentNis: number;
+  monthlyServiceFeeNis: number;
+  totalLoanRepaymentNis: number;
+  monthlyPaymentTotalNis: number;
+  overallTotalNis: number;
+  calculatedAt?: string;
+}
+
+export interface StepStateSummary<T = any> {
+  state: StepVisualState;
+  submittedAt: string | null;
+  data: T | null;
+  review?: {
+    decision: 'approve' | 'reject' | 'request_changes';
+    note?: string;
+    decidedAt: string;
+    revision: number;
+  } | null;
+}
+
+export interface FlowApplicationView {
+  id: string;
+  requestNumber: string;
+  flowStatus: FlowStatus;
+  group: FlowStatusGroup;
+  unlockedStep: number;
+  stepStates: Record<1 | 2 | 3, StepVisualState>;
+  nextAction: { step: number } | null;
+  isCompleted: boolean;
+  completedAt: string | null;
+  status: CanonicalStatus;
+  rejection: { atStep: string | null; reason: string | null } | null;
+  staffMessage: { text: string; at: string; byRole: string; step: number } | null;
+  needsRegistrationConsent: boolean;
+  steps: {
+    1: StepStateSummary<Step1FormData>;
+    2: StepStateSummary<Step2FormData>;
+    3: StepStateSummary<Step3FormData>;
+  };
+  loanBreakdown: LoanBreakdown | null;
+  language: Language;
+  leadSource: 'google' | 'manual' | null;
+  account: {
+    email: string | null;
+    phoneNumber: string | null;
+    fullName: string | null;
+    authProvider: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TermsVersionRecord {
+  type: 'general' | 'service_fee';
+  version: string;
+  textEn: string;
+  textHe: string;
+  sha256: string;
+  effectiveFrom: string;
+}
+
+// ----------------------------------------------------
 // Lead & Application Completion Types (Modular Intermediary Architecture)
 // ----------------------------------------------------
 

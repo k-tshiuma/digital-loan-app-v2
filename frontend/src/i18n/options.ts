@@ -51,8 +51,16 @@ const STATUS_KEYS: Record<CanonicalStatus, string> = {
 /** Display label for an application status. Unknown statuses are shown as-is. */
 export function statusLabel(lang: Language, status: string | undefined | null): string {
   if (!status) return '';
+  const flowKey = `flowStatus.${status}`;
+  if (TRANSLATIONS.en[flowKey]) return t(lang, flowKey);
   const key = STATUS_KEYS[status as CanonicalStatus];
   return key ? t(lang, key) : status;
+}
+
+export function flowGroupLabel(lang: Language, group: string | undefined | null): string {
+  if (!group) return '';
+  const key = `flowGroup.${group}`;
+  return TRANSLATIONS.en[key] ? t(lang, key) : group;
 }
 
 /** Risk flag codes produced by backend/creditEngine.js (kept in sync by a test). */

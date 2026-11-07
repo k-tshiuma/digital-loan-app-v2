@@ -4,6 +4,7 @@ import {
   Filter,
   Download,
   Eye,
+  EyeOff,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -45,6 +46,7 @@ import {
   riskLevelLabel,
   roleLabel,
   statusLabel,
+  flowGroupLabel,
   statusReasonLabel,
   DEFAULT_STATUS_REASONS,
 } from '../i18n/options';
@@ -52,6 +54,17 @@ import { localizeError } from '../i18n/apiErrors';
 import { formatCurrency, formatDate, formatDateTime } from '../i18n/format';
 import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
 import { EligibilityScoreBar } from './EligibilityScoreBar';
+import { FlowApplicationInspector } from './FlowApplicationInspector';
+
+/** Shows only the last 4 digits of an account number. */
+export function maskAccountNumber(value: string | undefined | null): string {
+  if (!value) return '—';
+  const s = String(value);
+  return s.length <= 4 ? '****' : `****${s.slice(-4)}`;
+}
+
+/** Flow statuses where a staff decision is due. */
+const NEEDS_REVIEW = new Set(['PENDING_STEP1_APPROVAL', 'PENDING_STEP2_APPROVAL', 'PENDING_FINAL_PROCESSING']);
 
 interface BackOfficeProps {
   language: Language;
@@ -70,6 +83,9 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     storageService.getAllApplications()
   );
   const [selectedApp, setSelectedApp] = useState<LoanApplication | null>(null);
+  const [selectedFlowDetail, setSelectedFlowDetail] = useState<any | null>(null);
+  const [flowCounts, setFlowCounts] = useState<{ total: number; byGroup: Record<string, number>; byStatus: Record<string, number> } | null>(null);
+  const [flowGroupFilter, setFlowGroupFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'applications' | 'analytics' | 'audit' | 'config'>('applications');
@@ -88,6 +104,8 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   const [reviewReason, setReviewReason] = useState('');
   const [missingDocNote, setMissingDocNote] = useState('');
   const [showDocNoteInput, setShowDocNoteInput] = useState(false);
+  // Older-flow applications: the account number is in the list data, so hiding it is display-only.
+  const [showClassicAccount, setShowClassicAccount] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
   // Config editor state
@@ -100,11 +118,17 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     if (currentRole === 'borrower') return;
     try {
       await apiService.ensureStaffToken(currentRole);
-      const backendApps = await apiService.listAllApplications();
+      const [backendApps, flowRes, rulesData] = await Promise.all([
+        apiService.listAllApplications().catch(() => null),
+        apiService.listFlowApplications().catch(() => null),
+        apiService.getCreditRules().catch(() => null),
+      ]);
       if (backendApps && backendApps.length > 0) {
         setApplications(backendApps);
       }
-      const rulesData = await apiService.getCreditRules();
+      if (flowRes?.counts) {
+        setFlowCounts(flowRes.counts);
+      }
       if (rulesData && rulesData.rules) {
         setCreditRules(rulesData.rules);
       }
@@ -122,22 +146,131 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     setAuditEvents(storageService.getAuditEvents());
     if (selectedApp) {
       const fresh = storageService.getApplication(selectedApp.id);
-      setSelectedApp(fresh);
+      if (fresh) setSelectedApp(fresh);
+      if ((selectedApp as any).flowStatus || (selectedApp as any).flowVersion === 2) {
+        apiService
+          .getFlowApplicationDetail(selectedApp.id)
+          .then(setSelectedFlowDetail)
+          .catch(() => {});
+      }
     }
     fetchBackendData();
   };
 
+  const handleSelectApp = (app: LoanApplication) => {
+    setSelectedApp(app);
+    setShowClassicAccount(false);
+    if ((app as any).flowStatus || (app as any).flowVersion === 2 || String((app as any).flowVersion) === '2') {
+      apiService
+        .getFlowApplicationDetail(app.id)
+        .then((detail) => {
+          setSelectedFlowDetail(detail);
+        })
+        .catch(() => {
+          setSelectedFlowDetail(null);
+        });
+    } else {
+      setSelectedFlowDetail(null);
+    }
+  };
+
+  // Loads the full bank account number. Only on request: the backend audit-logs every reveal.
+  const handleRevealBank = async () => {
+    if (!selectedApp) return;
+    const revealed = await apiService.getFlowApplicationDetail(selectedApp.id, true);
+    setSelectedFlowDetail(revealed);
+  };
+
+  const handleApproveStep = async (step: number, note?: string) => {
+    if (!selectedApp) return;
+    await apiService.submitStepDecision(selectedApp.id, step, 'approve', note);
+    setActionSuccessMessage(t(language, 'fi.msg.stepApproved', { step }));
+    const fresh = await apiService.getFlowApplicationDetail(selectedApp.id);
+    setSelectedFlowDetail(fresh);
+    fetchBackendData();
+    setTimeout(() => setActionSuccessMessage(null), 3000);
+  };
+
+  const handleRequestStepChanges = async (step: number, notes: string, corrections: string) => {
+    if (!selectedApp) return;
+    const combinedNote = corrections ? `${corrections}${notes ? ` (Notes: ${notes})` : ''}` : notes;
+    await apiService.submitStepDecision(selectedApp.id, step, 'request_changes', combinedNote);
+    setActionSuccessMessage(t(language, 'fi.msg.changesRequested', { step }));
+    const fresh = await apiService.getFlowApplicationDetail(selectedApp.id);
+    setSelectedFlowDetail(fresh);
+    fetchBackendData();
+    setTimeout(() => setActionSuccessMessage(null), 3000);
+  };
+
+  const handleRejectStep = async (step: number, reason: string) => {
+    if (!selectedApp) return;
+    await apiService.submitStepDecision(selectedApp.id, step, 'reject', reason);
+    setActionSuccessMessage(t(language, 'fi.msg.stepRejected', { step }));
+    const fresh = await apiService.getFlowApplicationDetail(selectedApp.id);
+    setSelectedFlowDetail(fresh);
+    fetchBackendData();
+    setTimeout(() => setActionSuccessMessage(null), 3000);
+  };
+
+  const handleFinalDecision = async (decision: 'APPROVE' | 'REJECT' | 'ADDITIONAL_DOCS', notes?: string) => {
+    if (!selectedApp) return;
+    const status = decision === 'APPROVE' ? 'Approved' : decision === 'REJECT' ? 'Rejected' : 'Additional Document Required';
+    await apiService.submitFinalDecision(selectedApp.id, { status, reason: notes });
+    setActionSuccessMessage(t(language, 'fi.msg.finalDecision', { status: statusLabel(language, status) }));
+    const fresh = await apiService.getFlowApplicationDetail(selectedApp.id);
+    setSelectedFlowDetail(fresh);
+    fetchBackendData();
+    setTimeout(() => setActionSuccessMessage(null), 3000);
+  };
+
+  const handleSendApplicantMessage = async (message: string) => {
+    if (!selectedApp) return;
+    await apiService.sendApplicantStaffMessage(selectedApp.id, message);
+    setActionSuccessMessage('Message dispatched to applicant');
+    const fresh = await apiService.getFlowApplicationDetail(selectedApp.id);
+    setSelectedFlowDetail(fresh);
+    setTimeout(() => setActionSuccessMessage(null), 3000);
+  };
+
   // Filtered applications list
   const filteredApps = applications.filter((app) => {
-    const matchesStatus = statusFilter === 'ALL' || app.status === statusFilter;
+    const flowStatus = (app as any).flowStatus;
+    const flowGroup = (app as any).group || (app as any).flowGroup;
+
+    if (flowGroupFilter !== 'ALL') {
+      if (flowGroup) {
+        if (flowGroup !== flowGroupFilter) return false;
+      } else {
+        if (flowGroupFilter === 'pending' && !['Received', 'Under Review'].includes(app.status)) return false;
+        if (flowGroupFilter === 'approved_final' && app.status !== 'Approved') return false;
+        if (flowGroupFilter === 'rejected' && app.status !== 'Rejected') return false;
+        if (['in_progress', 'approved_stage', 'completed'].includes(flowGroupFilter)) return false;
+      }
+    }
+
+    const matchesStatus =
+      statusFilter === 'ALL' ||
+      app.status === statusFilter ||
+      flowStatus === statusFilter;
+
     const q = searchQuery.toLowerCase().trim();
     if (!q) return matchesStatus;
 
     // Drafts and older records can lack any of these fields, so every one is optional.
     const b = app.borrowerDetails;
-    const matchesSearch = [app.requestNumber, b?.fullName, b?.passportNumber, b?.mobilePhoneNumber, b?.countryOfOrigin].some(
-      (field) => typeof field === 'string' && field.toLowerCase().includes(q)
-    );
+    const applicantName = (app as any).applicantName || (app as any).step1Data?.personal?.fullName;
+    const phone = (app as any).phoneNumber || b?.mobilePhoneNumber;
+    const email = (app as any).email;
+
+    const matchesSearch = [
+      app.requestNumber,
+      b?.fullName,
+      applicantName,
+      b?.passportNumber,
+      phone,
+      email,
+      b?.countryOfOrigin,
+    ].some((field) => typeof field === 'string' && field.toLowerCase().includes(q));
 
     return matchesStatus && matchesSearch;
   });
@@ -348,6 +481,32 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
         {/* TAB 1: Applications Table & Search */}
         {activeTab === 'applications' && (
           <div className="space-y-4">
+            {/* Workflow Group Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 pb-1">
+              {[
+                { id: 'ALL', label: t(language, 'bo.allStatuses', { n: flowCounts?.total ?? applications.length }) },
+                { id: 'pending', label: `${flowGroupLabel(language, 'pending')}${flowCounts?.byGroup?.pending !== undefined ? ` (${flowCounts.byGroup.pending})` : ''}` },
+                { id: 'in_progress', label: `${flowGroupLabel(language, 'in_progress')}${flowCounts?.byGroup?.in_progress !== undefined ? ` (${flowCounts.byGroup.in_progress})` : ''}` },
+                { id: 'approved_stage', label: `${flowGroupLabel(language, 'approved_stage')}${flowCounts?.byGroup?.approved_stage !== undefined ? ` (${flowCounts.byGroup.approved_stage})` : ''}` },
+                { id: 'completed', label: `${flowGroupLabel(language, 'completed')}${flowCounts?.byGroup?.completed !== undefined ? ` (${flowCounts.byGroup.completed})` : ''}` },
+                { id: 'approved_final', label: `${flowGroupLabel(language, 'approved_final')}${flowCounts?.byGroup?.approved_final !== undefined ? ` (${flowCounts.byGroup.approved_final})` : ''}` },
+                { id: 'rejected', label: `${flowGroupLabel(language, 'rejected')}${flowCounts?.byGroup?.rejected !== undefined ? ` (${flowCounts.byGroup.rejected})` : ''}` },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setFlowGroupFilter(pill.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    flowGroupFilter === pill.id
+                      ? 'bg-[#0b1a2d] text-sky-300 border border-sky-500/40 shadow-xs'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
             {/* Search & Filter Bar */}
             <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
               <div className="relative flex-1 min-w-[240px]">
@@ -369,12 +528,26 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                   className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">{t(language, 'bo.allStatuses', { n: applications.length })}</option>
-                  <option value="Received">{statusLabel(language, 'Received')}</option>
-                  <option value="Under Review">{statusLabel(language, 'Under Review')}</option>
-                  <option value="Additional Document Required">{statusLabel(language, 'Additional Document Required')}</option>
-                  <option value="Approved">{statusLabel(language, 'Approved')}</option>
-                  <option value="Rejected">{statusLabel(language, 'Rejected')}</option>
-                  <option value="Forwarded to Funding Entity">{statusLabel(language, 'Forwarded to Funding Entity')}</option>
+                  <optgroup label="3-Step Workflow">
+                    <option value="LEAD_REGISTERED">{statusLabel(language, 'LEAD_REGISTERED')}</option>
+                    <option value="PENDING_STEP1_APPROVAL">{statusLabel(language, 'PENDING_STEP1_APPROVAL')}</option>
+                    <option value="STEP1_APPROVED">{statusLabel(language, 'STEP1_APPROVED')}</option>
+                    <option value="STEP1_CHANGES_REQUESTED">{statusLabel(language, 'STEP1_CHANGES_REQUESTED')}</option>
+                    <option value="PENDING_STEP2_APPROVAL">{statusLabel(language, 'PENDING_STEP2_APPROVAL')}</option>
+                    <option value="STEP2_APPROVED">{statusLabel(language, 'STEP2_APPROVED')}</option>
+                    <option value="STEP2_CHANGES_REQUESTED">{statusLabel(language, 'STEP2_CHANGES_REQUESTED')}</option>
+                    <option value="PENDING_FINAL_PROCESSING">{statusLabel(language, 'PENDING_FINAL_PROCESSING')}</option>
+                    <option value="LOAN_APPROVED">{statusLabel(language, 'LOAN_APPROVED')}</option>
+                    <option value="LOAN_REJECTED">{statusLabel(language, 'LOAN_REJECTED')}</option>
+                  </optgroup>
+                  <optgroup label="Classic Statuses">
+                    <option value="Received">{statusLabel(language, 'Received')}</option>
+                    <option value="Under Review">{statusLabel(language, 'Under Review')}</option>
+                    <option value="Additional Document Required">{statusLabel(language, 'Additional Document Required')}</option>
+                    <option value="Approved">{statusLabel(language, 'Approved')}</option>
+                    <option value="Rejected">{statusLabel(language, 'Rejected')}</option>
+                    <option value="Forwarded to Funding Entity">{statusLabel(language, 'Forwarded to Funding Entity')}</option>
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -399,23 +572,24 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                     {filteredApps.length > 0 ? (
                       filteredApps.map((app) => {
                         const sCfg = STATUS_BADGE_CONFIG[app.status] || STATUS_BADGE_CONFIG['Received'];
+                        const flowStatus = (app as any).flowStatus;
                         return (
                           <tr
                             key={app.id}
                             className="hover:bg-purple-50/40 transition-colors cursor-pointer"
-                            onClick={() => setSelectedApp(app)}
+                            onClick={() => handleSelectApp(app)}
                           >
                             <td className="py-3.5 px-4 font-mono font-bold text-purple-950">
                               <bdi dir="ltr">{app.requestNumber}</bdi>
                             </td>
                             <td className="py-3.5 px-4 font-bold text-slate-900">
-                              {app.borrowerDetails?.fullName || t(language, 'bo.anonymousDraft')}
+                              {(app as any).applicantName || app.borrowerDetails?.fullName || t(language, 'bo.anonymousDraft')}
                               <div className="text-[10px] text-slate-400 font-normal">
-                                <bdi dir="ltr">{app.borrowerDetails?.mobilePhoneNumber}</bdi>
+                                <bdi dir="ltr">{(app as any).phoneNumber || app.borrowerDetails?.mobilePhoneNumber}</bdi>
                               </div>
                             </td>
                             <td className="py-3.5 px-4">
-                              <span className="font-mono"><bdi dir="ltr">{app.borrowerDetails?.passportNumber}</bdi></span>
+                              <span className="font-mono"><bdi dir="ltr">{(app as any).step1Data?.personal?.passportNumber || app.borrowerDetails?.passportNumber || '—'}</bdi></span>
                               <span className="text-[11px] text-slate-500 block">
                                 {optionLabel(language, 'country', app.borrowerDetails?.countryOfOrigin)}
                               </span>
@@ -428,10 +602,17 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                             </td>
                             <td className="py-3.5 px-4 text-end">
                               <span className="font-mono font-extrabold text-blue-900">
-                                {formatCurrency(app.loanRequest?.requestedAmountNis, language)}
+                                {formatCurrency((app as any).requestedAmountNis || app.loanRequest?.requestedAmountNis, language)}
                               </span>
                               <span className="text-[10px] text-slate-400 block">
-                                {t(language, 'bo.termAtMonthly', { months: app.loanRequest?.repaymentPeriodMonths ?? 0, monthly: formatCurrency(app.loanRequest?.estimatedMonthlyPaymentNis, language) })}
+                                {t(language, 'bo.termAtMonthly', {
+                                  months: (app as any).repaymentPeriodMonths || (app.loanRequest?.repaymentPeriodMonths ?? 0),
+                                  monthly: formatCurrency(
+                                    (app as any).loanBreakdown?.monthlyRepaymentWithInterestNis ||
+                                      app.loanRequest?.estimatedMonthlyPaymentNis,
+                                    language
+                                  ),
+                                })}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 text-center">
@@ -454,17 +635,35 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                             </td>
                             <td className="py-3.5 px-4 text-center">
                               <span
-                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border inline-block ${sCfg.badgeColor}`}
+                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border inline-block ${
+                                  flowStatus
+                                    ? flowStatus.includes('APPROVED')
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                      : flowStatus.includes('REJECTED')
+                                      ? 'bg-red-50 text-red-800 border-red-300'
+                                      : flowStatus.includes('PENDING')
+                                      ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                      : flowStatus.includes('CHANGES')
+                                      ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                      : 'bg-blue-50 text-blue-800 border-blue-300'
+                                    : sCfg.badgeColor
+                                }`}
                               >
-                                {statusLabel(language, app.status)}
+                                {statusLabel(language, flowStatus || app.status)}
                               </span>
+                              {NEEDS_REVIEW.has(flowStatus) && (
+                                <span className="mt-1 mx-auto w-fit px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {t(language, 'fi.needsReview')}
+                                </span>
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-end">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedApp(app);
+                                  handleSelectApp(app);
                                 }}
                                 className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-purple-100 text-purple-900 font-bold text-xs inline-flex items-center gap-1"
                               >
@@ -710,6 +909,31 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
 
       {/* Application Detail Inspection & Action Modal */}
       {selectedApp && (
+        selectedFlowDetail ? (
+          <FlowApplicationInspector
+            detail={selectedFlowDetail}
+            language={language}
+            currentRole={currentRole}
+            onClose={() => {
+              setSelectedApp(null);
+              setSelectedFlowDetail(null);
+            }}
+            onApproveStep={handleApproveStep}
+            onRequestStepChanges={handleRequestStepChanges}
+            onRejectStep={handleRejectStep}
+            onFinalDecision={handleFinalDecision}
+            onSendMessage={handleSendApplicantMessage}
+            onDownloadPdf={async () => {
+              try {
+                await apiService.downloadApplicationPdf(selectedApp, 'staff', language);
+              } catch (e: any) {
+                setActionSuccessMessage(t(language, 'bo.msg.pdfFailed', { error: localizeError(e, language, 'err.pdfFailed') }));
+              }
+            }}
+            onDownloadJson={handleDownloadSignedJson}
+            onRevealBank={handleRevealBank}
+          />
+        ) : (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -812,7 +1036,22 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                   </div>
                   <div><span className="text-slate-400">{t(language, 'bo.bank')}</span> <span className="font-bold text-slate-800">{selectedApp.bankAccount?.bankName || '—'}</span></div>
                   <div><span className="text-slate-400">{t(language, 'bo.branch')}</span> <span className="font-mono font-bold">{selectedApp.bankAccount?.branchNumber || '—'}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'bo.account')}</span> <span className="font-mono font-bold">{selectedApp.bankAccount?.accountNumber || '—'}</span></div>
+                  <div className="flex flex-wrap items-center gap-x-1.5">
+                    <span className="text-slate-400">{t(language, 'bo.account')}</span>
+                    <bdi dir="ltr" className="font-mono font-bold">
+                      {showClassicAccount ? selectedApp.bankAccount?.accountNumber || '—' : maskAccountNumber(selectedApp.bankAccount?.accountNumber)}
+                    </bdi>
+                    {selectedApp.bankAccount?.accountNumber && (
+                      <button
+                        type="button"
+                        onClick={() => setShowClassicAccount((v) => !v)}
+                        className="text-[10px] font-bold text-purple-800 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        {showClassicAccount ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        {t(language, showClassicAccount ? 'fi.bank.hide' : 'fi.bank.show')}
+                      </button>
+                    )}
+                  </div>
                   <div><span className="text-slate-400">{t(language, 'bo.accountHolder')}</span> <span className="text-slate-800">{selectedApp.bankAccount?.accountHolderName || selectedApp.borrowerDetails?.fullName || '—'}</span></div>
                 </div>
 
@@ -1112,6 +1351,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             </div>
           </div>
         </div>
+        )
       )}
     </div>
   );

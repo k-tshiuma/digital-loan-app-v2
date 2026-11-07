@@ -14,86 +14,104 @@ import {
   Building,
   Briefcase,
   Users,
-  ChevronRight,
   Eye,
   EyeOff,
   Clock,
   Sparkles,
   ArrowRight,
 } from 'lucide-react';
-import { LeadData, LeadStatus, FileAttachment, Language } from '../types';
-import { DateInput } from './DateInput';
-import { formatCurrency, formatDate } from '../i18n/format';
 import {
-  calculateLoanRepayment,
-} from '../config/appConfig';
+  Step1FormData,
+  UploadedDocRef,
+  Language,
+} from '../types';
+import { DateInput } from './DateInput';
+import { formatCurrency } from '../i18n/format';
 import { t } from '../i18n/translations';
+import { apiService } from '../services/api';
 
 interface Step1LeadGenerationProps {
-  onLeadCreated: (lead: LeadData) => void;
-  onProceedToStep2?: () => void;
-  existingLead?: LeadData | null;
-  onLeadStatusChange?: (newStatus: LeadStatus) => void;
   language?: Language;
+  initialData?: Step1FormData | null;
+  userPhone?: string | null;
+  userEmail?: string | null;
+  userName?: string | null;
+  hasCompletedDisclaimer?: boolean;
+  isReadOnly?: boolean;
+  onSubmit?: (data: Step1FormData) => Promise<void>;
+  onRegisterAccount?: (creds: { fullName: string; email: string; phoneNumber: string; password: string; code: string }) => Promise<void>;
+  onGoogleSignIn?: (demo?: { email: string; name: string }) => Promise<void>;
+  existingLead?: any;
+  onLeadCreated?: (lead: any) => void;
+  onLeadStatusChange?: (status: any) => void;
+  onProceedToStep2?: () => void;
 }
 
-type Step1Phase = 'location' | 'disclaimer' | 'form' | 'submitted';
+type Step1Phase = 'location' | 'disclaimer' | 'form';
 
 export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
-  onLeadCreated,
-  onProceedToStep2,
-  existingLead,
-  onLeadStatusChange,
   language = 'en',
+  initialData,
+  userPhone,
+  userEmail,
+  userName,
+  hasCompletedDisclaimer = false,
+  isReadOnly = false,
+  onSubmit,
+  onRegisterAccount,
+  onGoogleSignIn,
+  existingLead,
+  onLeadCreated,
+  onLeadStatusChange,
+  onProceedToStep2,
 }) => {
   // Navigation internal phase
   const [phase, setPhase] = useState<Step1Phase>(() =>
-    existingLead ? 'submitted' : 'location'
+    hasCompletedDisclaimer ? 'form' : 'location'
   );
 
-  // Location permission state
+  // Location & Disclaimer states
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
-
-  // Disclaimer agreement state
   const [hasAgreedToDisclaimer, setHasAgreedToDisclaimer] = useState(false);
   const [disclaimerError, setDisclaimerError] = useState<string | null>(null);
 
-  // Form Fields
-  const [email, setEmail] = useState('');
+  // Form Fields: Personal Details
+  const [fullName, setFullName] = useState(initialData?.personal?.fullName || userName || '');
+  const [phoneNumber, setPhoneNumber] = useState(initialData?.personal?.phoneNumber || userPhone || '');
+  const [dateOfBirth, setDateOfBirth] = useState(initialData?.personal?.dateOfBirth || '');
+  const [address, setAddress] = useState(initialData?.personal?.address || '');
+
+  // Form Fields: Account Credentials (if registering as new user)
+  const [email, setEmail] = useState(userEmail || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [address, setAddress] = useState('');
-
-  // File Uploads
-  const [passportDoc, setPassportDoc] = useState<FileAttachment | null>(null);
-  const [visaDoc, setVisaDoc] = useState<FileAttachment | null>(null);
-  const [payslipDoc, setPayslipDoc] = useState<FileAttachment | null>(null);
+  // Uploaded Documents
+  const [passportDoc, setPassportDoc] = useState<UploadedDocRef | null>(initialData?.documents?.passport || null);
+  const [visaDoc, setVisaDoc] = useState<UploadedDocRef | null>(initialData?.documents?.visa || null);
+  const [payslipDoc, setPayslipDoc] = useState<UploadedDocRef | null>(initialData?.documents?.payslip || null);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   // Employment Details
-  const [employerName, setEmployerName] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [manpowerAgent, setManpowerAgent] = useState('');
+  const [employerName, setEmployerName] = useState(initialData?.employment?.employerName || '');
+  const [companyName, setCompanyName] = useState(initialData?.employment?.companyName || '');
+  const [manpowerAgent, setManpowerAgent] = useState(initialData?.employment?.manpowerAgent || '');
 
   // Requested Loan Amount
-  const [requestedAmountNis, setRequestedAmountNis] = useState<number>(5000);
-  const repaymentMonths = 6;
+  const [requestedAmountNis, setRequestedAmountNis] = useState<number>(
+    initialData?.loan?.requestedAmountNis || 5000
+  );
 
-  // Submission / Error state
+  // Form errors & submit states
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  // Active Lead State (mock)
-  const [activeLead, setActiveLead] = useState<LeadData | null>(existingLead || null);
-
-  // ----------------------------------------------------
-  // Location Handlers
-  // ----------------------------------------------------
   const handleRequestLocation = () => {
     setIsRequestingLocation(true);
     setLocationError(null);
@@ -120,9 +138,6 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     );
   };
 
-  // ----------------------------------------------------
-  // Disclaimer Handler
-  // ----------------------------------------------------
   const handleDisclaimerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasAgreedToDisclaimer) {
@@ -133,138 +148,145 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     setPhase('form');
   };
 
-  // ----------------------------------------------------
-  // Generic File Upload Helper
-  // ----------------------------------------------------
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    setter: (file: FileAttachment | null) => void,
+    setter: (doc: UploadedDocRef | null) => void,
     fieldKey: string
   ) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    setUploadingField(fieldKey);
+    setFormErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[fieldKey];
+      return copy;
+    });
+
+    try {
+      const res = await apiService.uploadFile(file);
       setter({
-        name: file.name,
-        size: file.size,
-        type: file.type,
+        filename: res.filename,
+        fileUrl: res.url,
+        originalName: res.originalName,
+        mimeType: res.mimeType,
+        size: res.size,
       });
-      setFormErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[fieldKey];
-        return copy;
-      });
+    } catch (err: any) {
+      setFormErrors((prev) => ({
+        ...prev,
+        [fieldKey]: err.message || 'File upload failed',
+      }));
+    } finally {
+      setUploadingField(null);
     }
   };
 
-  // ----------------------------------------------------
-  // Form Validation
-  // ----------------------------------------------------
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
+  const handleRequestOtp = async () => {
+    const clean = phoneNumber.replace(/\D/g, '');
+    if (!clean || clean.length < 7) {
+      setFormErrors((prev) => ({ ...prev, phoneNumber: t(language, 'lead.err.phoneNumber') }));
+      return;
+    }
+    setIsSendingOtp(true);
+    try {
+      const res = await apiService.requestOtp(phoneNumber, language);
+      setIsOtpSent(true);
+      if (res.demoCode) {
+        setOtpCode(res.demoCode);
+      }
+    } catch (err: any) {
+      setServerError(err.message || 'Could not send verification code');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
 
-    if (!email.trim() || !email.includes('@')) {
-      errors.email = t(language, 'lead.err.email');
-    }
-    if (!password || password.length < 6) {
-      errors.password = t(language, 'lead.err.password');
-    }
-    if (!fullName.trim()) {
-      errors.fullName = t(language, 'lead.err.fullName');
-    }
+  const validate = (): boolean => {
+    const errs: Record<string, string> = {};
+
+    if (!fullName.trim()) errs.fullName = t(language, 'lead.err.fullName');
     const cleanPhone = phoneNumber.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 7) {
-      errors.phoneNumber = t(language, 'lead.err.phoneNumber');
-    }
-    if (!dateOfBirth) {
-      errors.dateOfBirth = t(language, 'lead.err.dob');
-    }
-    if (!address.trim()) {
-      errors.address = t(language, 'lead.err.address');
-    }
-    if (!passportDoc) {
-      errors.passportDoc = t(language, 'lead.err.passport');
-    }
-    if (!visaDoc) {
-      errors.visaDoc = t(language, 'lead.err.visa');
-    }
-    if (!payslipDoc) {
-      errors.payslipDoc = t(language, 'lead.err.payslip');
-    }
-    if (!employerName.trim()) {
-      errors.employerName = t(language, 'lead.err.employer');
-    }
-    if (!companyName.trim()) {
-      errors.companyName = t(language, 'lead.err.company');
+    if (!cleanPhone || cleanPhone.length < 7) errs.phoneNumber = t(language, 'lead.err.phoneNumber');
+    if (!dateOfBirth) errs.dateOfBirth = t(language, 'lead.err.dob');
+    if (!address.trim()) errs.address = t(language, 'lead.err.address');
+
+    // Documents
+    if (!passportDoc) errs.passportDoc = t(language, 'lead.err.passport');
+    if (!visaDoc) errs.visaDoc = t(language, 'lead.err.visa');
+    if (!payslipDoc) errs.payslipDoc = t(language, 'lead.err.payslip');
+
+    // Employment
+    if (!employerName.trim()) errs.employerName = t(language, 'lead.err.employer');
+    if (!companyName.trim()) errs.companyName = t(language, 'lead.err.company');
+
+    // Account registration credentials if not logged in
+    if (onRegisterAccount) {
+      if (!email.trim() || !email.includes('@')) errs.email = t(language, 'lead.err.email');
+      if (!password || password.length < 6) errs.password = t(language, 'lead.err.password');
+      if (!otpCode || otpCode.trim().length !== 6) errs.otpCode = 'Enter 6-digit code';
     }
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
-  // ----------------------------------------------------
-  // Lead Generation Submit
-  // ----------------------------------------------------
-  const handleSubmitLead = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    setServerError(null);
+
+    if (!validate()) return;
 
     setIsSubmitting(true);
+    try {
+      if (onRegisterAccount) {
+        await onRegisterAccount({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          phoneNumber: phoneNumber.trim(),
+          password,
+          code: otpCode.trim(),
+        });
+      }
 
-    const newLead: LeadData = {
-      id: `lead_${Date.now()}`,
-      email: email.trim(),
-      password,
-      fullName: fullName.trim(),
-      phoneNumber: phoneNumber.trim(),
-      dateOfBirth,
-      address: address.trim(),
-      passportDoc,
-      visaDoc,
-      payslipDoc,
-      employerName: employerName.trim(),
-      companyName: companyName.trim(),
-      manpowerAgent: manpowerAgent.trim() || undefined,
-      requestedLoanAmountNis: requestedAmountNis,
-      repaymentPeriodMonths: repaymentMonths,
-      serviceFeeNis: 0,
-      displayedMonthlyPaymentNis: 0,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
-
-    setTimeout(() => {
+      await onSubmit({
+        personal: {
+          fullName: fullName.trim(),
+          phoneNumber: phoneNumber.trim(),
+          dateOfBirth,
+          address: address.trim(),
+        },
+        documents: {
+          passport: passportDoc,
+          visa: visaDoc,
+          payslip: payslipDoc,
+        },
+        employment: {
+          employerName: employerName.trim(),
+          companyName: companyName.trim(),
+          manpowerAgent: manpowerAgent.trim() || undefined,
+        },
+        loan: {
+          requestedAmountNis,
+        },
+      });
+    } catch (err: any) {
+      setServerError(err.message || 'Submission failed');
+    } finally {
       setIsSubmitting(false);
-      setActiveLead(newLead);
-      setPhase('submitted');
-      onLeadCreated(newLead);
-    }, 600);
+    }
   };
 
-  // Mock status toggle handler
-  const handleToggleLeadStatus = (newStatus: LeadStatus) => {
-    if (!activeLead) return;
-    const updatedLead: LeadData = {
-      ...activeLead,
-      status: newStatus,
-    };
-    setActiveLead(updatedLead);
-    onLeadStatusChange?.(newStatus);
-  };
-
-  // ====================================================
-  // SCREEN 1: LOCATION PERMISSION
-  // ====================================================
+  // 1. LOCATION SCREEN
   if (phase === 'location') {
     return (
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
         <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
           <MapPin className="w-8 h-8" />
         </div>
-
         <h1 className="text-xl sm:text-2xl font-black text-slate-900 text-center mb-3">
           {t(language, 'lead.locationTitle')}
         </h1>
-
         <p className="text-sm text-slate-600 text-center mb-6 leading-relaxed">
           {t(language, 'lead.locationDesc')}
         </p>
@@ -280,7 +302,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           type="button"
           onClick={handleRequestLocation}
           disabled={isRequestingLocation}
-          className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+          className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           {isRequestingLocation ? (
             <span>{t(language, 'lead.checkingPermission')}</span>
@@ -295,34 +317,24 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     );
   }
 
-  // ====================================================
-  // SCREEN 2: REGULATORY DISCLAIMER
-  // ====================================================
+  // 2. REGULATORY DISCLAIMER
   if (phase === 'disclaimer') {
     return (
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
         <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
           <Shield className="w-8 h-8" />
         </div>
-
         <h1 className="text-xl sm:text-2xl font-black text-slate-900 text-center mb-2">
           {t(language, 'lead.disclaimerTitle')}
         </h1>
-
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 text-center mb-6">
           {t(language, 'lead.disclaimerBadge')}
         </p>
 
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 text-xs text-slate-700 space-y-3 mb-6 max-h-60 overflow-y-auto leading-relaxed">
-          <p className="font-semibold text-slate-900">
-            {t(language, 'lead.disclaimerP1')}
-          </p>
-          <p>
-            {t(language, 'lead.disclaimerP2')}
-          </p>
-          <p>
-            {t(language, 'lead.disclaimerP3')}
-          </p>
+          <p className="font-semibold text-slate-900">{t(language, 'lead.disclaimerP1')}</p>
+          <p>{t(language, 'lead.disclaimerP2')}</p>
+          <p>{t(language, 'lead.disclaimerP3')}</p>
         </div>
 
         <form onSubmit={handleDisclaimerSubmit} className="space-y-6">
@@ -345,181 +357,22 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
             </div>
           )}
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setPhase('location')}
-              className="py-3 px-4 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors"
-            >
-              {t(language, 'back')}
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-3 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <span>{t(language, 'lead.continueToReg')}</span>
-              <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>{t(language, 'lead.continueToReg')}</span>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+          </button>
         </form>
       </div>
     );
   }
 
-  // ====================================================
-  // SCREEN 4: SUBMITTED PENDING / APPROVED CONFIRMATION
-  // ====================================================
-  if (phase === 'submitted' && activeLead) {
-    const isApproved = activeLead.status === 'approved';
-
-    return (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto space-y-6 animate-in fade-in">
-        {/* Status Graphic */}
-        <div className="text-center">
-          <div
-            className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner ${
-              isApproved
-                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                : 'bg-amber-50 text-amber-600 border border-amber-200'
-            }`}
-          >
-            {isApproved ? (
-              <CheckCircle2 className="w-9 h-9" />
-            ) : (
-              <Clock className="w-9 h-9 animate-pulse" />
-            )}
-          </div>
-
-          <div
-            className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${
-              isApproved
-                ? 'bg-emerald-100 text-emerald-800'
-                : 'bg-amber-100 text-amber-800'
-            }`}
-          >
-            {t(language, 'lead.statusBadge', { status: activeLead.status })}
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">
-            {isApproved
-              ? t(language, 'lead.statusApproved')
-              : t(language, 'lead.statusPending')}
-          </h2>
-
-          {/* Messages */}
-          {!isApproved ? (
-            <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 text-sm text-amber-900 font-medium leading-relaxed max-w-md mx-auto">
-              {t(language, 'lead.pendingMessage')}
-            </div>
-          ) : (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-sm text-emerald-900 font-medium leading-relaxed max-w-md mx-auto">
-              {t(language, 'lead.approvedMessage')}
-            </div>
-          )}
-        </div>
-
-        {/* Lead Summary Card */}
-        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs space-y-2">
-          <div className="font-bold text-slate-800 border-b border-slate-200 pb-2 flex justify-between items-center">
-            <span>{t(language, 'lead.appRef', { id: activeLead.id })}</span>
-            <span className="font-mono text-slate-500">
-              {formatDate(activeLead.createdAt, language)}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-slate-600 pt-1">
-            <div>
-              <span className="font-semibold text-slate-700">{t(language, 'lead.summaryApplicant')}</span>{' '}
-              {activeLead.fullName}
-            </div>
-            <div>
-              <span className="font-semibold text-slate-700">{t(language, 'lead.summaryPhone')}</span>{' '}
-              <bdi dir="ltr">{activeLead.phoneNumber}</bdi>
-            </div>
-            <div>
-              <span className="font-semibold text-slate-700">{t(language, 'lead.summaryCompany')}</span>{' '}
-              {activeLead.companyName}
-            </div>
-            <div>
-              <span className="font-semibold text-slate-700">{t(language, 'lead.summaryEmployer')}</span>{' '}
-              {activeLead.employerName}
-            </div>
-            {activeLead.manpowerAgent && (
-              <div className="col-span-2">
-                <span className="font-semibold text-slate-700">{t(language, 'lead.summaryManpower')}</span>{' '}
-                {activeLead.manpowerAgent}
-              </div>
-            )}
-            <div className="col-span-2">
-              <span className="font-semibold text-slate-700">{t(language, 'lead.summaryRequestedAmount')}</span>{' '}
-              {formatCurrency(activeLead.requestedLoanAmountNis, language)}
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button: Proceed to Step 2 when Approved */}
-        {isApproved && (
-          <button
-            type="button"
-            id="proceed-step2-btn"
-            onClick={onProceedToStep2}
-            className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 group"
-          >
-            <span>{t(language, 'lead.completeStep2Btn')}</span>
-            <ChevronRight className="w-5 h-5 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
-          </button>
-        )}
-
-        {/* MOCK TOGGLE */}
-        <div className="mt-8 pt-6 border-t border-dashed border-slate-300 bg-slate-100/70 -mx-6 -mb-6 sm:-mx-8 sm:-mb-8 p-6 rounded-b-3xl">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              {t(language, 'lead.mockSimulatorTitle')}
-            </span>
-            <span className="text-[11px] text-slate-500 font-mono">
-              {t(language, 'lead.mockSimulatorBadge')}
-            </span>
-          </div>
-
-          <p className="text-xs text-slate-600 mb-3">
-            {t(language, 'lead.mockSimulatorDesc')}
-          </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleToggleLeadStatus('pending')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                activeLead.status === 'pending'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {t(language, 'lead.mockSimulatePending')}
-            </button>
-            <button
-              type="button"
-              id="simulate-approved-btn"
-              onClick={() => handleToggleLeadStatus('approved')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                activeLead.status === 'approved'
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {t(language, 'lead.mockSimulateApproved')}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ====================================================
-  // SCREEN 3: REGISTRATION & LEAD GENERATION FORM
-  // ====================================================
+  // 3. REGISTRATION & STEP 1 FORM (Reorganized order: Personal -> Account -> Docs -> Employment -> Loan)
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
+      {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
@@ -537,67 +390,33 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
         </p>
       </div>
 
-      <form onSubmit={handleSubmitLead} className="space-y-6">
-        {/* SECTION A: Account Credentials */}
-        <div className="space-y-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-blue-600" />
-            {t(language, 'lead.credentialsTitle')}
-          </h2>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              {t(language, 'lead.emailLabel')} <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com" // i18n-ignore
-                dir="ltr"
-                className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                  formErrors.email ? 'border-red-500' : 'border-slate-200'
-                }`}
-              />
-            </div>
-            {formErrors.email && (
-              <p className="text-[11px] text-red-500 mt-1">{formErrors.email}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              {t(language, 'lead.passwordLabel')} <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t(language, 'lead.passwordPlaceholder')}
-                dir="ltr"
-                className={`w-full ps-10 pe-10 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                  formErrors.password ? 'border-red-500' : 'border-slate-200'
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute end-3.5 top-3 text-slate-400 hover:text-slate-600"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {formErrors.password && (
-              <p className="text-[11px] text-red-500 mt-1">{formErrors.password}</p>
-            )}
+      {/* Google Sign-in Option at top if registering */}
+      {onGoogleSignIn && (
+        <div className="mb-6 pb-6 border-b border-slate-100 space-y-3">
+          <button
+            type="button"
+            onClick={() => onGoogleSignIn({ email: `google_${Date.now()}@gmail.com`, name: fullName || 'Google User' })}
+            className="w-full py-3 px-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2.5 shadow-2xs transition-all cursor-pointer"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+            </svg>
+            <span>{t(language, 'lead.continueWithGoogle')}</span>
+          </button>
+          <div className="relative text-center">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+            <span className="relative px-3 bg-white text-[11px] font-semibold text-slate-400">
+              {t(language, 'lead.orManualRegister')}
+            </span>
           </div>
         </div>
+      )}
 
-        {/* SECTION B: Personal Details */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* REORGANIZED SECTION 1: Personal Details */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
             <User className="w-3.5 h-3.5 text-blue-600" />
@@ -612,6 +431,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
               <input
                 type="text"
                 value={fullName}
+                disabled={isReadOnly}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={t(language, 'lead.fullNamePlaceholder')}
                 className={`w-full px-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
@@ -632,6 +452,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <input
                   type="tel"
                   value={phoneNumber}
+                  disabled={isReadOnly}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="050-123-4567"
                   dir="ltr"
@@ -654,14 +475,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
               <DateInput
                 id="dob-input"
                 value={dateOfBirth}
-                onChange={(val) => {
-                  setDateOfBirth(val);
-                  setFormErrors((prev) => {
-                    const c = { ...prev };
-                    delete c.dateOfBirth;
-                    return c;
-                  });
-                }}
+                onChange={(val) => setDateOfBirth(val)}
                 language={language}
                 max={new Date().toISOString().split('T')[0]}
                 required
@@ -681,6 +495,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <input
                   type="text"
                   value={address}
+                  disabled={isReadOnly}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder={t(language, 'lead.addressPlaceholder')}
                   className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
@@ -695,7 +510,98 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           </div>
         </div>
 
-        {/* SECTION C: Document Uploads */}
+        {/* REORGANIZED SECTION 2: Account Credentials (for unregistered users) */}
+        {onRegisterAccount && (
+          <div className="space-y-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-blue-600" />
+              {t(language, 'lead.credentialsTitle')}
+            </h2>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.emailLabel')} <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com" /* i18n-ignore */
+                  dir="ltr"
+                  className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                    formErrors.email ? 'border-red-500' : 'border-slate-200'
+                  }`}
+                />
+              </div>
+              {formErrors.email && (
+                <p className="text-[11px] text-red-500 mt-1">{formErrors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.passwordLabel')} <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t(language, 'lead.passwordPlaceholder')}
+                  dir="ltr"
+                  className={`w-full ps-10 pe-10 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                    formErrors.password ? 'border-red-500' : 'border-slate-200'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute end-3.5 top-3 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {formErrors.password && (
+                <p className="text-[11px] text-red-500 mt-1">{formErrors.password}</p>
+              )}
+            </div>
+
+            {/* OTP verification block */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">{t(language, 'lead.otpCodeLabel')}</span>
+                <button
+                  type="button"
+                  onClick={handleRequestOtp}
+                  disabled={isSendingOtp}
+                  className="text-xs text-blue-600 font-bold hover:underline"
+                >
+                  {isSendingOtp ? 'Sending...' : isOtpSent ? 'Resend SMS Code' : 'Send SMS Code'}
+                </button>
+              </div>
+
+              {isOtpSent && (
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  dir="ltr"
+                  className="w-full text-center text-sm font-mono tracking-widest py-2 rounded-xl border border-slate-300 bg-white"
+                />
+              )}
+              {formErrors.otpCode && (
+                <p className="text-[11px] text-red-500">{formErrors.otpCode}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* REORGANIZED SECTION 3: Verification Documents (Image or PDF) */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
             <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
@@ -723,12 +629,17 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <input
                   type="file"
                   accept="image/*,application/pdf"
+                  disabled={isReadOnly || uploadingField === 'passport'}
                   onChange={(e) => handleFileUpload(e, setPassportDoc, 'passportDoc')}
                   className="hidden"
                 />
                 <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
-                <span className="text-[11px] text-slate-600 truncate block">
-                  {passportDoc ? passportDoc.name : t(language, 'lead.uploadPlaceholder')}
+                <span className="text-[11px] text-slate-600 truncate block font-medium">
+                  {uploadingField === 'passport'
+                    ? 'Uploading...'
+                    : passportDoc
+                    ? passportDoc.originalName
+                    : t(language, 'lead.uploadPlaceholder')}
                 </span>
               </label>
               {formErrors.passportDoc && (
@@ -756,12 +667,17 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <input
                   type="file"
                   accept="image/*,application/pdf"
+                  disabled={isReadOnly || uploadingField === 'visa'}
                   onChange={(e) => handleFileUpload(e, setVisaDoc, 'visaDoc')}
                   className="hidden"
                 />
                 <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
-                <span className="text-[11px] text-slate-600 truncate block">
-                  {visaDoc ? visaDoc.name : t(language, 'lead.uploadPlaceholder')}
+                <span className="text-[11px] text-slate-600 truncate block font-medium">
+                  {uploadingField === 'visa'
+                    ? 'Uploading...'
+                    : visaDoc
+                    ? visaDoc.originalName
+                    : t(language, 'lead.uploadPlaceholder')}
                 </span>
               </label>
               {formErrors.visaDoc && (
@@ -789,12 +705,17 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <input
                   type="file"
                   accept="image/*,application/pdf"
+                  disabled={isReadOnly || uploadingField === 'payslip'}
                   onChange={(e) => handleFileUpload(e, setPayslipDoc, 'payslipDoc')}
                   className="hidden"
                 />
                 <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
-                <span className="text-[11px] text-slate-600 truncate block">
-                  {payslipDoc ? payslipDoc.name : t(language, 'lead.uploadPlaceholder')}
+                <span className="text-[11px] text-slate-600 truncate block font-medium">
+                  {uploadingField === 'payslip'
+                    ? 'Uploading...'
+                    : payslipDoc
+                    ? payslipDoc.originalName
+                    : t(language, 'lead.uploadPlaceholder')}
                 </span>
               </label>
               {formErrors.payslipDoc && (
@@ -804,7 +725,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           </div>
         </div>
 
-        {/* SECTION D: Employment Details */}
+        {/* REORGANIZED SECTION 4: Employment Details */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
             <Briefcase className="w-3.5 h-3.5 text-blue-600" />
@@ -822,6 +743,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
               <input
                 type="text"
                 value={employerName}
+                disabled={isReadOnly}
                 onChange={(e) => setEmployerName(e.target.value)}
                 placeholder={t(language, 'lead.employerNamePlaceholder')}
                 className={`w-full px-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
@@ -845,6 +767,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <input
                   type="text"
                   value={companyName}
+                  disabled={isReadOnly}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder={t(language, 'lead.companyNamePlaceholder')}
                   className={`w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
@@ -872,6 +795,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
               <input
                 type="text"
                 value={manpowerAgent}
+                disabled={isReadOnly}
                 onChange={(e) => setManpowerAgent(e.target.value)}
                 placeholder={t(language, 'lead.manpowerPlaceholder')}
                 className="w-full ps-10 pe-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
@@ -880,7 +804,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           </div>
         </div>
 
-        {/* SECTION E: Requested Loan Amount */}
+        {/* REORGANIZED SECTION 5: Requested Loan Amount */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
@@ -902,6 +826,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
               min={500}
               max={10000}
               step={500}
+              disabled={isReadOnly}
               value={requestedAmountNis}
               onChange={(e) => setRequestedAmountNis(Number(e.target.value))}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-4"
@@ -915,20 +840,28 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           </div>
         </div>
 
-        {/* Global Error Banner */}
-        {Object.keys(formErrors).length > 0 && (
+        {/* 2.3 MANDATORY GUARANTOR NOTICE (Immediately above submit button) */}
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0 text-amber-600" />
+          <span className="text-xs font-bold leading-relaxed">
+            {t(language, 'lead.mandatoryGuarantorNotice')}
+          </span>
+        </div>
+
+        {/* Global Error */}
+        {serverError && (
           <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-            <span>{t(language, 'lead.completeRequiredFields')}</span>
+            <span>{serverError}</span>
           </div>
         )}
 
         {/* Submit Button */}
         <button
           type="submit"
-          id="submit-lead-btn"
-          disabled={isSubmitting}
-          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+          id="submit-step1-btn"
+          disabled={isSubmitting || isReadOnly}
+          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           {isSubmitting ? (
             <span>{t(language, 'lead.submittingButton')}</span>
