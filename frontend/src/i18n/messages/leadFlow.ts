@@ -243,10 +243,12 @@ export const leadFlow: MessageModule = {
     'step3.sponsorIdOrPassport': 'ID or Passport Number',
     'step3.sponsorIdOrPassportPlaceholder': 'Israeli ID or Foreign Passport Number',
     'step3.loadingBreakdown': 'Loading financial figures...',
+    'step3.uploadingDoc': 'Uploading document...',
 
     // Hub keys
     'hub.staffCommunication': 'Staff Communication',
     'hub.notApproved': 'Application Not Approved',
+    'hub.notApprovedDefault': 'Criteria not met at this stage.',
     'hub.journeyTitle': '3-Step Application Journey',
     'hub.step1Title': 'Step 1: Registration & Loan Application',
     'hub.step1Sub': 'Personal, Verification Documents & Employment',
@@ -504,10 +506,12 @@ export const leadFlow: MessageModule = {
     'step3.sponsorIdOrPassport': 'מספר ת"ז או דרכון',
     'step3.sponsorIdOrPassportPlaceholder': 'תעודת זהות ישראלית או דרכון זר',
     'step3.loadingBreakdown': 'טוען נתונים פיננסיים...',
+    'step3.uploadingDoc': 'מעלה את המסמך...',
 
     // Hub keys
     'hub.staffCommunication': 'הודעת צוות',
     'hub.notApproved': 'הבקשה לא אושרה',
+    'hub.notApprovedDefault': 'הבקשה אינה עומדת בקריטריונים בשלב זה.',
     'hub.journeyTitle': 'מסלול הגשת הבקשה ב-3 שלבים',
     'hub.step1Title': 'שלב 1: הרשמה והגשת בקשה',
     'hub.step1Sub': 'פרטים אישיים, מסמכי אימות ותעסוקה',

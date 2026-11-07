@@ -380,7 +380,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
               <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
               <span className="text-[11px] text-slate-600 truncate block font-medium">
                 {isUploadingDoc
-                  ? 'Uploading document...'
+                  ? t(language, 'step3.uploadingDoc')
                   : bankDoc
                   ? bankDoc.originalName
                   : t(language, 'step2.uploadDocPlaceholder')}

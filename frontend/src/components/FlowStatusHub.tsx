@@ -107,7 +107,7 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
         <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 space-y-1">
           <span className="font-bold text-xs block">{t(language, 'hub.notApproved')}</span>
           <p className="text-xs leading-relaxed">
-            {application.rejection.reason || 'Criteria not met at this stage.'}
+            {application.rejection.reason || t(language, 'hub.notApprovedDefault')}
           </p>
         </div>
       )}

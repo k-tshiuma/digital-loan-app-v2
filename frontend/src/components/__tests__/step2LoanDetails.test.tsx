@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { Step2ApplicationCompletion } from '../Step2ApplicationCompletion';
 import { Step3FinalSubmission } from '../Step3FinalSubmission';
 import { LOAN_PERIOD_OPTIONS, MAX_REPAYMENT_PERIOD_MONTHS } from '../../config/appConfig';
-import { LeadData, LoanBreakdown } from '../../types';
+import { LeadData, LoanBreakdown, TermsVersionRecord } from '../../types';
 
 describe('Step 2 & Step 3 Workflow Details', () => {
   const dummyLead: LeadData = {
@@ -28,19 +28,20 @@ describe('Step 2 & Step 3 Workflow Details', () => {
   const dummyBreakdown: LoanBreakdown = {
     requestedAmountNis: 5000,
     repaymentPeriodMonths: 6,
-    interestRateAnnualPercent: 10.5,
-    totalInterestNis: 154,
-    serviceFeeRatePercent: 10,
-    totalServiceFeeNis: 500,
-    totalRepaymentNis: 5654,
-    monthlyRepaymentWithInterestNis: 859,
-    monthlyServiceFeeNis: 83,
+    interestRatePercent: 8.5,
+    totalInterestNis: 112,
+    totalServiceFeeNis: 350,
+    monthlyLoanRepaymentNis: 852,
+    monthlyServiceFeeNis: 58,
+    totalLoanRepaymentNis: 5112,
+    monthlyPaymentTotalNis: 910,
+    overallTotalNis: 5462,
     calculatedAt: new Date().toISOString(),
   };
 
-  const dummyTermsVersions = {
-    general: { version: '1.0', content: 'General Terms text...' },
-    service_fee: { version: '1.0', content: 'Service Fee Terms text...' },
+  const dummyTermsVersions: Record<string, TermsVersionRecord> = {
+    general: { type: 'general', version: '1.0', textEn: 'General Terms text...', textHe: 'תנאים כלליים...', sha256: 'a', effectiveFrom: '2026-01-01' },
+    service_fee: { type: 'service_fee', version: '1.0', textEn: 'Service Fee Terms text...', textHe: 'תנאי דמי שירות...', sha256: 'b', effectiveFrom: '2026-01-01' },
   };
 
   it('1. Repayment Period: only 3, 6, and 9 months are available and maximum is 9 months', () => {
