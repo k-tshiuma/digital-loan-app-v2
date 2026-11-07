@@ -100,6 +100,10 @@ describe('OTP login, then reload (App)', () => {
     );
   });
 
+  // The whole App renders here. With the full suite running files in parallel this can take longer
+  // than waitFor's 1 s default, so the waits get more room.
+  const slow = { timeout: 5000 };
+
   const renderApp = () =>
     render(
       <LanguageProvider initialLanguage="en">
@@ -118,17 +122,20 @@ describe('OTP login, then reload (App)', () => {
       const found = document.querySelectorAll<HTMLInputElement>('input[inputmode="numeric"][maxlength="1"]');
       expect(found.length).toBe(6);
       return found;
-    });
+    }, slow);
+    // Step2Auth focuses the first box 150 ms after the code is sent. Typing before that lets the late
+    // focus steal a digit (the code is then never complete), so wait for it like a user would.
+    await waitFor(() => expect(document.activeElement).toBe(boxes[0]), slow);
     for (let i = 0; i < 6; i++) await ui.type(boxes[i], String(i + 1));
 
-    await waitFor(() => expect(storageService.getCurrentUser()?.id).toBe(SERVER_ID));
+    await waitFor(() => expect(storageService.getCurrentUser()?.id).toBe(SERVER_ID), slow);
     expect(authTokens.subject()).toBe(SERVER_ID);
 
     // "Reload": unmount and mount the app again.
     first.unmount();
     calls = [];
     renderApp();
-    await waitFor(() => expect(calls).toContain(`GET /applications/active/${SERVER_ID}`));
+    await waitFor(() => expect(calls).toContain(`GET /applications/active/${SERVER_ID}`), slow);
     expect(calls.filter((c) => c.startsWith('GET /applications/active/') && !c.endsWith(SERVER_ID))).toEqual([]);
 
     // Sign out clears the token, so a reload does not sign the user back in.
@@ -136,5 +143,5 @@ describe('OTP login, then reload (App)', () => {
     await ui.click(document.querySelector('#user-signout-btn') as HTMLElement);
     expect(authTokens.get()).toBeNull();
     expect(storageService.getCurrentUser()).toBeNull();
-  });
+  }, 20000);
 });
