@@ -21,10 +21,10 @@ Backend (from `backend/`, port 5000 by default):
   - `node test_guarantors_and_scoring.js`
   - `node test_returning_user_prefill.js`
   - `node test_i18n.js` (port 5005; also starts a child server on 5006 with `DEMO_MODE=false`)
-  - `node test_workflow.js` (port 5012): the 3-step workflow, including the loan calculation checked against `fixtures/loan-calc-fixtures.json`
+  - `node test_workflow.js` (port 5012): the 3-step workflow, including the loan calculation checked against `fixtures/loan-calc-fixtures.json`. Run `node scripts/seed_staff.js` first: the test logs in as the seeded staff accounts and fails with a 401 at staff login if they don't exist.
   - `npm test` is a placeholder and does nothing.
 - Tests use the real `database.sqlite`. There is no separate test DB.
-- Seed scripts: `node scripts/seed_staff.js` creates one staff account per role (`admin@quickloan.co.il` etc.; the admin password comes from `ADMIN_INITIAL_PASSWORD`). `node scripts/seed_pending_application.js` creates an applicant waiting for Step 1 approval through the real API (backend must be running in demo mode; `API_URL` overrides the base URL).
+- Seed scripts: `node scripts/seed_staff.js` creates one staff account per role (`admin@`, `reviewer@`, `service@`, `funding@quickloan.co.il`). Passwords come from `ADMIN_/REVIEWER_/SERVICE_/FUNDING_INITIAL_PASSWORD`, with defaults such as `Admin123456!`; `test_workflow.js` expects the defaults. Existing accounts are left unchanged. `node scripts/seed_pending_application.js` creates an applicant waiting for Step 1 approval through the real API (backend must be running in demo mode; `API_URL` overrides the base URL).
 
 Frontend (from `frontend/`, port 3000):
 - `npm run dev`: Vite dev server
