@@ -1256,8 +1256,6 @@
 "4 app","app","lead.loanAmountTitle","Requested Loan Amount","סכום ההלוואה המבוקש","",""
 "4 app","app","lead.loanAmountLabel","Loan Amount:","סכום ההלוואה:","",""
 "4 app","app","lead.mandatoryGuarantorNotice","Loan applications must be submitted only with at least 1 guarantor.","יש להגיש בקשות הלוואה רק עם לפחות ערב 1.","",""
-"4 app","app","lead.continueWithGoogle","Sign up with Google","הרשמה באמצעות Google","",""
-"4 app","app","lead.orManualRegister","or register with phone & email","או הרשמה באמצעות טלפון ואימייל","",""
 "4 app","app","lead.otpVerificationTitle","Phone Verification","אימות מספר טלפון","",""
 "4 app","app","lead.otpVerificationDesc","Enter the 6-digit verification code sent via SMS to {phone}.","נא להזין את קוד האימות בן 6 הספרות שנשלח ב-SMS למספר {phone}.","",""
 "4 app","app","lead.otpCodeLabel","SMS Verification Code","קוד אימות SMS","",""

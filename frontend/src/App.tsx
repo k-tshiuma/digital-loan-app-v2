@@ -604,25 +604,6 @@ export default function App() {
                       setFlowApplication(res.application);
                     }
                   }}
-                  onGoogleSignIn={async (demo) => {
-                    const res = await apiService.flowGoogle({
-                      demo: {
-                        email: demo?.email || 'google_user@gmail.com',
-                        name: demo?.name || 'Google Applicant',
-                      },
-                      language: currentLanguage,
-                      registration: {
-                        disclaimerAccepted: true,
-                        locationGranted: true,
-                      },
-                    });
-                    if (res?.user) {
-                      setCurrentUser(storageService.adoptUser(res.user));
-                    }
-                    if (res?.application) {
-                      setFlowApplication(res.application);
-                    }
-                  }}
                   onSubmit={async (step1Data) => {
                     const updated = await apiService.submitFlowStep(1, step1Data);
                     if (updated) {
