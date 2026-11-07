@@ -21,9 +21,15 @@ export type StaffRole = Exclude<UserRole, 'borrower'>;
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Machine-readable error code from the backend (e.g. 'VALIDATION', 'ACCOUNT_EXISTS'). */
+  code?: string;
+  /** Per-field error codes from a VALIDATION response: { field: 'required' | 'invalid' | ... }. */
+  fieldErrors?: Record<string, string>;
+  constructor(message: string, status: number, details: { code?: string; fieldErrors?: Record<string, string> } = {}) {
     super(message);
     this.status = status;
+    this.code = details.code;
+    this.fieldErrors = details.fieldErrors;
   }
 }
 
@@ -105,7 +111,7 @@ async function request<T = any>(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) {
-    throw new ApiError(data.error || `Request failed (${res.status})`, res.status);
+    throw new ApiError(data.error || `Request failed (${res.status})`, res.status, { code: data.code, fieldErrors: data.fieldErrors });
   }
   return data as T;
 }
@@ -324,6 +330,8 @@ export const apiService = {
     code: string;
     language?: Language;
     registration: { disclaimerAccepted: boolean; locationGranted: boolean };
+    /** Files uploaded in this form before the account existed; the backend moves them to the new account. */
+    uploadedFiles?: string[];
   }): Promise<{ user: User; token: string; application: import('../types').FlowApplicationView }> {
     const res = await request<{ user: User; token: string; application: import('../types').FlowApplicationView }>(
       '/flow/register',

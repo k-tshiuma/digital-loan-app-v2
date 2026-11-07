@@ -584,7 +584,9 @@ export default function App() {
                     flowApplication?.stepStates[1] === 'pending' ||
                     flowApplication?.stepStates[1] === 'approved'
                   }
-                  onRegisterAccount={async (creds) => {
+                  // Once the account exists (registered, or signed in with a flow application) the form
+                  // only submits Step 1; a retry after a failed submit must not register again.
+                  onRegisterAccount={flowApplication ? undefined : async (creds) => {
                     const res = await apiService.flowRegister({
                       fullName: creds.fullName,
                       email: creds.email,
@@ -596,6 +598,7 @@ export default function App() {
                         disclaimerAccepted: true,
                         locationGranted: true,
                       },
+                      uploadedFiles: creds.uploadedFiles,
                     });
                     if (res?.user) {
                       setCurrentUser(storageService.adoptUser(res.user));

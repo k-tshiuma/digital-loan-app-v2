@@ -7,6 +7,7 @@
  * Every state change goes through services/workflow.js (the transition tables) and is written to
  * audit_log. The applicant is always resolved from the token; the client never supplies a userId.
  */
+const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { dbGet, dbAll, dbRun, newId, sha256, safeJson } = require('../services/dbHelpers');
@@ -29,6 +30,36 @@ const FLOW_UPDATE_COLS = ['requestNumber', 'isSubmitted', 'submittedAt', 'status
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const mask = (v) => { const s = String(v || ''); return s.length <= 4 ? '****' : `${'*'.repeat(s.length - 4)}${s.slice(-4)}`; };
+
+const MAX_ADOPTED_UPLOADS = 10;
+const ADOPT_UPLOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Documents picked in the Step 1 form are uploaded before the account exists, so they are owned by a
+ * guest identity: 'anonymous', DEMO_MODE's shared 'demo_user', or the `sub` of a stale token whose
+ * user no longer exists. Registration hands those files to the new account; otherwise cleanDocRef
+ * drops them and the Step 1 submit fails with "document required". Files owned by a real borrower
+ * or staff account, or older than the window, are never moved.
+ */
+async function adoptGuestUploads(filenames, userId) {
+  if (!Array.isArray(filenames)) return [];
+  const since = new Date(Date.now() - ADOPT_UPLOAD_WINDOW_MS).toISOString();
+  const adopted = [];
+  for (const raw of filenames.slice(0, MAX_ADOPTED_UPLOADS)) {
+    const filename = path.basename(String(raw || ''));
+    if (!filename || filename === '.' || filename === '..') continue;
+    const row = await dbGet('SELECT userId, createdAt FROM uploaded_files WHERE filename = ?', [filename]);
+    if (!row || row.userId === userId || row.createdAt < since) continue;
+    const isGuest = row.userId === 'anonymous' || row.userId === 'demo_user' || (
+      !(await dbGet('SELECT id FROM users WHERE id = ?', [row.userId]))
+      && !(await dbGet('SELECT id FROM staff_users WHERE id = ?', [row.userId]))
+    );
+    if (!isGuest) continue;
+    const r = await dbRun('UPDATE uploaded_files SET userId = ? WHERE filename = ? AND userId = ?', [userId, filename, row.userId]);
+    if (r && r.changes) adopted.push(filename);
+  }
+  return adopted;
+}
 
 function createRateLimiter(max, windowMs) {
   const hits = new Map();
@@ -296,6 +327,11 @@ module.exports = function createFlowRoutes(ctx) {
       }
       user = await dbGet('SELECT * FROM users WHERE id = ?', [user.id]);
       const application = await ensureFlowApp(user, { leadSource: 'manual', language: lang, phoneNumber: phone, phoneVerified: true, registration, req });
+      const adopted = await adoptGuestUploads(req.body.uploadedFiles, user.id);
+      if (adopted.length > 0) {
+        await audit(req, { applicationId: application.id, action: 'UPLOADS_ADOPTED', metadata: { count: adopted.length },
+          actor: { type: 'borrower', id: user.id, role: 'borrower', name: null } });
+      }
       res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: await applicantView(application, user) });
     });
 

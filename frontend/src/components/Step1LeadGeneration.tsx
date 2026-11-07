@@ -28,7 +28,8 @@ import {
 import { DateInput } from './DateInput';
 import { formatCurrency } from '../i18n/format';
 import { t } from '../i18n/translations';
-import { apiService } from '../services/api';
+import { localizeError } from '../i18n/apiErrors';
+import { apiService, ApiError } from '../services/api';
 
 interface Step1LeadGenerationProps {
   language?: Language;
@@ -39,7 +40,14 @@ interface Step1LeadGenerationProps {
   hasCompletedDisclaimer?: boolean;
   isReadOnly?: boolean;
   onSubmit?: (data: Step1FormData) => Promise<void>;
-  onRegisterAccount?: (creds: { fullName: string; email: string; phoneNumber: string; password: string; code: string }) => Promise<void>;
+  onRegisterAccount?: (creds: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    password: string;
+    code: string;
+    uploadedFiles: string[];
+  }) => Promise<void>;
   existingLead?: any;
   onLeadCreated?: (lead: any) => void;
   onLeadStatusChange?: (status: any) => void;
@@ -47,6 +55,37 @@ interface Step1LeadGenerationProps {
 }
 
 type Step1Phase = 'location' | 'disclaimer' | 'form';
+
+// Backend validation field (services/flowValidation.js validateStep1, /api/flow/register) ->
+// [form error slot, message key]. Document errors from the server mean the file was not accepted
+// for this account, so the applicant is asked to upload it again.
+const SERVER_FIELD_ERRORS: Record<string, [string, string]> = {
+  fullName: ['fullName', 'lead.err.fullName'],
+  phoneNumber: ['phoneNumber', 'lead.err.phoneNumber'],
+  dateOfBirth: ['dateOfBirth', 'lead.err.dob'],
+  address: ['address', 'lead.err.address'],
+  passport: ['passportDoc', 'lead.err.docReupload'],
+  visa: ['visaDoc', 'lead.err.docReupload'],
+  payslip: ['payslipDoc', 'lead.err.docReupload'],
+  employerName: ['employerName', 'lead.err.employer'],
+  companyName: ['companyName', 'lead.err.company'],
+  requestedAmountNis: ['requestedAmountNis', 'lead.err.amount'],
+  email: ['email', 'lead.err.email'],
+  password: ['password', 'lead.err.password'],
+};
+
+type FieldErrorMap = Record<string, string>;
+
+function mapServerFieldErrors(fieldErrors: FieldErrorMap, language: Language): FieldErrorMap {
+  const errs: FieldErrorMap = {};
+  for (const [field, code] of Object.entries(fieldErrors)) {
+    const entry = SERVER_FIELD_ERRORS[field];
+    if (!entry) continue;
+    const key = field === 'dateOfBirth' && code === 'invalid' ? 'lead.err.dobInvalid' : entry[1];
+    errs[entry[0]] = t(language, key);
+  }
+  return errs;
+}
 
 export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
   language = 'en',
@@ -221,7 +260,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     // Account registration credentials if not logged in
     if (onRegisterAccount) {
       if (!email.trim() || !email.includes('@')) errs.email = t(language, 'lead.err.email');
-      if (!password || password.length < 6) errs.password = t(language, 'lead.err.password');
+      if (!password || password.length < 8) errs.password = t(language, 'lead.err.password');
       if (!otpCode || otpCode.trim().length !== 6) errs.otpCode = 'Enter 6-digit code';
     }
 
@@ -244,6 +283,9 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           phoneNumber: phoneNumber.trim(),
           password,
           code: otpCode.trim(),
+          uploadedFiles: [passportDoc, visaDoc, payslipDoc]
+            .map((doc) => doc?.filename)
+            .filter((f): f is string => !!f),
         });
       }
 
@@ -268,8 +310,17 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           requestedAmountNis,
         },
       });
-    } catch (err: any) {
-      setServerError(err.message || 'Submission failed');
+    } catch (err: unknown) {
+      const fieldErrs = mapServerFieldErrors(err instanceof ApiError ? err.fieldErrors || {} : {}, language);
+      if (Object.keys(fieldErrs).length > 0) {
+        setFormErrors(fieldErrs);
+        if (fieldErrs.passportDoc) setPassportDoc(null);
+        if (fieldErrs.visaDoc) setVisaDoc(null);
+        if (fieldErrs.payslipDoc) setPayslipDoc(null);
+        setServerError(t(language, 'lead.completeRequiredFields'));
+      } else {
+        setServerError(localizeError(err, language));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -810,6 +861,9 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
               <span>{formatCurrency(5000, language)}</span>
               <span>{formatCurrency(10000, language)}</span>
             </div>
+            {formErrors.requestedAmountNis && (
+              <p className="text-[10px] text-red-500 mt-2">{formErrors.requestedAmountNis}</p>
+            )}
           </div>
         </div>
 

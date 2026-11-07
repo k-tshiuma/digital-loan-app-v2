@@ -72,7 +72,7 @@ export const leadFlow: MessageModule = {
 
     // Step 1 Validation Errors
     'lead.err.email': 'Valid email address is required',
-    'lead.err.password': 'Password must be at least 6 characters',
+    'lead.err.password': 'Password must be at least 8 characters',
     'lead.err.fullName': 'Full name is required',
     'lead.err.phoneNumber': 'Valid Israeli phone number is required (05X-XXXXXXX)',
     'lead.err.dob': 'Date of birth is required',
@@ -82,6 +82,9 @@ export const leadFlow: MessageModule = {
     'lead.err.payslip': 'Payslip document upload is required',
     'lead.err.employer': 'Employer name is required',
     'lead.err.company': 'Company name is required',
+    'lead.err.dobInvalid': 'Please enter a valid date of birth',
+    'lead.err.amount': 'Please choose a valid loan amount',
+    'lead.err.docReupload': 'Please upload this document again',
 
     // Step 1 Submitted / Pending / Approved screen
     'lead.statusBadge': 'Application Status: {status}',
@@ -341,7 +344,7 @@ export const leadFlow: MessageModule = {
 
     // Step 1 Validation Errors
     'lead.err.email': 'נא להזין כתובת אימייל תקינה',
-    'lead.err.password': 'הסיסמה חייבת להכיל לפחות 6 תווים',
+    'lead.err.password': 'הסיסמה חייבת להכיל לפחות 8 תווים',
     'lead.err.fullName': 'נא להזין שם מלא',
     'lead.err.phoneNumber': 'נא להזין מספר טלפון ישראלי תקין (05X-XXXXXXX)',
     'lead.err.dob': 'נא להזין תאריך לידה',
@@ -351,6 +354,9 @@ export const leadFlow: MessageModule = {
     'lead.err.payslip': 'נדרש לצרף תלוש שכר',
     'lead.err.employer': 'נא להזין שם מעסיק',
     'lead.err.company': 'נא להזין שם חברה',
+    'lead.err.dobInvalid': 'נא להזין תאריך לידה תקין',
+    'lead.err.amount': 'נא לבחור סכום הלוואה תקין',
+    'lead.err.docReupload': 'נא להעלות את המסמך הזה שוב',
 
     // Step 1 Submitted / Pending / Approved screen
     'lead.statusBadge': 'סטטוס בקשה: {status}',

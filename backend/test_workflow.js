@@ -367,6 +367,58 @@ async function runTests() {
     assert.strictEqual(finalApprove.body.flowStatus, 'LOAN_APPROVED');
     console.log('  ✓ PASS: Final decision mapped successfully to LOAN_APPROVED\n');
 
+    // 10. Documents uploaded in the Step 1 form before registration move to the new account
+    console.log('--- 10. GUEST UPLOADS ADOPTED AT REGISTRATION ---');
+    const { dbGet: ownerDbGet } = require('./services/dbHelpers');
+    const ownerOf = async (f) => (await ownerDbGet('SELECT userId FROM uploaded_files WHERE filename = ?', [f])).userId;
+    const registerApplicant = async (name, uploadedFiles) => {
+      const phone = '053' + Math.floor(1000000 + Math.random() * 9000000);
+      const otp = await request('POST', '/api/users/request-otp', { phoneNumber: phone });
+      const res = await request('POST', '/api/flow/register', {
+        fullName: name,
+        email: `${name.split(' ')[0].toLowerCase()}_${Date.now()}@example.com`,
+        password: 'StrongPassword123!',
+        phoneNumber: phone,
+        code: otp.body.demoCode || '123456',
+        language: 'en',
+        registration: { disclaimerAccepted: true, locationGranted: true },
+        uploadedFiles,
+      });
+      assert.strictEqual(res.status, 200, `Registration failed: ${JSON.stringify(res.body)}`);
+      return { phone, token: res.body.token, userId: res.body.user.id };
+    };
+    const step1Payload = (phone, docs) => ({
+      data: {
+        personal: { fullName: 'Guest Uploader', phoneNumber: phone, dateOfBirth: '1990-01-01', address: 'Allenby 1, Tel Aviv' },
+        documents: docs,
+        employment: { employerName: 'Employer', companyName: 'Company Ltd' },
+        loan: { requestedAmountNis: 5000 },
+      },
+    });
+    const guestUpload = async (name) => {
+      const r = await uploadDummyFile(name, 'application/pdf', pdfMagic, null);
+      assert.strictEqual(r.status, 200);
+      return r.body.file;
+    };
+
+    const guestDocs = { passport: await guestUpload('passport.pdf'), visa: await guestUpload('visa.pdf'), payslip: await guestUpload('payslip.pdf') };
+    // A file that belongs to a real account must never be handed to someone else.
+    const ownedByFirstApplicant = (await uploadDummyFile('other.pdf', 'application/pdf', pdfMagic, applicantToken)).body.file.filename;
+    const adopter = await registerApplicant('Adopter Applicant', [...Object.values(guestDocs).map((d) => d.filename), ownedByFirstApplicant]);
+    for (const d of Object.values(guestDocs)) assert.strictEqual(await ownerOf(d.filename), adopter.userId, 'Guest upload should move to the new account');
+    assert.strictEqual(await ownerOf(ownedByFirstApplicant), regRes.body.user.id, 'Another account\'s file must not be adopted');
+    const adoptedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(adopter.phone, guestDocs), adopter.token);
+    assert.strictEqual(adoptedSubmit.status, 200, `Step 1 with adopted documents failed: ${JSON.stringify(adoptedSubmit.body)}`);
+    console.log('  ✓ PASS: Guest uploads adopted at registration; Step 1 accepted them\n');
+
+    // Without adoption the server reports each rejected document as a field error the form can highlight.
+    const strayDocs = { passport: await guestUpload('passport.pdf'), visa: await guestUpload('visa.pdf'), payslip: await guestUpload('payslip.pdf') };
+    const nonAdopter = await registerApplicant('Plain Applicant');
+    const rejectedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(nonAdopter.phone, strayDocs), nonAdopter.token);
+    assert.strictEqual(rejectedSubmit.status, 422);
+    assert.deepStrictEqual(rejectedSubmit.body.fieldErrors, { passport: 'required', visa: 'required', payslip: 'required' });
+    console.log('  ✓ PASS: Unowned documents come back as passport/visa/payslip field errors\n');
+
     console.log('====================================================');
     console.log('🎉 ALL 3-STEP WORKFLOW TESTS PASSED ACCURATELY!');
     console.log('====================================================\n');
