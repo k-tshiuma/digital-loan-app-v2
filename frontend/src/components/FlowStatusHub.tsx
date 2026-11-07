@@ -54,6 +54,28 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
     }
   };
 
+  /** Text for each step state, so it is not shown by the icon alone. */
+  const getStepStateLabel = (state: string) => {
+    switch (state) {
+      case 'approved':
+        return { text: t(language, 'hub.state.approved'), color: 'text-emerald-700' };
+      case 'pending':
+        return { text: t(language, 'hub.state.pending'), color: 'text-amber-700' };
+      case 'submitted':
+        return { text: t(language, 'hub.state.submitted'), color: 'text-blue-700' };
+      case 'changes_requested':
+        return { text: t(language, 'hub.state.changes_requested'), color: 'text-red-600' };
+      case 'available':
+        return { text: t(language, 'hub.state.available'), color: 'text-blue-700' };
+      case 'draft':
+        return { text: t(language, 'hub.state.draft'), color: 'text-slate-600' };
+      case 'rejected':
+        return { text: t(language, 'hub.state.rejected'), color: 'text-red-700' };
+      default:
+        return { text: t(language, 'hub.state.locked'), color: 'text-slate-500' };
+    }
+  };
+
   const stepCards = [
     { step: 1 as const, title: t(language, 'hub.step1Title'), sub: t(language, 'hub.step1Sub') },
     { step: 2 as const, title: t(language, 'hub.step2Title'), sub: t(language, 'hub.step2Sub') },
@@ -127,6 +149,7 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
         <div className="space-y-2.5">
           {stepCards.map(({ step, title, sub }) => {
             const unlocked = step === 1 || application.unlockedStep >= step;
+            const stateLabel = getStepStateLabel(application.stepStates[step]);
             return (
               <button
                 key={step}
@@ -150,7 +173,10 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
                     </span>
                   </span>
                 </span>
-                <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />
+                <span className="flex items-center gap-1.5 shrink-0 ms-2">
+                  <span className={`text-[11px] font-semibold ${stateLabel.color}`}>{stateLabel.text}</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />
+                </span>
               </button>
             );
           })}

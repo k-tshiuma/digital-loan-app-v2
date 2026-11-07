@@ -263,6 +263,14 @@ export const leadFlow: MessageModule = {
     'hub.loan': 'Loan:',
     'hub.term': 'Term:',
     'hub.months': '{n} months',
+    'hub.state.locked': 'Locked',
+    'hub.state.available': 'Ready to fill in',
+    'hub.state.draft': 'Draft saved',
+    'hub.state.changes_requested': 'Changes requested',
+    'hub.state.pending': 'Waiting for approval',
+    'hub.state.approved': 'Approved',
+    'hub.state.submitted': 'Submitted',
+    'hub.state.rejected': 'Not approved',
   },
   he: {
     // Flow Tabs in App.tsx
@@ -526,5 +534,13 @@ export const leadFlow: MessageModule = {
     'hub.loan': 'סכום הלוואה:',
     'hub.term': 'תקופה:',
     'hub.months': '{n} חודשים',
+    'hub.state.locked': 'נעול',
+    'hub.state.available': 'זמין למילוי',
+    'hub.state.draft': 'טיוטה נשמרה',
+    'hub.state.changes_requested': 'נדרשים תיקונים',
+    'hub.state.pending': 'ממתין לאישור',
+    'hub.state.approved': 'אושר',
+    'hub.state.submitted': 'הוגש',
+    'hub.state.rejected': 'לא אושר',
   },
 };

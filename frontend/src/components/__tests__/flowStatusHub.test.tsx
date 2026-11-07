@@ -179,6 +179,33 @@ describe('FlowStatusHub', () => {
     expect(screen.getByText(/6 months/)).toBeInTheDocument();
   });
 
+  it('names each step state in text, not only with an icon', () => {
+    const app = makeApp({
+      flowStatus: 'STEP2_CHANGES_REQUESTED',
+      unlockedStep: 2,
+      stepStates: { 1: 'approved', 2: 'changes_requested', 3: 'locked' },
+    });
+    const { unmount } = render(<FlowStatusHub application={app} language="en" onNavigateToStep={vi.fn()} />);
+
+    expect(card(/Step 1: Registration & Loan Application/)).toHaveAccessibleName(/Approved$/);
+    expect(card(/Step 2: Sponsors & Loan Duration/)).toHaveAccessibleName(/Changes requested$/);
+    expect(card(/Step 3: Bank Details & Final Submission/)).toHaveAccessibleName(/Locked$/);
+    unmount();
+
+    const states = { available: 'Ready to fill in', pending: 'Waiting for approval', submitted: 'Submitted', rejected: 'Not approved' } as const;
+    for (const [state, label] of Object.entries(states)) {
+      const { unmount: done } = render(
+        <FlowStatusHub application={makeApp({ stepStates: { 1: state as any, 2: 'locked', 3: 'locked' } })} language="en" onNavigateToStep={vi.fn()} />
+      );
+      expect(card(/Step 1: Registration & Loan Application/)).toHaveAccessibleName(new RegExp(`${label}$`));
+      done();
+    }
+
+    render(<FlowStatusHub application={app} language="he" onNavigateToStep={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /שלב 1/ })).toHaveAccessibleName(/אושר$/);
+    expect(screen.getByRole('button', { name: /שלב 2/ })).toHaveAccessibleName(/נדרשים תיקונים$/);
+  });
+
   it('renders in Hebrew', () => {
     render(<FlowStatusHub application={makeApp()} language="he" onNavigateToStep={vi.fn()} />);
 
