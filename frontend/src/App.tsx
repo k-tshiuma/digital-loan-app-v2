@@ -3,7 +3,6 @@ import {
   Language,
   LoanApplication,
   User,
-  UserRole,
   BorrowerDetails,
   ResidencyDetails,
   EmploymentDetails,
@@ -34,13 +33,12 @@ import { Step1LeadGeneration } from './components/Step1LeadGeneration';
 import { Step2ApplicationCompletion } from './components/Step2ApplicationCompletion';
 import { Step3FinalSubmission } from './components/Step3FinalSubmission';
 import { FlowStatusHub } from './components/FlowStatusHub';
-import { BackOffice } from './components/BackOffice';
-import { StaffLoginGate } from './components/StaffLoginGate';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
 import { ErrorBoundary } from '@quickloan/ui-core/components/ErrorBoundary';
 import { storageService } from '@quickloan/ui-core/services/storage';
-import { apiService, authTokens, StaffAccount, StaffRole } from './services/api';
+import { apiService, authTokens } from './services/api';
+import { goToAdminPortal } from './utils/portalRedirect';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from '@quickloan/ui-core/i18n/translations';
 import { LeadData, LeadStatus, FlowApplicationView, Step1FormData, Step2FormData, Step3FormData, TermsVersionRecord } from '@quickloan/ui-core/types';
@@ -71,10 +69,6 @@ export default function App() {
   const [application, setApplication] = useState<LoanApplication | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(() => (storageService.getCurrentUser() ? 3 : 2));
   const [isBackOfficeRoute, setIsBackOfficeRoute] = useState<boolean>(() => detectBackOfficeUrl());
-  const [staffSession, setStaffSession] = useState<{ role: StaffRole; token: string; staff?: StaffAccount } | null>(() =>
-    authTokens.getStaffSession()
-  );
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => authTokens.getStaffSession()?.role || 'credit_reviewer');
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [isMyAppsOpen, setIsMyAppsOpen] = useState<boolean>(false);
@@ -416,49 +410,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleReturnToPublicSite = () => {
-    if (typeof window !== 'undefined') {
-      window.history.replaceState({}, '', '/');
-    }
-    setIsBackOfficeRoute(false);
-  };
+  // The Back Office is a separate app (admin-app/frontend); old /backoffice and /admin links go there.
+  useEffect(() => {
+    if (isBackOfficeRoute) goToAdminPortal();
+  }, [isBackOfficeRoute]);
 
-  const handleStaffSignOut = () => {
-    authTokens.clearStaff();
-    setStaffSession(null);
-  };
-
-  const isClientSessionActive = Boolean(currentUser || authTokens.get());
-
-  if (isBackOfficeRoute) {
-    if (isClientSessionActive || !staffSession) {
-      return (
-        <StaffLoginGate
-          language={currentLanguage}
-          onLanguageChange={handleLanguageSelect}
-          isClientBlocked={isClientSessionActive}
-          onAuthenticated={(staff, token) => {
-            setStaffSession({ role: staff.role, token, staff });
-            setCurrentRole(staff.role);
-          }}
-          onReturnToPublic={handleReturnToPublicSite}
-        />
-      );
-    }
-
-    return (
-      <BackOffice
-        language={currentLanguage}
-        currentRole={currentRole === 'borrower' ? staffSession.role : currentRole}
-        onRoleChange={(nextRole) => {
-          if (nextRole === 'borrower') return;
-          setCurrentRole(nextRole);
-        }}
-        staffName={staffSession.staff?.fullName}
-        onCloseBackOffice={handleStaffSignOut}
-      />
-    );
-  }
+  if (isBackOfficeRoute) return null;
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] relative overflow-x-hidden flex flex-col font-sans text-slate-900 antialiased selection:bg-blue-600 selection:text-white">

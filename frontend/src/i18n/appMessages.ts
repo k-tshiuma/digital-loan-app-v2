@@ -3,7 +3,6 @@
 import { registerMessages } from '@quickloan/ui-core/i18n/translations';
 import { auth } from './messages/auth';
 import { wizard } from './messages/wizard';
-import { backoffice } from './messages/backoffice';
 import { leadFlow } from './messages/leadFlow';
 
-registerMessages({ auth, wizard, backoffice, leadFlow });
+registerMessages({ auth, wizard, leadFlow });

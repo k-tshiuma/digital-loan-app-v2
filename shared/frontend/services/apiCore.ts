@@ -1,6 +1,6 @@
 // The backend request core shared by both apps: base URL, error type, token storage and the request
 // helper. Each app builds its own endpoint methods on top of it (see api.ts).
-import { User, UserRole } from '../types';
+import { User, UserRole, LoanApplication, Language } from '../types';
 
 export const API_BASE_URL: string =
   ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL) || 'http://localhost:5000/api';
@@ -153,4 +153,53 @@ export function triggerDownload(blob: Blob, filename: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Absolute, token-bearing URL for <img src> / <a href> to a server-stored file. */
+export function resolveFileUrl(url: string | undefined, scope: ApiScope = 'borrower'): string | undefined {
+  if (!url) return undefined;
+  if (!url.startsWith('/api/')) return url;
+  const token = scope === 'staff' ? authTokens.getStaff() : authTokens.get();
+  return `${API_ORIGIN}${url}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+}
+
+/** `language` picks the PDF language (the language on screen); without it the backend uses the application's. */
+export async function downloadApplicationPdf(
+  app: LoanApplication | Pick<LoanApplication, 'id' | 'requestNumber'>,
+  scope: ApiScope = 'borrower',
+  language?: Language
+): Promise<void> {
+  const token = scope === 'staff' ? authTokens.getStaff() : authTokens.get();
+  const pdfUrl = `${API_BASE_URL}/applications/${app.id}/pdf${language ? `?lang=${encodeURIComponent(language)}` : ''}`;
+  let res: Response | null = null;
+
+  try {
+    res = await fetch(pdfUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(app),
+    });
+  } catch {
+    // POST attempt failed; fallback to GET
+  }
+
+  if (!res || !res.ok) {
+    try {
+      res = await fetch(pdfUrl, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch (err) {
+      throw new ApiError('Could not connect to server. Please verify the backend is running.', 0);
+    }
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(data.error || `PDF export failed (${res.status})`, res.status);
+  }
+  triggerDownload(await res.blob(), `${app.requestNumber || app.id}.pdf`);
 }

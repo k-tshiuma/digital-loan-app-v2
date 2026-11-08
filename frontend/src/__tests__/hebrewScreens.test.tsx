@@ -11,29 +11,8 @@ import { authTokens } from '../services/api';
 import { Step2Auth } from '../components/Step2Auth';
 import { Step10SubmissionSuccess } from '../components/Step10SubmissionSuccess';
 import { Step11StatusTimeline } from '../components/Step11StatusTimeline';
-import { BackOffice } from '../components/BackOffice';
-import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
 import { LoanApplication } from '@quickloan/ui-core/types';
-
-/** Two or more Latin words in a row (e.g. "Loan Details"). Single brand words like "QuickLoan" are fine. */
-const ENGLISH_SENTENCE = /\b[A-Za-z]{3,}(?:\s+[A-Za-z]{3,})+\b/;
-
-/** Visible English sentences inside an element, ignoring user data passed in `allow`. */
-function englishIn(el: HTMLElement, allow: string[] = []): string[] {
-  let text = el.textContent || '';
-  for (const a of allow) text = text.split(a).join(' ');
-  const found: string[] = [];
-  const re = new RegExp(ENGLISH_SENTENCE.source, 'g');
-  for (const m of text.matchAll(re)) found.push(m[0]);
-  const attrs = [...el.querySelectorAll('[placeholder],[title],[aria-label]')].flatMap((n) =>
-    ['placeholder', 'title', 'aria-label'].map((a) => n.getAttribute(a) || '')
-  );
-  for (let a of attrs) {
-    for (const x of allow) a = a.split(x).join(' ');
-    if (ENGLISH_SENTENCE.test(a)) found.push(`[attr] ${a}`);
-  }
-  return found;
-}
+import { englishIn } from '@quickloan/ui-core/test-utils/hebrewText';
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
@@ -167,39 +146,5 @@ describe('Wizard steps in Hebrew (T3.3)', () => {
     expect(text).toMatch(/8,000 ?₪/);
     expect(text).toMatch(/912\.50 ?₪/);
     expect(text).not.toMatch(/₪ ?\d/);
-  });
-});
-
-describe('Back office in Hebrew (T3.5)', () => {
-  it('queue headers, filters and actions are Hebrew; the inspector shows Hebrew sections', async () => {
-    const user = userEvent.setup();
-    render(<BackOffice language="he" currentRole="credit_reviewer" onRoleChange={() => {}} onCloseBackOffice={() => {}} />);
-
-    const table = screen.getByRole('table');
-    const headerRow = within(table).getAllByRole('row')[0];
-    expect(englishIn(headerRow)).toEqual([]);
-    expect(within(headerRow).getByText(t('he', 'bo.col.borrower'))).toBeInTheDocument();
-
-    const statusFilter = screen.getByDisplayValue(t('he', 'bo.allStatuses', { n: storageService.getAllApplications().length }));
-    expect(within(statusFilter).getByText(t('he', 'statusUnderReview'))).toBeInTheDocument();
-
-    const inspect = screen.getAllByRole('button', { name: t('he', 'bo.inspect') });
-    expect(inspect.length).toBeGreaterThan(0);
-    await user.click(inspect[0]);
-
-    expect(screen.getByText(t('he', 'bo.borrowerProfile'))).toBeInTheDocument();
-    expect(screen.getByText(t('he', 'bo.riskTitle'))).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: t('he', 'bo.approve') })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: t('he', 'bo.reject') })).toBeInTheDocument();
-  });
-});
-
-describe('Analytics dashboard in Hebrew (T3.7)', () => {
-  it('titles and KPI labels are Hebrew', () => {
-    const { container } = render(<AnalyticsDashboard applications={storageService.getAllApplications()} language="he" />);
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(t('he', 'an.title'));
-    expect(screen.getByText(t('he', 'an.totalApps'))).toBeInTheDocument();
-    expect(screen.getByText(t('he', 'an.approvalRate'))).toBeInTheDocument();
-    expect(englishIn(container)).toEqual([]);
   });
 });

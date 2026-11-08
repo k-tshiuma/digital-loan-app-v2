@@ -267,6 +267,12 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
 - **Both apps still use the current backend,** so the frontend split is proven before the backend is touched. Dev ports: borrower 3000, admin 3001.
 - **Verify:** each app builds and tests on its own; the borrower `dist/` contains no `BackOffice`, `StaffLoginGate` or `quickloan_staff_token_v1`; both portals work through manual walk-throughs.
 
+- **Done (2026-11-09).** Additions and gaps compared with the steps above:
+  - Shared code used text from app-only groups (`elig.*` and `visa.err.*` from `wizard`; role, risk and quality labels from `backoffice`). Those 53 keys moved to new shared groups (`eligibility`, `validation`, `labels`); the dictionary was checked identical before the split, and after it each app was checked to contain every key its files and the shared files name.
+  - The i18n/RTL guard tests became shared functions (`shared/frontend/test-utils/i18nGuards.ts`) that each suite runs on its own files and dictionary; shared code has its own suite (`npm test` in `shared/frontend`), and the backend-reading tests moved to `tests/contracts/` (`npm run test:contracts`), which Phase 4 had deferred.
+  - The shared global styles moved to `shared/frontend/styles/base.css`; the Hebrew review script moved to the root `scripts/` because it reads both apps.
+  - Still open: the borrower bundle contains the staff-token storage key, because the shared `authTokens` helper serves both apps. Splitting it goes with removing the dead staff branches (Phase 9).
+  - The walk-through was HTTP-level only (both dev servers and the backend running, staff login from the admin origin); a click-through in a browser is still to be done.
 ### Phase 6: Two backend processes (required)
 
 - **Do:**

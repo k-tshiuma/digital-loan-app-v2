@@ -4,6 +4,13 @@
   "description": "QuickLoan monorepo root. Only declares npm workspaces; each app keeps its own scripts. See docs/app-separation-plan.md.",
   "workspaces": [
     "frontend",
+    "admin-app/frontend",
     "shared/frontend"
-  ]
+  ],
+  "scripts": {
+    "test:contracts": "vitest run --config tests/contracts/vitest.config.ts"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
 }
