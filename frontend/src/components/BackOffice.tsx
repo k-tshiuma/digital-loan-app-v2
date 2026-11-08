@@ -71,6 +71,7 @@ interface BackOfficeProps {
   currentRole: UserRole;
   onRoleChange: (role: UserRole) => void;
   onCloseBackOffice: () => void;
+  staffName?: string;
 }
 
 export const BackOffice: React.FC<BackOfficeProps> = ({
@@ -78,6 +79,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   currentRole,
   onRoleChange,
   onCloseBackOffice,
+  staffName,
 }) => {
   const [applications, setApplications] = useState<LoanApplication[]>(() =>
     storageService.getAllApplications()
@@ -358,6 +360,37 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     setTimeout(() => setActionSuccessMessage(null), 3000);
   };
 
+  // Strict internal-only guard: clients / borrower role can never view the Back Office
+  if (currentRole === 'borrower') {
+    return (
+      <div
+        data-testid="backoffice-borrower-denied"
+        className="min-h-screen bg-[#0b1a2d] text-white flex items-center justify-center p-4"
+      >
+        <div className="w-full max-w-md bg-white text-slate-900 rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-5 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-lg font-extrabold text-slate-900">
+              {t(language, 'bo.accessDenied.title')}
+            </h1>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {t(language, 'bo.accessDenied.clientBody')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCloseBackOffice}
+            className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-xs"
+          >
+            {t(language, 'bo.accessDenied.returnBtn')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col animate-in fade-in">
       {/* Top Admin Navigation Bar */}
@@ -381,15 +414,20 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* RBAC Role Selector */}
+            {staffName && (
+              <span className="text-xs text-slate-300 font-semibold hidden sm:inline">
+                {staffName}
+              </span>
+            )}
+            {/* RBAC Role Selector — strictly authorized internal staff roles only */}
             <div className="flex items-center gap-1.5 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700">
               <span className="text-xs text-slate-400 font-medium">{t(language, 'bo.role')}</span>
               <select
+                data-testid="backoffice-role-select"
                 value={currentRole}
                 onChange={(e) => onRoleChange(e.target.value as UserRole)}
                 className="bg-transparent text-xs font-bold text-sky-300 focus:outline-none cursor-pointer capitalize"
               >
-                <option value="borrower" className="bg-[#0b1a2d] text-white">{roleLabel(language, 'borrower')}</option>
                 <option value="customer_service" className="bg-[#0b1a2d] text-white">{roleLabel(language, 'customer_service')}</option>
                 <option value="credit_reviewer" className="bg-[#0b1a2d] text-white">{roleLabel(language, 'credit_reviewer')}</option>
                 <option value="system_admin" className="bg-[#0b1a2d] text-white">{roleLabel(language, 'system_admin')}</option>
@@ -402,7 +440,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
               onClick={onCloseBackOffice}
               className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors shadow-2xs"
             >
-              {t(language, 'bo.returnToBorrower')}
+              {t(language, 'bo.staffSignOut')}
             </button>
           </div>
         </div>
@@ -596,7 +634,10 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                             <td className="py-3.5 px-4">
                               <span className="font-mono"><bdi dir="ltr">{(app as any).passportNumber || (app as any).step1Data?.personal?.passportNumber || app.borrowerDetails?.passportNumber || '—'}</bdi></span>
                               <span className="text-[11px] text-slate-500 block">
-                                {optionLabel(language, 'country', (app as any).countryOfOrigin || (app as any).step1Data?.personal?.countryOfOrigin || app.borrowerDetails?.countryOfOrigin)}
+                                {(() => {
+                                  const c = (app as any).countryOfOrigin || (app as any).step1Data?.personal?.countryOfOrigin || app.borrowerDetails?.countryOfOrigin;
+                                  return c ? optionLabel(language, 'country', c) : '—';
+                                })()}
                               </span>
                             </td>
                             <td className="py-3.5 px-4">
@@ -1035,32 +1076,59 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                   <div className="font-bold text-slate-900  text-[11px] border-b pb-1">
                     {t(language, 'bo.borrowerProfile')}
                   </div>
-                  <div><span className="text-slate-400">{t(language, 'bo.fullName')}</span> <span className="font-bold text-slate-900">{selectedApp.borrowerDetails?.fullName}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'bo.passport')}</span> <span className="font-mono font-bold">{selectedApp.borrowerDetails?.passportNumber}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'bo.originDob')}</span> {optionLabel(language, 'country', selectedApp.borrowerDetails?.countryOfOrigin)} ({formatDate(selectedApp.borrowerDetails?.dateOfBirth, language)})</div>
-                  <div><span className="text-slate-400">{t(language, 'bo.phone')}</span> <bdi dir="ltr">{selectedApp.borrowerDetails?.mobilePhoneNumber}</bdi></div>
-                  <div><span className="text-slate-400">{t(language, 'bo.address')}</span> {selectedApp.borrowerDetails?.addressFull}</div>
+                  <div><span className="text-slate-400">{t(language, 'bo.fullName')}</span> <span className="font-bold text-slate-900">{selectedApp.borrowerDetails?.fullName || (selectedApp as any).step1Data?.personal?.fullName || '—'}</span></div>
+                  <div><span className="text-slate-400">{t(language, 'bo.passport')}</span> <span className="font-mono font-bold"><bdi dir="ltr">{(selectedApp as any).step1Data?.personal?.passportNumber || selectedApp.borrowerDetails?.passportNumber || '—'}</bdi></span></div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'bo.origin')}</span>{' '}
+                    <span className="font-semibold text-slate-900">
+                      {((selectedApp as any).step1Data?.personal?.countryOfOrigin || selectedApp.borrowerDetails?.countryOfOrigin)
+                        ? optionLabel(language, 'country', (selectedApp as any).step1Data?.personal?.countryOfOrigin || selectedApp.borrowerDetails?.countryOfOrigin)
+                        : '—'}
+                    </span>
+                  </div>
+                  <div><span className="text-slate-400">{t(language, 'bo.dob')}</span> {(selectedApp.borrowerDetails?.dateOfBirth || (selectedApp as any).step1Data?.personal?.dateOfBirth) ? formatDate(selectedApp.borrowerDetails?.dateOfBirth || (selectedApp as any).step1Data?.personal?.dateOfBirth, language) : '—'}</div>
+                  <div><span className="text-slate-400">{t(language, 'bo.phone')}</span> <bdi dir="ltr">{selectedApp.borrowerDetails?.mobilePhoneNumber || (selectedApp as any).step1Data?.personal?.phoneNumber || '—'}</bdi></div>
+                  <div><span className="text-slate-400">{t(language, 'bo.address')}</span> {selectedApp.borrowerDetails?.addressFull || (selectedApp as any).step1Data?.personal?.address || '—'}</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="font-bold text-slate-900  text-[11px] border-b pb-1">
                     {t(language, 'bo.residencyEmployment')}
                   </div>
-                  <div><span className="text-slate-400">{t(language, 'bo.visaType')}</span> <span className="font-bold">{optionLabel(language, 'visa', selectedApp.residencyDetails?.visaType)}</span></div>
-                  {(selectedApp.residencyDetails?.visaStartDate || (selectedApp as any).step1Data?.personal?.visaStartDate) && (
-                    <div>
-                      <span className="text-slate-400">{t(language, 'bo.visaValidity')}</span>{' '}
-                      <bdi dir="ltr">
-                        {formatDate(selectedApp.residencyDetails?.visaStartDate || (selectedApp as any).step1Data?.personal?.visaStartDate, language)}
-                        {' – '}
-                        {formatDate(selectedApp.residencyDetails?.visaExpiryDate || (selectedApp as any).step1Data?.personal?.visaExpiryDate, language)}
-                      </bdi>
-                    </div>
-                  )}
-                  <div><span className="text-slate-400">{t(language, 'bo.visaExpiry')}</span> {formatDate(selectedApp.residencyDetails?.visaExpiryDate || (selectedApp as any).step1Data?.personal?.visaExpiryDate, language)}</div>
+                  <div><span className="text-slate-400">{t(language, 'bo.visaType')}</span> <span className="font-bold">{selectedApp.residencyDetails?.visaType ? optionLabel(language, 'visa', selectedApp.residencyDetails.visaType) : '—'}</span></div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'bo.visaValidity')}</span>{' '}
+                    {(() => {
+                      const vStart = (selectedApp as any).step1Data?.personal?.visaStartDate || selectedApp.residencyDetails?.visaStartDate;
+                      const vEnd = (selectedApp as any).step1Data?.personal?.visaExpiryDate || selectedApp.residencyDetails?.visaExpiryDate;
+                      if (vStart && vEnd) {
+                        return (
+                          <bdi dir="ltr" className="font-semibold text-slate-900">
+                            {formatDate(vStart, language)} – {formatDate(vEnd, language)}
+                          </bdi>
+                        );
+                      }
+                      if (vEnd) {
+                        return (
+                          <bdi dir="ltr" className="font-semibold text-slate-900">
+                            {formatDate(vEnd, language)}
+                          </bdi>
+                        );
+                      }
+                      return '—';
+                    })()}
+                  </div>
+                  <div><span className="text-slate-400">{t(language, 'bo.visaExpiry')}</span> {(selectedApp.residencyDetails?.visaExpiryDate || (selectedApp as any).step1Data?.personal?.visaExpiryDate) ? formatDate(selectedApp.residencyDetails?.visaExpiryDate || (selectedApp as any).step1Data?.personal?.visaExpiryDate, language) : '—'}</div>
                   <div><span className="text-slate-400">{t(language, 'bo.yearsInIsrael')}</span> {t(language, 'bo.yrs', { n: selectedApp.residencyDetails?.yearsOfResidency ?? 0 })}</div>
-                  <div><span className="text-slate-400">{t(language, 'bo.employer')}</span> {selectedApp.employmentDetails?.employerName}</div>
-                  <div><span className="text-slate-400">{t(language, 'bo.monthlySalary')}</span> <span className="font-mono font-bold text-emerald-800">{formatCurrency(selectedApp.employmentDetails?.monthlySalaryNis, language)}</span></div>
+                  <div><span className="text-slate-400">{t(language, 'bo.employer')}</span> {selectedApp.employmentDetails?.employerName || (selectedApp as any).step1Data?.employment?.employerName || '—'}</div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'bo.monthlySalary')}</span>{' '}
+                    <span className="font-mono font-bold text-emerald-800">
+                      {((selectedApp as any).step1Data?.personal?.monthlySalaryNis || selectedApp.employmentDetails?.monthlySalaryNis)
+                        ? formatCurrency((selectedApp as any).step1Data?.personal?.monthlySalaryNis || selectedApp.employmentDetails?.monthlySalaryNis, language)
+                        : '—'}
+                    </span>
+                  </div>
                 </div>
               </div>
 

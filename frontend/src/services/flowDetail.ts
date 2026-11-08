@@ -21,6 +21,18 @@ export function normalizeFlowDetail(raw: any): any {
   const stepStates = raw.view?.stepStates || {};
   const lb = app.loanBreakdown;
   const loan = app.step2Data?.loan || app.loanRequest || {};
+  const submissions = raw.submissions || [];
+  const latestStep1Sub = [...submissions].reverse().find((s: any) => s?.step === 1 && (s?.data || s?.payload));
+  const subStep1 = latestStep1Sub?.data || latestStep1Sub?.payload;
+  const mergedStep1Data = subStep1
+    ? {
+        ...(app.step1Data || {}),
+        personal: {
+          ...(subStep1.personal || {}),
+          ...(app.step1Data?.personal || {}),
+        },
+      }
+    : app.step1Data || {};
 
   return {
     ...app,
@@ -29,10 +41,10 @@ export function normalizeFlowDetail(raw: any): any {
     permissions: raw.permissions,
     bankRevealed: raw.bankRevealed,
     account: raw.user || null,
-    requestedAmountNis: loan.requestedAmountNis ?? app.step1Data?.loan?.requestedAmountNis,
+    requestedAmountNis: loan.requestedAmountNis ?? mergedStep1Data?.loan?.requestedAmountNis,
     repaymentPeriodMonths: loan.repaymentPeriodMonths,
     steps: {
-      1: { status: stepStatus(stepStates[1], 1), data: app.step1Data || {} },
+      1: { status: stepStatus(stepStates[1], 1), data: mergedStep1Data },
       2: { status: stepStatus(stepStates[2], 2), data: app.step2Data || {} },
       3: { status: stepStatus(stepStates[3], 3), data: app.step3Data || {} },
     },

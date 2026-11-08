@@ -7,11 +7,8 @@ import {
   Check,
   Wifi,
   WifiOff,
-  Briefcase,
-  UserCheck,
   User as UserIcon,
   LogOut,
-  Sparkles,
   FileText,
   Bell,
   Phone,
@@ -27,10 +24,10 @@ interface HeaderProps {
   onLanguageChange: (lang: Language) => void;
   currentUser: User | null;
   onSignOut: () => void;
-  currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
-  isBackOfficeOpen: boolean;
-  onToggleBackOffice: () => void;
+  currentRole?: UserRole;
+  onRoleChange?: (role: UserRole) => void;
+  isBackOfficeOpen?: boolean;
+  onToggleBackOffice?: () => void;
   onOpenHelp: () => void;
   isOnline: boolean;
   draftSaved: boolean;
@@ -44,10 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLanguageChange,
   currentUser,
   onSignOut,
-  currentRole,
-  onRoleChange,
   isBackOfficeOpen,
-  onToggleBackOffice,
   onOpenHelp,
   isOnline,
   draftSaved,
@@ -56,7 +50,6 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount,
 }) => {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
 
@@ -101,15 +94,6 @@ export const Header: React.FC<HeaderProps> = ({
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [isLangMenuOpen]);
-
-
-  const roles: { role: UserRole; label: string; badgeColor: string }[] = [
-    { role: 'borrower', label: 'Borrower', badgeColor: 'bg-blue-100 text-blue-800' },
-    { role: 'customer_service', label: 'Customer Service', badgeColor: 'bg-emerald-100 text-emerald-800' },
-    { role: 'credit_reviewer', label: 'Credit Reviewer', badgeColor: 'bg-purple-100 text-purple-800' },
-    { role: 'system_admin', label: 'System Admin', badgeColor: 'bg-amber-100 text-amber-800' },
-    { role: 'funding_entity', label: 'Funding Entity', badgeColor: 'bg-indigo-100 text-indigo-800' },
-  ];
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
@@ -270,25 +254,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Back office portal toggle */}
-          <button
-            id="portal-toggle-btn"
-            onClick={onToggleBackOffice}
-            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all ${
-              isBackOfficeOpen
-                ? 'bg-purple-700 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-            title={t(currentLanguage, 'toggleBackOffice')}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">
-              {isBackOfficeOpen
-                ? t(currentLanguage, 'borrowerView')
-                : t(currentLanguage, 'backOffice')}
-            </span>
-          </button>
-
           {/* Notification Bell (if user is authenticated) */}
           {currentUser && onOpenNotifications && (
             <NotificationBell
@@ -363,18 +328,6 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <Bell className="w-4 h-4 text-blue-600" />
                         <span>{t(currentLanguage, 'notifications')}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                          onToggleBackOffice();
-                        }}
-                        className="w-full px-4 py-2 text-start text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                      >
-                        <Briefcase className="w-4 h-4 text-purple-600" />
-                        <span>{t(currentLanguage, 'openBackOffice')}</span>
                       </button>
 
                       <button

@@ -35,14 +35,34 @@ import { Step2ApplicationCompletion } from './components/Step2ApplicationComplet
 import { Step3FinalSubmission } from './components/Step3FinalSubmission';
 import { FlowStatusHub } from './components/FlowStatusHub';
 import { BackOffice } from './components/BackOffice';
+import { StaffLoginGate } from './components/StaffLoginGate';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { storageService } from './services/storage';
-import { apiService, authTokens } from './services/api';
+import { apiService, authTokens, StaffAccount, StaffRole } from './services/api';
 import { useI18n } from './i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from './i18n/translations';
 import { LeadData, LeadStatus, FlowApplicationView, Step1FormData, Step2FormData, Step3FormData, TermsVersionRecord } from './types';
+
+function detectBackOfficeUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = (window.location.pathname || '').toLowerCase();
+  const hash = (window.location.hash || '').toLowerCase();
+  const params = new URLSearchParams(window.location.search || '');
+  return (
+    path === '/backoffice' ||
+    path.startsWith('/backoffice/') ||
+    path === '/admin' ||
+    path.startsWith('/admin/') ||
+    hash === '#backoffice' ||
+    hash.startsWith('#/backoffice') ||
+    hash === '#admin' ||
+    hash.startsWith('#/admin') ||
+    params.has('backoffice') ||
+    params.get('portal')?.toLowerCase() === 'backoffice'
+  );
+}
 
 export default function App() {
   const { language: currentLanguage, setLanguage, hasSavedChoice } = useI18n();
@@ -50,8 +70,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => storageService.restoreSession(authTokens.subject()));
   const [application, setApplication] = useState<LoanApplication | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(() => (storageService.getCurrentUser() ? 3 : 2));
-  const [isBackOfficeOpen, setIsBackOfficeOpen] = useState<boolean>(false);
-  const [currentRole, setCurrentRole] = useState<UserRole>('borrower');
+  const [isBackOfficeRoute, setIsBackOfficeRoute] = useState<boolean>(() => detectBackOfficeUrl());
+  const [staffSession, setStaffSession] = useState<{ role: StaffRole; token: string; staff?: StaffAccount } | null>(() =>
+    authTokens.getStaffSession()
+  );
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => authTokens.getStaffSession()?.role || 'credit_reviewer');
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [isMyAppsOpen, setIsMyAppsOpen] = useState<boolean>(false);
@@ -71,9 +94,20 @@ export default function App() {
   const [flowApplication, setFlowApplication] = useState<FlowApplicationView | null>(null);
   const [flowTerms, setFlowTerms] = useState<Record<string, TermsVersionRecord> | null>(null);
 
-  // Load flow application & terms for authenticated users
+  // Keep Back Office route detection synchronized with URL navigation
   useEffect(() => {
-    if (apiService.isAuthenticated()) {
+    const syncRoute = () => setIsBackOfficeRoute(detectBackOfficeUrl());
+    window.addEventListener('popstate', syncRoute);
+    window.addEventListener('hashchange', syncRoute);
+    return () => {
+      window.removeEventListener('popstate', syncRoute);
+      window.removeEventListener('hashchange', syncRoute);
+    };
+  }, []);
+
+  // Load flow application & terms for authenticated borrower users (never on Back Office route)
+  useEffect(() => {
+    if (!isBackOfficeRoute && apiService.isAuthenticated()) {
       apiService
         .getFlowApplication()
         .then((app) => {
@@ -101,7 +135,7 @@ export default function App() {
         })
         .catch(() => {});
     }
-  }, [currentUser]);
+  }, [currentUser, isBackOfficeRoute]);
 
   // Network online/offline listener
   useEffect(() => {
@@ -139,10 +173,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load or initialize active application when user is logged in
+  // Load or initialize active classic application when user is logged in (classic mode only)
   useEffect(() => {
-    if (currentUser) {
-      // 1. Immediately load local draft so UI renders instantaneously
+    if (currentUser && !isBackOfficeRoute) {
       // Language: a choice made on this device wins and is saved to the account.
       // Otherwise use the account's saved language (e.g. when signing in on a new device).
       let lang = currentLanguage;
@@ -151,6 +184,10 @@ export default function App() {
       } else if (isEnabledLanguage(currentUser.preferredLanguage)) {
         lang = currentUser.preferredLanguage;
         if (lang !== currentLanguage) setLanguage(lang);
+      }
+
+      if (flowMode !== 'classic') {
+        return;
       }
 
       const localApp = storageService.getOrCreateActiveApplication(currentUser, lang);
@@ -187,7 +224,7 @@ export default function App() {
           console.log('[API] Using local active application draft:', err.message);
         });
     }
-  }, [currentUser]);
+  }, [currentUser, flowMode, isBackOfficeRoute]);
 
   // Draft auto-save helper
   const autoSaveDraft = (updatedApp: LoanApplication, nextStep?: number) => {
@@ -379,6 +416,50 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleReturnToPublicSite = () => {
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/');
+    }
+    setIsBackOfficeRoute(false);
+  };
+
+  const handleStaffSignOut = () => {
+    authTokens.clearStaff();
+    setStaffSession(null);
+  };
+
+  const isClientSessionActive = Boolean(currentUser || authTokens.get());
+
+  if (isBackOfficeRoute) {
+    if (isClientSessionActive || !staffSession) {
+      return (
+        <StaffLoginGate
+          language={currentLanguage}
+          onLanguageChange={handleLanguageSelect}
+          isClientBlocked={isClientSessionActive}
+          onAuthenticated={(staff, token) => {
+            setStaffSession({ role: staff.role, token, staff });
+            setCurrentRole(staff.role);
+          }}
+          onReturnToPublic={handleReturnToPublicSite}
+        />
+      );
+    }
+
+    return (
+      <BackOffice
+        language={currentLanguage}
+        currentRole={currentRole === 'borrower' ? staffSession.role : currentRole}
+        onRoleChange={(nextRole) => {
+          if (nextRole === 'borrower') return;
+          setCurrentRole(nextRole);
+        }}
+        staffName={staffSession.staff?.fullName}
+        onCloseBackOffice={handleStaffSignOut}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f4f7fb] relative overflow-x-hidden flex flex-col font-sans text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
       {/* FinBest ambient background accents */}
@@ -391,10 +472,6 @@ export default function App() {
         onLanguageChange={handleLanguageSelect}
         currentUser={currentUser}
         onSignOut={handleSignOut}
-        currentRole={currentRole}
-        onRoleChange={setCurrentRole}
-        isBackOfficeOpen={isBackOfficeOpen}
-        onToggleBackOffice={() => setIsBackOfficeOpen(!isBackOfficeOpen)}
         onOpenHelp={() => setIsHelpOpen(true)}
         isOnline={isOnline}
         draftSaved={draftSaved}
@@ -404,15 +481,7 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      {isBackOfficeOpen ? (
-        /* Back-Office Portal */
-        <BackOffice
-          language={currentLanguage}
-          currentRole={currentRole}
-          onRoleChange={setCurrentRole}
-          onCloseBackOffice={() => setIsBackOfficeOpen(false)}
-        />
-      ) : flowMode === 'intermediary' ? (
+      {flowMode === 'intermediary' ? (
         /* 3-Step Loan Flow Container */
         <main className="flex-1 flex flex-col items-center justify-start p-3 sm:p-5 w-full relative z-10">
           <div className="w-full max-w-xl mx-auto mb-3 flex items-center justify-between px-1">
@@ -830,7 +899,6 @@ export default function App() {
             } else {
               setCurrentStep(3);
             }
-            setIsBackOfficeOpen(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onStartNewApplication={handleStartNewApplication}
@@ -838,7 +906,7 @@ export default function App() {
       )}
 
       {/* Returning User Confirmation Modal (Step 4 of Prompt) */}
-      {application?.isReturningUser && !application?.detailsConfirmedAt && !application?.isSubmitted && (
+      {flowMode === 'classic' && application?.isReturningUser && !application?.detailsConfirmedAt && !application?.isSubmitted && (
         <ReturningUserConfirmModal
           language={currentLanguage}
           application={application}

@@ -486,7 +486,7 @@ async function runTests() {
         uploadedFiles,
       });
       assert.strictEqual(res.status, 200, `Registration failed: ${JSON.stringify(res.body)}`);
-      return { phone, token: res.body.token, userId: res.body.user.id };
+      return { phone, token: res.body.token, userId: res.body.user.id, appId: res.body.application.id };
     };
     const step1Payload = (phone, docs) => ({
       data: {
@@ -519,9 +519,31 @@ async function runTests() {
     const adopter = await registerApplicant('Adopter Applicant', [...Object.values(guestDocs).map((d) => d.filename), ownedByFirstApplicant]);
     for (const d of Object.values(guestDocs)) assert.strictEqual(await ownerOf(d.filename), adopter.userId, 'Guest upload should move to the new account');
     assert.strictEqual(await ownerOf(ownedByFirstApplicant), regRes.body.user.id, 'Another account\'s file must not be adopted');
+
+    // Verify clients cannot access Back Office endpoints or mint staff tokens
+    const clientFlowBoAttempt = await request('GET', '/api/flow/applications', null, adopter.token);
+    assert.strictEqual(clientFlowBoAttempt.status, 403, 'Client token must be denied Back Office flow list');
+    const clientClassicBoAttempt = await request('GET', '/api/applications', null, adopter.token);
+    assert.strictEqual(clientClassicBoAttempt.status, 403, 'Client token must be denied Back Office classic list');
+    const clientStaffTokenAttempt = await request('POST', '/api/auth/staff-token', { role: 'credit_reviewer' }, adopter.token);
+    assert.strictEqual(clientStaffTokenAttempt.status, 403, 'Client token must be denied /api/auth/staff-token');
+
+    // Verify calling classic /api/applications/active/:userId does NOT pollute flowVersion=2 lead with Thailand
+    await request('GET', `/api/applications/active/${adopter.userId}`, null, adopter.token);
+    const preSubmitBoRes = await request('GET', `/api/flow/applications/${adopter.appId}`, null, reviewerToken);
+    assert.strictEqual(preSubmitBoRes.status, 200);
+    assert.strictEqual(preSubmitBoRes.body.application.borrowerDetails.countryOfOrigin, '', 'Unsubmitted flowVersion=2 lead must never default countryOfOrigin to Thailand');
+
     const adoptedSubmit = await request('POST', '/api/flow/application/steps/1/submit', step1Payload(adopter.phone, guestDocs), adopter.token);
     assert.strictEqual(adoptedSubmit.status, 200, `Step 1 with adopted documents failed: ${JSON.stringify(adoptedSubmit.body)}`);
-    console.log('  ✓ PASS: Guest uploads adopted at registration; Step 1 accepted them\n');
+    const postSubmitBoRes = await request('GET', `/api/flow/applications/${adopter.appId}`, null, reviewerToken);
+    assert.strictEqual(postSubmitBoRes.body.application.step1Data.personal.countryOfOrigin, 'Nigeria');
+    assert.strictEqual(postSubmitBoRes.body.application.borrowerDetails.countryOfOrigin, 'Nigeria');
+    assert.strictEqual(postSubmitBoRes.body.application.step1Data.personal.passportNumber, 'NG5510982');
+    assert.strictEqual(postSubmitBoRes.body.application.step1Data.personal.visaStartDate, '2025-01-01');
+    assert.strictEqual(postSubmitBoRes.body.application.step1Data.personal.visaExpiryDate, '2027-12-31');
+    assert.strictEqual(postSubmitBoRes.body.application.step1Data.personal.monthlySalaryNis, 7200);
+    console.log('  ✓ PASS: Guest uploads adopted at registration; non-Thailand country & all 4 fields preserved; clients blocked from Back Office\n');
 
     // Without adoption the server reports each rejected document as a field error the form can highlight.
     const strayDocs = { passport: await guestUpload('passport.pdf'), visa: await guestUpload('visa.pdf'), payslip: await guestUpload('payslip.pdf') };

@@ -315,6 +315,7 @@ async function runTests() {
     assert.strictEqual(draftRes.data.isReturningUser, false, 'User B has no prior profile');
     assert.strictEqual(draftRes.data.application.documents.length, 0, 'User B has zero documents');
     assert.ok(!draftRes.data.application.borrowerDetails?.passportNumber, 'No cross contamination from User A');
+    assert.strictEqual(draftRes.data.application.borrowerDetails?.countryOfOrigin, '', 'New user countryOfOrigin must be empty rather than defaulting to Thailand');
   });
 
   await test('User B attempting to access User A document is rejected with 403 Forbidden', async () => {

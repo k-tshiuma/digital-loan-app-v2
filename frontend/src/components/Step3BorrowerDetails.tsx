@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { User, Calendar, MapPin, Flag, AlertTriangle, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { Language, BorrowerDetails } from '../types';
-import { ORIGIN_COUNTRIES, MARITAL_STATUSES, calculateAge } from '../config/appConfig';
+import { ORIGIN_COUNTRIES, STEP1_ORIGIN_COUNTRIES, MARITAL_STATUSES, calculateAge } from '../config/appConfig';
 import { t } from '../i18n/translations';
 import { optionLabel } from '../i18n/options';
 import { storageService } from '../services/storage';
 import { DateInput } from './DateInput';
+
+const ALL_ORIGIN_COUNTRIES = Array.from(new Set<string>([...STEP1_ORIGIN_COUNTRIES, ...ORIGIN_COUNTRIES]));
 
 interface Step3BorrowerDetailsProps {
   language: Language;
@@ -27,7 +29,7 @@ export const Step3BorrowerDetails: React.FC<Step3BorrowerDetailsProps> = ({
   const [formData, setFormData] = useState<BorrowerDetails>({
     fullName: initialData?.fullName || '',
     passportNumber: initialData?.passportNumber || '',
-    countryOfOrigin: initialData?.countryOfOrigin || 'Thailand',
+    countryOfOrigin: initialData?.countryOfOrigin || '',
     dateOfBirth: initialData?.dateOfBirth || '1995-06-15',
     mobilePhoneNumber: initialData?.mobilePhoneNumber || userPhoneNumber || '+972',
     addressCity: initialData?.addressCity || '',
@@ -116,7 +118,9 @@ export const Step3BorrowerDetails: React.FC<Step3BorrowerDetailsProps> = ({
       errs.otherMaritalStatusDetails = t(language, 'wizard.err.maritalDetails');
     }
 
-    if (formData.countryOfOrigin === 'Other' && (!(formData as any).otherCountryOfOriginDetails || !(formData as any).otherCountryOfOriginDetails.trim())) {
+    if (!formData.countryOfOrigin) {
+      errs.countryOfOrigin = t(language, 'requiredField');
+    } else if (formData.countryOfOrigin === 'Other' && (!(formData as any).otherCountryOfOriginDetails || !(formData as any).otherCountryOfOriginDetails.trim())) {
       errs.otherCountryOfOriginDetails = t(language, 'wizard.err.countryDetails');
     }
 
@@ -221,14 +225,20 @@ export const Step3BorrowerDetails: React.FC<Step3BorrowerDetailsProps> = ({
             id="country-origin-select"
             value={formData.countryOfOrigin}
             onChange={(e) => setFormData({ ...formData, countryOfOrigin: e.target.value })}
-            className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-medium focus:border-blue-900 focus:ring-2 focus:ring-blue-900/20 focus:outline-none transition-all cursor-pointer"
+            className={`w-full px-4 py-3 rounded-xl border bg-white text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 transition-all cursor-pointer ${
+              errors.countryOfOrigin
+                ? 'border-red-400 focus:ring-red-200'
+                : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900/20'
+            }`}
           >
-            {ORIGIN_COUNTRIES.map((c) => (
+            <option value="">{t(language, 'lead.countryOfOriginPlaceholder')}</option>
+            {ALL_ORIGIN_COUNTRIES.map((c) => (
               <option key={c} value={c}>
                 {optionLabel(language, 'country', c)}
               </option>
             ))}
           </select>
+          {errors.countryOfOrigin && <p className="text-xs text-red-600">{errors.countryOfOrigin}</p>}
         </div>
 
         {/* Other Country of Origin Details */}

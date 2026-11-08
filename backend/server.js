@@ -115,6 +115,9 @@ function authenticate(req, res, next) {
   } catch {
     if (DEMO_MODE) {
       const decoded = jwt.decode(token);
+      if (decoded && decoded.type === 'staff') {
+        return res.status(401).json({ success: false, error: 'Invalid or expired staff session. Please sign in again.' });
+      }
       if (decoded && decoded.sub) {
         req.auth = decoded;
         return next();
@@ -135,7 +138,7 @@ function optionalAuth(req, _res, next) {
     } catch {
       if (DEMO_MODE) {
         const decoded = jwt.decode(token);
-        if (decoded && decoded.sub) req.auth = decoded;
+        if (decoded && decoded.sub && decoded.type !== 'staff') req.auth = decoded;
       }
     }
   } else if (DEMO_MODE) {
@@ -227,6 +230,51 @@ function parseApp(row) {
   if (out.riskScore === null) delete out.riskScore;
   if (out.riskLevel === null) delete out.riskLevel;
   if (out.missingDocumentNotes === null) delete out.missingDocumentNotes;
+
+  // Keep flowVersion = 2 legacy mirror fields strictly aligned with step1Data (never retaining default country overrides)
+  if (out.flowVersion === 2) {
+    const s1 = out.step1Data || {};
+    const p = s1.personal || {};
+    const e = s1.employment || {};
+    const prevB = out.borrowerDetails || {};
+    out.borrowerDetails = {
+      ...prevB,
+      fullName: p.fullName || prevB.fullName || '',
+      mobilePhoneNumber: p.phoneNumber || prevB.mobilePhoneNumber || '',
+      dateOfBirth: p.dateOfBirth || prevB.dateOfBirth || '',
+      addressFull: p.address || prevB.addressFull || '',
+      passportNumber: p.passportNumber || prevB.passportNumber || '',
+      countryOfOrigin: p.countryOfOrigin || '',
+    };
+    const prevR = out.residencyDetails || {};
+    if (p.visaStartDate || p.visaExpiryDate || prevR.visaStartDate || prevR.visaExpiryDate || prevR.visaType) {
+      out.residencyDetails = {
+        ...prevR,
+        visaStartDate: p.visaStartDate || prevR.visaStartDate || '',
+        visaExpiryDate: p.visaExpiryDate || prevR.visaExpiryDate || '',
+      };
+    }
+    const prevE = out.employmentDetails || {};
+    const salaryNis = Number(p.monthlySalaryNis) > 0
+      ? Number(p.monthlySalaryNis)
+      : Number(e.monthlySalaryNis) > 0
+        ? Number(e.monthlySalaryNis)
+        : Number(prevE.monthlySalaryNis) > 0
+          ? Number(prevE.monthlySalaryNis)
+          : undefined;
+    if (s1.employment || salaryNis !== undefined) {
+      out.employmentDetails = {
+        ...prevE,
+        ...(s1.employment ? {
+          employerName: e.employerName,
+          companyName: e.companyName,
+          manpowerAgent: e.manpowerAgent || undefined,
+        } : {}),
+        ...(salaryNis !== undefined ? { monthlySalaryNis: salaryNis, salaryCurrency: p.salaryCurrency || 'ILS' } : {}),
+      };
+    }
+  }
+
   if (out.eligibilityScore === null || out.eligibilityScore === undefined) {
     const el = calculateEligibilityScore(out);
     out.eligibilityScore = el.rawScore;
@@ -631,10 +679,12 @@ app.post('/api/users/reset-password', async (req, res) => {
   res.json({ success: true, user: sanitizeUser(updated), token: signUserToken(updated) });
 });
 
-// Back-office demo login: the UI has a role picker rather than staff accounts, so in demo mode
-// we issue a short-lived staff token for the chosen role. Replace with real staff auth for production.
+// Back-office demo login: strictly blocked for borrower sessions.
 app.post('/api/auth/staff-token', (req, res) => {
   if (!DEMO_MODE) return res.status(404).json({ success: false, error: 'Not available' });
+  if (req.headers.authorization && req.auth && req.auth.type === 'borrower') {
+    return res.status(403).json({ success: false, error: 'Back-office access required' });
+  }
   const { role } = req.body;
   if (!STAFF_ROLES.includes(role)) return res.status(400).json({ success: false, error: 'Unknown staff role' });
   res.json({ success: true, token: signStaffToken(role), role });
@@ -890,7 +940,7 @@ app.get('/api/applications/active/:userId', async (req, res) => {
   let fallbackApp = prevApp;
   if (!fallbackApp) {
     const filledRow = await dbGet(
-      'SELECT * FROM applications WHERE userId = ? AND borrowerDetails IS NOT NULL ORDER BY updatedAt DESC LIMIT 1',
+      'SELECT * FROM applications WHERE userId = ? AND borrowerDetails IS NOT NULL AND (flowVersion IS NULL OR flowVersion != 2 OR step1SubmittedAt IS NOT NULL) ORDER BY updatedAt DESC LIMIT 1',
       [userId]
     );
     fallbackApp = parseApp(filledRow);
@@ -903,7 +953,10 @@ app.get('/api/applications/active/:userId', async (req, res) => {
     userProfile
   );
 
-  const row = await dbGet('SELECT * FROM applications WHERE userId = ? AND isSubmitted = 0 ORDER BY createdAt DESC LIMIT 1', [userId]);
+  const row = await dbGet(
+    'SELECT * FROM applications WHERE userId = ? AND isSubmitted = 0 AND (flowVersion IS NULL OR flowVersion != 2) ORDER BY createdAt DESC LIMIT 1',
+    [userId]
+  );
   if (row) {
     const activeApp = parseApp(row);
     let draftUpdated = false;
@@ -913,7 +966,7 @@ app.get('/api/applications/active/:userId', async (req, res) => {
       activeApp.borrowerDetails = {
         fullName: sourceData.borrowerDetails?.fullName || userRow?.fullName || '',
         passportNumber: sourceData.borrowerDetails?.passportNumber || '',
-        countryOfOrigin: sourceData.borrowerDetails?.countryOfOrigin || 'Thailand',
+        countryOfOrigin: sourceData.borrowerDetails?.countryOfOrigin || '',
         dateOfBirth: sourceData.borrowerDetails?.dateOfBirth || '',
         mobilePhoneNumber: sourceData.borrowerDetails?.mobilePhoneNumber || userRow?.phoneNumber || '',
         addressCity: sourceData.borrowerDetails?.addressCity || '',
@@ -988,7 +1041,7 @@ app.get('/api/applications/active/:userId', async (req, res) => {
       fullName: userRow?.fullName || '',
       mobilePhoneNumber: userRow?.phoneNumber || '',
       passportNumber: '',
-      countryOfOrigin: 'Thailand',
+      countryOfOrigin: '',
       dateOfBirth: '',
       addressCity: '',
       addressStreet: '',

@@ -119,7 +119,7 @@ module.exports = function createFlowRoutes(ctx) {
       dateOfBirth: p.dateOfBirth || prevB.dateOfBirth || '',
       addressFull: p.address || prevB.addressFull || '',
       passportNumber: p.passportNumber || prevB.passportNumber || '',
-      countryOfOrigin: p.countryOfOrigin || prevB.countryOfOrigin || '',
+      countryOfOrigin: p.countryOfOrigin || '',
     };
 
     const prevR = a.residencyDetails || {};
@@ -651,7 +651,7 @@ module.exports = function createFlowRoutes(ctx) {
         phoneNumber: p.phoneNumber || (a.borrowerDetails && a.borrowerDetails.mobilePhoneNumber) || '',
         email: (user && user.email) || '',
         passportNumber: p.passportNumber || (a.borrowerDetails && a.borrowerDetails.passportNumber) || '',
-        countryOfOrigin: p.countryOfOrigin || (a.borrowerDetails && a.borrowerDetails.countryOfOrigin) || '',
+        countryOfOrigin: p.countryOfOrigin || '',
         visaStartDate: p.visaStartDate || (a.residencyDetails && a.residencyDetails.visaStartDate) || null,
         visaExpiryDate: p.visaExpiryDate || (a.residencyDetails && a.residencyDetails.visaExpiryDate) || null,
         monthlySalaryNis: salary,
@@ -719,12 +719,23 @@ module.exports = function createFlowRoutes(ctx) {
       const user = await dbGet('SELECT id, email, phoneNumber, fullName, authProvider, phoneVerifiedAt, createdAt FROM users WHERE id = ?', [a.userId]);
       const reveal = req.query.revealBank === '1';
       if (reveal) await audit(req, { applicationId: a.id, action: 'BANK_DETAILS_REVEALED' });
+      const { rows: reviews } = await latestReviews(a.id);
+      const submissions = (await dbAll('SELECT id, step, revision, data, submittedBy, submittedAt FROM application_step_submissions WHERE applicationId = ? ORDER BY submittedAt ASC', [a.id]))
+        .map((s) => ({ ...s, data: safeJson(s.data, null) }));
       const view = { ...a };
+      const latestStep1Sub = [...submissions].reverse().find((s) => s.step === 1 && s.data);
+      if (latestStep1Sub && latestStep1Sub.data) {
+        const subPersonal = latestStep1Sub.data.personal || {};
+        const curPersonal = (view.step1Data && view.step1Data.personal) || {};
+        view.step1Data = {
+          ...(view.step1Data || {}),
+          personal: { ...subPersonal, ...curPersonal },
+        };
+      }
+      mirrorLegacy(view);
       delete view.riskScore; delete view.riskLevel; delete view.riskFlags;
       if (view.step3Data && view.step3Data.bank && !reveal) view.step3Data = { ...view.step3Data, bank: maskBank(view.step3Data.bank) };
       if (view.bankAccount && !reveal) view.bankAccount = maskBank(view.bankAccount);
-      const { rows: reviews } = await latestReviews(a.id);
-      const submissions = (await dbAll('SELECT id, step, revision, submittedBy, submittedAt FROM application_step_submissions WHERE applicationId = ? ORDER BY submittedAt ASC', [a.id]));
       const acceptances = await dbAll('SELECT * FROM terms_acceptances WHERE applicationId = ? ORDER BY acceptedAt ASC', [a.id]);
       const auditRows = (await dbAll('SELECT * FROM audit_log WHERE applicationId = ? ORDER BY createdAt ASC', [a.id])).map((r) => ({ ...r, metadata: safeJson(r.metadata, null) }));
       const deliveries = await notifier.listDeliveries(a.id);

@@ -113,6 +113,86 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   const step3 = detail.steps?.[3] || {};
   const breakdown = detail.loanBreakdown;
   const termsAcceptances = detail.termsAcceptances || [];
+
+  const p1 = step1.data?.personal || detail.step1Data?.personal || {};
+  const b1 = detail.borrowerDetails || {};
+  const r1 = detail.residencyDetails || {};
+  const e1 = step1.data?.employment || detail.step1Data?.employment || detail.employmentDetails || {};
+  const empInfo = {
+    fullName: p1.fullName || b1.fullName || detail.account?.fullName || '',
+    phoneNumber: p1.phoneNumber || b1.mobilePhoneNumber || detail.account?.phoneNumber || '',
+    dateOfBirth: p1.dateOfBirth || b1.dateOfBirth || '',
+    address: p1.address || b1.addressFull || '',
+    passportNumber: p1.passportNumber || b1.passportNumber || '',
+    countryOfOrigin: p1.countryOfOrigin || b1.countryOfOrigin || '',
+    visaStartDate: p1.visaStartDate || r1.visaStartDate || '',
+    visaExpiryDate: p1.visaExpiryDate || r1.visaExpiryDate || '',
+    monthlySalaryNis:
+      Number(p1.monthlySalaryNis) > 0
+        ? Number(p1.monthlySalaryNis)
+        : Number(e1.monthlySalaryNis) > 0
+        ? Number(e1.monthlySalaryNis)
+        : Number(detail.employmentDetails?.monthlySalaryNis) > 0
+        ? Number(detail.employmentDetails.monthlySalaryNis)
+        : null,
+  };
+
+  const renderVisaValidity = () => {
+    if (empInfo.visaStartDate && empInfo.visaExpiryDate) {
+      return (
+        <bdi dir="ltr" className="font-semibold text-slate-900">
+          {formatDate(empInfo.visaStartDate, language)} – {formatDate(empInfo.visaExpiryDate, language)}
+        </bdi>
+      );
+    }
+    if (empInfo.visaExpiryDate) {
+      return (
+        <bdi dir="ltr" className="font-semibold text-slate-900">
+          {formatDate(empInfo.visaExpiryDate, language)}
+        </bdi>
+      );
+    }
+    if (empInfo.visaStartDate) {
+      return (
+        <bdi dir="ltr" className="font-semibold text-slate-900">
+          {formatDate(empInfo.visaStartDate, language)}
+        </bdi>
+      );
+    }
+    return '—';
+  };
+
+  const renderEmployeeSummaryCard = (titleKey: string) => (
+    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+      <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-1">
+        {t(language, titleKey)}
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div>
+          <span className="text-slate-400">{t(language, 'fi.passportNumber')}</span>{' '}
+          <bdi dir="ltr" className="font-mono font-bold text-slate-900">
+            {empInfo.passportNumber || '—'}
+          </bdi>
+        </div>
+        <div>
+          <span className="text-slate-400">{t(language, 'fi.countryOfOrigin')}</span>{' '}
+          <span className="font-semibold text-slate-900">
+            {empInfo.countryOfOrigin ? optionLabel(language, 'country', empInfo.countryOfOrigin) : '—'}
+          </span>
+        </div>
+        <div>
+          <span className="text-slate-400">{t(language, 'fi.visaValidity')}</span>{' '}
+          {renderVisaValidity()}
+        </div>
+        <div>
+          <span className="text-slate-400">{t(language, 'fi.monthlySalary')}</span>{' '}
+          <span className="font-mono font-bold text-emerald-800">
+            {empInfo.monthlySalaryNis !== null ? formatCurrency(empInfo.monthlySalaryNis, language) : '—'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
   const reviews = detail.reviews || [];
   const auditLogs = detail.audit || [];
 
@@ -452,25 +532,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
           )}
 
           {/* TAB 1: STEP 1 (Personal, Credentials, Docs, Employment, Requested Loan) */}
-          {activeTab === 'step1' && (() => {
-            const p1 = step1.data?.personal || {};
-            const b1 = detail.borrowerDetails || {};
-            const r1 = detail.residencyDetails || {};
-            const e1 = step1.data?.employment || detail.employmentDetails || {};
-            const passportVal = p1.passportNumber || b1.passportNumber || '';
-            const countryVal = p1.countryOfOrigin || b1.countryOfOrigin || '';
-            const visaStartVal = p1.visaStartDate || r1.visaStartDate || '';
-            const visaExpiryVal = p1.visaExpiryDate || r1.visaExpiryDate || '';
-            const salaryVal =
-              Number(p1.monthlySalaryNis) > 0
-                ? Number(p1.monthlySalaryNis)
-                : Number(e1.monthlySalaryNis) > 0
-                ? Number(e1.monthlySalaryNis)
-                : Number(detail.employmentDetails?.monthlySalaryNis) > 0
-                ? Number(detail.employmentDetails.monthlySalaryNis)
-                : null;
-
-            return (
+          {activeTab === 'step1' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Personal Details */}
@@ -479,30 +541,20 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                     <span>{t(language, 'fi.s1.personal')}</span>
                     <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">{t(language, 'fi.stepBadge', { step: 1 })}</span>
                   </h4>
-                  <div><span className="text-slate-400">{t(language, 'fi.fullName')}</span> <span className="font-bold text-slate-900">{p1.fullName || b1.fullName || '—'}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.phone')}</span> <bdi dir="ltr" className="font-bold">{p1.phoneNumber || b1.mobilePhoneNumber || '—'}</bdi></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.dob')}</span> {(p1.dateOfBirth || b1.dateOfBirth) ? formatDate(p1.dateOfBirth || b1.dateOfBirth, language) : '—'}</div>
-                  <div><span className="text-slate-400">{t(language, 'fi.address')}</span> {p1.address || b1.addressFull || '—'}</div>
-                  <div><span className="text-slate-400">{t(language, 'fi.passportNumber')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-900">{passportVal || '—'}</bdi></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.countryOfOrigin')}</span> <span className="font-semibold text-slate-900">{countryVal ? optionLabel(language, 'country', countryVal) : '—'}</span></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.fullName')}</span> <span className="font-bold text-slate-900">{empInfo.fullName || '—'}</span></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.phone')}</span> <bdi dir="ltr" className="font-bold">{empInfo.phoneNumber || '—'}</bdi></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.dob')}</span> {empInfo.dateOfBirth ? formatDate(empInfo.dateOfBirth, language) : '—'}</div>
+                  <div><span className="text-slate-400">{t(language, 'fi.address')}</span> {empInfo.address || '—'}</div>
+                  <div><span className="text-slate-400">{t(language, 'fi.passportNumber')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-900">{empInfo.passportNumber || '—'}</bdi></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.countryOfOrigin')}</span> <span className="font-semibold text-slate-900">{empInfo.countryOfOrigin ? optionLabel(language, 'country', empInfo.countryOfOrigin) : '—'}</span></div>
                   <div>
                     <span className="text-slate-400">{t(language, 'fi.visaValidity')}</span>{' '}
-                    {visaStartVal && visaExpiryVal ? (
-                      <bdi dir="ltr" className="font-semibold text-slate-900">
-                        {formatDate(visaStartVal, language)} – {formatDate(visaExpiryVal, language)}
-                      </bdi>
-                    ) : visaExpiryVal ? (
-                      <bdi dir="ltr" className="font-semibold text-slate-900">
-                        {formatDate(visaExpiryVal, language)}
-                      </bdi>
-                    ) : (
-                      '—'
-                    )}
+                    {renderVisaValidity()}
                   </div>
                   <div>
                     <span className="text-slate-400">{t(language, 'fi.monthlySalary')}</span>{' '}
                     <span className="font-mono font-bold text-emerald-800">
-                      {salaryVal !== null ? formatCurrency(salaryVal, language) : '—'}
+                      {empInfo.monthlySalaryNis !== null ? formatCurrency(empInfo.monthlySalaryNis, language) : '—'}
                     </span>
                   </div>
                 </div>
@@ -566,12 +618,13 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                 </div>
               </div>
             </div>
-            );
-          })()}
+          )}
 
-          {/* TAB 2: STEP 2 (Sponsors & Loan Duration) */}
+          {/* TAB 2: STEP 2 (Applicant Employee Info, Sponsors & Loan Duration) */}
           {activeTab === 'step2' && (
             <div className="space-y-4">
+              {renderEmployeeSummaryCard('fi.s2.employeeInfo')}
+
               {/* Sponsors Section */}
               <div className="space-y-2">
                 <h4 className="font-bold text-slate-900 flex items-center justify-between border-b pb-1">
@@ -623,9 +676,11 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             </div>
           )}
 
-          {/* TAB 3: STEP 3 (Bank Account Details & Terms) */}
+          {/* TAB 3: STEP 3 (Applicant Employee Info, Bank Account Details & Terms) */}
           {activeTab === 'step3' && (
             <div className="space-y-4">
+              {renderEmployeeSummaryCard('fi.s3.employeeInfo')}
+
               {/* Bank Account Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">

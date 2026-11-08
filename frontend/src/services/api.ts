@@ -18,6 +18,12 @@ const STAFF_TOKEN_KEY = 'quickloan_staff_token_v1';
 
 export type ApiScope = 'borrower' | 'staff';
 export type StaffRole = Exclude<UserRole, 'borrower'>;
+export interface StaffAccount {
+  id: string;
+  email: string;
+  fullName: string;
+  role: StaffRole;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -77,15 +83,37 @@ export const authTokens = {
   },
   getStaff(role?: StaffRole): string | null {
     try {
-      const cached = JSON.parse(localStorage.getItem(STAFF_TOKEN_KEY) || 'null') as { role: StaffRole; token: string } | null;
-      if (cached && isTokenValid(cached.token) && (!role || cached.role === role)) return cached.token;
+      const cached = JSON.parse(localStorage.getItem(STAFF_TOKEN_KEY) || 'null') as { role: StaffRole; token: string; staff?: StaffAccount } | null;
+      if (cached && isTokenValid(cached.token) && (!role || cached.role === role)) {
+        const payload = tokenPayload(cached.token);
+        if (payload === null || payload.type === 'staff') {
+          return cached.token;
+        }
+      }
     } catch {
       /* ignore */
     }
     return null;
   },
-  setStaff(role: StaffRole, token: string) {
-    localStorage.setItem(STAFF_TOKEN_KEY, JSON.stringify({ role, token }));
+  getStaffSession(): { role: StaffRole; token: string; staff?: StaffAccount } | null {
+    try {
+      const cached = JSON.parse(localStorage.getItem(STAFF_TOKEN_KEY) || 'null') as { role: StaffRole; token: string; staff?: StaffAccount } | null;
+      if (cached && isTokenValid(cached.token)) {
+        const payload = tokenPayload(cached.token);
+        if (payload === null || payload.type === 'staff') {
+          return cached;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  },
+  setStaff(role: StaffRole, token: string, staff?: StaffAccount) {
+    localStorage.setItem(STAFF_TOKEN_KEY, JSON.stringify({ role, token, ...(staff ? { staff } : {}) }));
+  },
+  clearStaff() {
+    localStorage.removeItem(STAFF_TOKEN_KEY);
   },
 };
 
@@ -189,12 +217,16 @@ export const apiService = {
     authTokens.clear();
   },
 
-  /** Back-office demo auth: obtains (and caches) a staff JWT for the selected role. */
+  /** Back-office demo auth: obtains (and caches) a staff JWT for the selected role. Blocked if a borrower is signed in. */
   async ensureStaffToken(role: StaffRole): Promise<string> {
+    if (authTokens.get()) {
+      throw new ApiError('Back-office access required', 403);
+    }
     const cached = authTokens.getStaff(role);
     if (cached) return cached;
     const res = await request<{ token: string }>('/auth/staff-token', { method: 'POST', body: { role }, auth: false });
-    authTokens.setStaff(role, res.token);
+    const existingStaff = authTokens.getStaffSession()?.staff;
+    authTokens.setStaff(role, res.token, existingStaff);
     return res.token;
   },
 
@@ -355,12 +387,12 @@ export const apiService = {
     return res;
   },
 
-  async flowStaffLogin(email: string, password: string): Promise<{ token: string; staff: { id: string; email: string; fullName: string; role: StaffRole } }> {
-    const res = await request<{ token: string; staff: { id: string; email: string; fullName: string; role: StaffRole } }>(
+  async flowStaffLogin(email: string, password: string): Promise<{ token: string; staff: StaffAccount }> {
+    const res = await request<{ token: string; staff: StaffAccount }>(
       '/auth/staff-login',
       { method: 'POST', body: { email, password }, auth: false }
     );
-    authTokens.setStaff(res.staff.role, res.token);
+    authTokens.setStaff(res.staff.role, res.token, res.staff);
     return res;
   },
 
