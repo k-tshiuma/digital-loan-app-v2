@@ -19,14 +19,17 @@ import {
   Clock,
   Sparkles,
   ArrowRight,
+  Globe,
 } from 'lucide-react';
 import {
   Step1FormData,
   UploadedDocRef,
   Language,
 } from '../types';
+import { STEP1_ORIGIN_COUNTRIES } from '../config/appConfig';
 import { DateInput } from './DateInput';
 import { formatCurrency } from '../i18n/format';
+import { optionLabel } from '../i18n/options';
 import { t } from '../i18n/translations';
 import { localizeError } from '../i18n/apiErrors';
 import { apiService, ApiError } from '../services/api';
@@ -64,6 +67,11 @@ const SERVER_FIELD_ERRORS: Record<string, [string, string]> = {
   phoneNumber: ['phoneNumber', 'lead.err.phoneNumber'],
   dateOfBirth: ['dateOfBirth', 'lead.err.dob'],
   address: ['address', 'lead.err.address'],
+  passportNumber: ['passportNumber', 'lead.err.passportNumber'],
+  countryOfOrigin: ['countryOfOrigin', 'lead.err.countryOfOrigin'],
+  visaStartDate: ['visaStartDate', 'lead.err.visaStartDate'],
+  visaExpiryDate: ['visaExpiryDate', 'lead.err.visaExpiryDate'],
+  monthlySalaryNis: ['monthlySalaryNis', 'lead.err.monthlySalary'],
   passport: ['passportDoc', 'lead.err.docReupload'],
   visa: ['visaDoc', 'lead.err.docReupload'],
   payslip: ['payslipDoc', 'lead.err.docReupload'],
@@ -81,7 +89,12 @@ function mapServerFieldErrors(fieldErrors: FieldErrorMap, language: Language): F
   for (const [field, code] of Object.entries(fieldErrors)) {
     const entry = SERVER_FIELD_ERRORS[field];
     if (!entry) continue;
-    const key = field === 'dateOfBirth' && code === 'invalid' ? 'lead.err.dobInvalid' : entry[1];
+    const key =
+      field === 'dateOfBirth' && code === 'invalid'
+        ? 'lead.err.dobInvalid'
+        : field === 'visaExpiryDate' && code === 'before_start'
+        ? 'lead.err.visaRange'
+        : entry[1];
     errs[entry[0]] = t(language, key);
   }
   return errs;
@@ -119,6 +132,14 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
   const [phoneNumber, setPhoneNumber] = useState(initialData?.personal?.phoneNumber || userPhone || '');
   const [dateOfBirth, setDateOfBirth] = useState(initialData?.personal?.dateOfBirth || '');
   const [address, setAddress] = useState(initialData?.personal?.address || '');
+  const [passportNumber, setPassportNumber] = useState(initialData?.personal?.passportNumber || '');
+  const [countryOfOrigin, setCountryOfOrigin] = useState(initialData?.personal?.countryOfOrigin || '');
+  const [visaStartDate, setVisaStartDate] = useState(initialData?.personal?.visaStartDate || '');
+  const [visaExpiryDate, setVisaExpiryDate] = useState(initialData?.personal?.visaExpiryDate || '');
+  const [monthlySalary, setMonthlySalary] = useState<string>(() => {
+    const initSalary = initialData?.personal?.monthlySalaryNis ?? initialData?.employment?.monthlySalaryNis;
+    return typeof initSalary === 'number' && initSalary > 0 ? String(initSalary) : '';
+  });
 
   // Form Fields: Account Credentials (if registering as new user)
   const [email, setEmail] = useState(userEmail || '');
@@ -212,7 +233,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     } catch (err: any) {
       setFormErrors((prev) => ({
         ...prev,
-        [fieldKey]: err.message || 'File upload failed',
+        [fieldKey]: localizeError(err, language),
       }));
     } finally {
       setUploadingField(null);
@@ -233,7 +254,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
         setOtpCode(res.demoCode);
       }
     } catch (err: any) {
-      setServerError(err.message || 'Could not send verification code');
+      setServerError(localizeError(err, language));
     } finally {
       setIsSendingOtp(false);
     }
@@ -248,6 +269,22 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     if (!dateOfBirth) errs.dateOfBirth = t(language, 'lead.err.dob');
     if (!address.trim()) errs.address = t(language, 'lead.err.address');
 
+    // Additional Personal / Employee Information (above Documents)
+    if (!passportNumber.trim()) errs.passportNumber = t(language, 'lead.err.passportNumber');
+    if (!countryOfOrigin || !(STEP1_ORIGIN_COUNTRIES as readonly string[]).includes(countryOfOrigin)) {
+      errs.countryOfOrigin = t(language, 'lead.err.countryOfOrigin');
+    }
+    if (!visaStartDate) errs.visaStartDate = t(language, 'lead.err.visaStartDate');
+    if (!visaExpiryDate) {
+      errs.visaExpiryDate = t(language, 'lead.err.visaExpiryDate');
+    } else if (visaStartDate && visaExpiryDate < visaStartDate) {
+      errs.visaExpiryDate = t(language, 'lead.err.visaRange');
+    }
+    const parsedSalary = Number(monthlySalary);
+    if (!monthlySalary.trim() || !Number.isFinite(parsedSalary) || parsedSalary <= 0) {
+      errs.monthlySalaryNis = t(language, 'lead.err.monthlySalary');
+    }
+
     // Documents
     if (!passportDoc) errs.passportDoc = t(language, 'lead.err.passport');
     if (!visaDoc) errs.visaDoc = t(language, 'lead.err.visa');
@@ -261,7 +298,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     if (onRegisterAccount) {
       if (!email.trim() || !email.includes('@')) errs.email = t(language, 'lead.err.email');
       if (!password || password.length < 8) errs.password = t(language, 'lead.err.password');
-      if (!otpCode || otpCode.trim().length !== 6) errs.otpCode = 'Enter 6-digit code';
+      if (!otpCode || otpCode.trim().length !== 6) errs.otpCode = t(language, 'lead.err.otpCode');
     }
 
     setFormErrors(errs);
@@ -289,12 +326,19 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
         });
       }
 
-      await onSubmit({
+      const salaryValue = Math.round(Number(monthlySalary) * 100) / 100;
+      await onSubmit?.({
         personal: {
           fullName: fullName.trim(),
           phoneNumber: phoneNumber.trim(),
           dateOfBirth,
           address: address.trim(),
+          passportNumber: passportNumber.trim(),
+          countryOfOrigin,
+          visaStartDate,
+          visaExpiryDate,
+          monthlySalaryNis: salaryValue,
+          salaryCurrency: 'ILS',
         },
         documents: {
           passport: passportDoc,
@@ -305,6 +349,8 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           employerName: employerName.trim(),
           companyName: companyName.trim(),
           manpowerAgent: manpowerAgent.trim() || undefined,
+          monthlySalaryNis: salaryValue,
+          salaryCurrency: 'ILS',
         },
         loan: {
           requestedAmountNis,
@@ -439,7 +485,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form noValidate onSubmit={handleSubmit} className="space-y-6">
         {/* REORGANIZED SECTION 1: Personal Details */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
@@ -502,6 +548,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 onChange={(val) => setDateOfBirth(val)}
                 language={language}
                 max={new Date().toISOString().split('T')[0]}
+                disabled={isReadOnly}
                 required
                 className={formErrors.dateOfBirth ? 'border-red-500' : 'border-slate-200'}
               />
@@ -603,7 +650,11 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                   disabled={isSendingOtp}
                   className="text-xs text-blue-600 font-bold hover:underline"
                 >
-                  {isSendingOtp ? 'Sending...' : isOtpSent ? 'Resend SMS Code' : 'Send SMS Code'}
+                  {isSendingOtp
+                    ? t(language, 'lead.sendingOtp')
+                    : isOtpSent
+                    ? t(language, 'lead.resendOtp')
+                    : t(language, 'lead.sendOtp')}
                 </button>
               </div>
 
@@ -625,8 +676,170 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           </div>
         )}
 
+        {/* ADDITIONAL EMPLOYEE & VISA INFORMATION (Immediately above Documents) */}
+        <div className="space-y-4" data-testid="step1-employee-info-section">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5 text-blue-600" />
+            {t(language, 'lead.additionalPersonalTitle')}
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="step1-passport-number" className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.passportNumberLabel')} <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="step1-passport-number"
+                type="text"
+                dir="ltr"
+                value={passportNumber}
+                disabled={isReadOnly}
+                onChange={(e) => {
+                  setPassportNumber(e.target.value);
+                  if (formErrors.passportNumber) {
+                    setFormErrors((prev) => ({ ...prev, passportNumber: '' }));
+                  }
+                }}
+                placeholder={t(language, 'lead.passportNumberPlaceholder')}
+                className={`w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.passportNumber ? 'border-red-500' : 'border-slate-200'
+                }`}
+              />
+              {formErrors.passportNumber && (
+                <p className="text-[11px] text-red-500 mt-1">{formErrors.passportNumber}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="step1-country-origin" className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.countryOfOriginLabel')} <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="step1-country-origin"
+                value={countryOfOrigin}
+                disabled={isReadOnly}
+                onChange={(e) => {
+                  setCountryOfOrigin(e.target.value);
+                  if (formErrors.countryOfOrigin) {
+                    setFormErrors((prev) => ({ ...prev, countryOfOrigin: '' }));
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.countryOfOrigin ? 'border-red-500' : 'border-slate-200'
+                }`}
+              >
+                <option value="">{t(language, 'lead.countryOfOriginPlaceholder')}</option>
+                {STEP1_ORIGIN_COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {optionLabel(language, 'country', country)}
+                  </option>
+                ))}
+              </select>
+              {formErrors.countryOfOrigin && (
+                <p className="text-[11px] text-red-500 mt-1">{formErrors.countryOfOrigin}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Visa Validity Period (Date-Range Selector) */}
+          <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-3">
+            <div className="text-xs font-bold text-slate-700">
+              {t(language, 'lead.visaValidityTitle')} <span className="text-red-500">*</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="step1-visa-start" className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  {t(language, 'lead.visaStartDateLabel')} <span className="text-red-500">*</span>
+                </label>
+                <DateInput
+                  id="step1-visa-start"
+                  value={visaStartDate}
+                  onChange={(val) => {
+                    setVisaStartDate(val);
+                    if (formErrors.visaStartDate) {
+                      setFormErrors((prev) => ({ ...prev, visaStartDate: '' }));
+                    }
+                  }}
+                  language={language}
+                  max={visaExpiryDate || undefined}
+                  disabled={isReadOnly}
+                  required
+                  className={formErrors.visaStartDate ? 'border-red-500' : 'border-slate-200'}
+                />
+                {formErrors.visaStartDate && (
+                  <p className="text-[11px] text-red-500 mt-1">{formErrors.visaStartDate}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="step1-visa-expiry" className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  {t(language, 'lead.visaExpiryDateLabel')} <span className="text-red-500">*</span>
+                </label>
+                <DateInput
+                  id="step1-visa-expiry"
+                  value={visaExpiryDate}
+                  onChange={(val) => {
+                    setVisaExpiryDate(val);
+                    if (formErrors.visaExpiryDate) {
+                      setFormErrors((prev) => ({ ...prev, visaExpiryDate: '' }));
+                    }
+                  }}
+                  language={language}
+                  min={visaStartDate || undefined}
+                  disabled={isReadOnly}
+                  required
+                  className={formErrors.visaExpiryDate ? 'border-red-500' : 'border-slate-200'}
+                />
+                {formErrors.visaExpiryDate && (
+                  <p className="text-[11px] text-red-500 mt-1">{formErrors.visaExpiryDate}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Monthly Salary (Numeric with Currency) */}
+          <div>
+            <label htmlFor="step1-monthly-salary" className="block text-xs font-bold text-slate-700 mb-1">
+              {t(language, 'lead.monthlySalaryLabel')} <span className="text-red-500">*</span>
+            </label>
+            <div className="relative" dir="ltr">
+              <span
+                className="absolute start-3.5 top-2.5 text-xs font-bold text-slate-500 select-none"
+                aria-hidden="true"
+              >
+                {t(language, 'currencySymbol')}
+              </span>
+              <input
+                id="step1-monthly-salary"
+                type="number"
+                inputMode="decimal"
+                min={1}
+                step="any"
+                value={monthlySalary}
+                disabled={isReadOnly}
+                onChange={(e) => {
+                  setMonthlySalary(e.target.value);
+                  if (formErrors.monthlySalaryNis) {
+                    setFormErrors((prev) => ({ ...prev, monthlySalaryNis: '' }));
+                  }
+                }}
+                placeholder={t(language, 'lead.monthlySalaryPlaceholder')}
+                className={`w-full ps-9 pe-14 py-2.5 text-xs font-mono rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.monthlySalaryNis ? 'border-red-500' : 'border-slate-200'
+                }`}
+              />
+              <span className="absolute end-3 top-2 px-2 py-0.5 rounded-md bg-slate-200/70 text-[10px] font-bold text-slate-600 select-none">
+                {t(language, 'lead.salaryCurrencyCode')}
+              </span>
+            </div>
+            {formErrors.monthlySalaryNis && (
+              <p className="text-[11px] text-red-500 mt-1">{formErrors.monthlySalaryNis}</p>
+            )}
+          </div>
+        </div>
+
         {/* REORGANIZED SECTION 3: Verification Documents (Image or PDF) */}
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="step1-documents-section">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
             <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
             {t(language, 'lead.documentsTitle')}
@@ -660,7 +873,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
                 <span className="text-[11px] text-slate-600 truncate block font-medium">
                   {uploadingField === 'passport'
-                    ? 'Uploading...'
+                    ? t(language, 'lead.uploading')
                     : passportDoc
                     ? passportDoc.originalName
                     : t(language, 'lead.uploadPlaceholder')}
@@ -698,7 +911,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
                 <span className="text-[11px] text-slate-600 truncate block font-medium">
                   {uploadingField === 'visa'
-                    ? 'Uploading...'
+                    ? t(language, 'lead.uploading')
                     : visaDoc
                     ? visaDoc.originalName
                     : t(language, 'lead.uploadPlaceholder')}
@@ -736,7 +949,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
                 <FileText className="w-5 h-5 mx-auto text-slate-400 mb-1" />
                 <span className="text-[11px] text-slate-600 truncate block font-medium">
                   {uploadingField === 'payslip'
-                    ? 'Uploading...'
+                    ? t(language, 'lead.uploading')
                     : payslipDoc
                     ? payslipDoc.originalName
                     : t(language, 'lead.uploadPlaceholder')}

@@ -21,9 +21,9 @@ const { calculateEligibilityScore } = require('../services/eligibilityScoring');
 const REGISTRATION_VERSION = '1.0';
 const DOC_STEP_1 = [['passport', 'PASSPORT'], ['visa', 'WORK_VISA'], ['payslip', 'PAY_SLIP']];
 
-const FLOW_JSON = ['borrowerDetails', 'employmentDetails', 'loanRequest', 'guarantor', 'guarantors', 'documents', 'bankAccount', 'statusHistory',
+const FLOW_JSON = ['borrowerDetails', 'residencyDetails', 'employmentDetails', 'loanRequest', 'guarantor', 'guarantors', 'documents', 'bankAccount', 'statusHistory',
   'eligibilityBreakdown', 'consents', 'step1Data', 'step2Data', 'step3Data', 'loanBreakdown', 'staffMessage'];
-const FLOW_UPDATE_COLS = ['requestNumber', 'isSubmitted', 'submittedAt', 'status', 'language', 'currentStep', 'borrowerDetails', 'employmentDetails',
+const FLOW_UPDATE_COLS = ['requestNumber', 'isSubmitted', 'submittedAt', 'status', 'language', 'currentStep', 'borrowerDetails', 'residencyDetails', 'employmentDetails',
   'loanRequest', 'guarantor', 'guarantors', 'documents', 'bankAccount', 'bankAccountConfirmed', 'statusHistory', 'eligibilityScore', 'eligibilityBreakdown',
   'consents', 'flowStatus', 'unlockedStep', 'rejectedAtStep', 'rejectionReason', 'step1Data', 'step2Data', 'step3Data', 'step1SubmittedAt',
   'step2SubmittedAt', 'step3SubmittedAt', 'flowCompletedAt', 'loanBreakdown', 'staffMessage', 'phoneVerified', 'updatedAt'];
@@ -113,14 +113,44 @@ module.exports = function createFlowRoutes(ctx) {
     const p = s1.personal || {};
     const prevB = a.borrowerDetails || {};
     a.borrowerDetails = {
+      ...prevB,
       fullName: p.fullName || prevB.fullName || '',
       mobilePhoneNumber: p.phoneNumber || prevB.mobilePhoneNumber || '',
       dateOfBirth: p.dateOfBirth || prevB.dateOfBirth || '',
       addressFull: p.address || prevB.addressFull || '',
-      passportNumber: prevB.passportNumber || '',
+      passportNumber: p.passportNumber || prevB.passportNumber || '',
+      countryOfOrigin: p.countryOfOrigin || prevB.countryOfOrigin || '',
     };
+
+    const prevR = a.residencyDetails || {};
+    if (p.visaStartDate || p.visaExpiryDate || prevR.visaStartDate || prevR.visaExpiryDate || prevR.visaType) {
+      a.residencyDetails = {
+        ...prevR,
+        visaStartDate: p.visaStartDate || prevR.visaStartDate || '',
+        visaExpiryDate: p.visaExpiryDate || prevR.visaExpiryDate || '',
+      };
+    }
+
     const e = s1.employment || null;
-    if (e) a.employmentDetails = { employerName: e.employerName, companyName: e.companyName, manpowerAgent: e.manpowerAgent || undefined };
+    const prevE = a.employmentDetails || {};
+    const salaryNis = Number(p.monthlySalaryNis) > 0
+      ? Number(p.monthlySalaryNis)
+      : Number(e && e.monthlySalaryNis) > 0
+        ? Number(e.monthlySalaryNis)
+        : Number(prevE.monthlySalaryNis) > 0
+          ? Number(prevE.monthlySalaryNis)
+          : undefined;
+    if (e || salaryNis !== undefined) {
+      a.employmentDetails = {
+        ...prevE,
+        ...(e ? {
+          employerName: e.employerName,
+          companyName: e.companyName,
+          manpowerAgent: e.manpowerAgent || undefined,
+        } : {}),
+        ...(salaryNis !== undefined ? { monthlySalaryNis: salaryNis, salaryCurrency: p.salaryCurrency || 'ILS' } : {}),
+      };
+    }
 
     const amount = (s2.loan && s2.loan.requestedAmountNis) || (s1.loan && s1.loan.requestedAmountNis) || 0;
     const months = (s2.loan && s2.loan.repaymentPeriodMonths) || 6;
@@ -602,8 +632,14 @@ module.exports = function createFlowRoutes(ctx) {
 
     function summaryRow(a, user) {
       const s1 = a.step1Data || {};
+      const p = s1.personal || {};
       const pending = W.groupOf(a.flowStatus) === 'pending';
       const waitingSince = a.flowStatus === 'PENDING_STEP1_APPROVAL' ? a.step1SubmittedAt : a.flowStatus === 'PENDING_STEP2_APPROVAL' ? a.step2SubmittedAt : null;
+      const salary = Number(p.monthlySalaryNis) > 0
+        ? Number(p.monthlySalaryNis)
+        : Number(a.employmentDetails && a.employmentDetails.monthlySalaryNis) > 0
+          ? Number(a.employmentDetails.monthlySalaryNis)
+          : null;
       return {
         id: a.id,
         requestNumber: a.requestNumber,
@@ -611,9 +647,15 @@ module.exports = function createFlowRoutes(ctx) {
         group: W.groupOf(a.flowStatus),
         status: a.status,
         unlockedStep: a.unlockedStep,
-        applicantName: (s1.personal && s1.personal.fullName) || (a.borrowerDetails && a.borrowerDetails.fullName) || (user && user.fullName) || '',
-        phoneNumber: (s1.personal && s1.personal.phoneNumber) || (a.borrowerDetails && a.borrowerDetails.mobilePhoneNumber) || '',
+        applicantName: p.fullName || (a.borrowerDetails && a.borrowerDetails.fullName) || (user && user.fullName) || '',
+        phoneNumber: p.phoneNumber || (a.borrowerDetails && a.borrowerDetails.mobilePhoneNumber) || '',
         email: (user && user.email) || '',
+        passportNumber: p.passportNumber || (a.borrowerDetails && a.borrowerDetails.passportNumber) || '',
+        countryOfOrigin: p.countryOfOrigin || (a.borrowerDetails && a.borrowerDetails.countryOfOrigin) || '',
+        visaStartDate: p.visaStartDate || (a.residencyDetails && a.residencyDetails.visaStartDate) || null,
+        visaExpiryDate: p.visaExpiryDate || (a.residencyDetails && a.residencyDetails.visaExpiryDate) || null,
+        monthlySalaryNis: salary,
+        salaryCurrency: p.salaryCurrency || 'ILS',
         requestedAmountNis: (a.loanRequest && a.loanRequest.requestedAmountNis) || null,
         repaymentPeriodMonths: (a.loanRequest && a.loanRequest.repaymentPeriodMonths) || null,
         leadSource: a.leadSource || null,
@@ -643,7 +685,7 @@ module.exports = function createFlowRoutes(ctx) {
       let list = all;
       if (group && W.GROUPS.includes(String(group))) list = list.filter((r) => r.group === group);
       if (status && W.ALL_FLOW_STATUSES.includes(String(status))) list = list.filter((r) => r.flowStatus === status);
-      if (query) list = list.filter((r) => [r.requestNumber, r.applicantName, r.phoneNumber, r.email].some((f) => String(f || '').toLowerCase().includes(query)));
+      if (query) list = list.filter((r) => [r.requestNumber, r.applicantName, r.phoneNumber, r.email, r.passportNumber, r.countryOfOrigin].some((f) => String(f || '').toLowerCase().includes(query)));
       // Pending reviews: oldest first, so nothing waits unnoticed.
       list = [...list].sort((x, y) => {
         if (x.pending && y.pending) return String(x.waitingSince || '').localeCompare(String(y.waitingSince || ''));

@@ -164,7 +164,8 @@ function calculateEligibilityScore(application, referenceDate = new Date()) {
   const visaMonths = calculateVisaMonthsRemaining(residencyDetails?.visaExpiryDate, referenceDate);
   const isVisaExpired = visaMonths <= 0;
   const isVisaStatusFailed = documents.some((d) => d && (d.documentTypeCode === 'WORK_VISA' || d.documentTypeCode === 'WORKERS_CARD') && (d.qualityStatus === 'failed' || d.validityStatus === 'rejected' || d.validityStatus === 'expired'));
-  const hasValidVisa = !isVisaExpired && !isVisaStatusFailed && !!residencyDetails?.visaType;
+  const hasVisaDoc = documents.some((d) => d && (d.documentTypeCode === 'WORK_VISA' || d.documentTypeCode === 'WORKERS_CARD') && d.qualityStatus !== 'failed' && d.validityStatus !== 'rejected' && d.validityStatus !== 'expired');
+  const hasValidVisa = !isVisaExpired && !isVisaStatusFailed && !!(residencyDetails?.visaType || residencyDetails?.visaStartDate || hasVisaDoc);
 
   let identityScore = 0;
   let identityDesc = '';

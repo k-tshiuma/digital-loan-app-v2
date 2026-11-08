@@ -275,30 +275,43 @@ function streamApplicationPdf(app, res, options = {}) {
   };
 
   const b = app.borrowerDetails || {};
+  const s1p = (app.step1Data && app.step1Data.personal) || {};
+  const s1e = (app.step1Data && app.step1Data.employment) || {};
   section(L.field('sec.borrower'));
-  row(L.field('fullName'), b.fullName);
-  row(L.field('passport'), b.passportNumber);
-  row(L.field('country'), L.option('country', b.countryOfOrigin));
-  row(L.field('dob'), b.dateOfBirth ? formatDate(b.dateOfBirth, lang) : undefined);
-  row(L.field('phone'), ltr(b.mobilePhoneNumber));
-  row(L.field('address'), b.addressFull || [b.addressStreet, b.addressCity].filter(Boolean).join(', '));
+  row(L.field('fullName'), b.fullName || s1p.fullName);
+  row(L.field('passport'), ltr(b.passportNumber || s1p.passportNumber));
+  row(L.field('country'), L.option('country', b.countryOfOrigin || s1p.countryOfOrigin));
+  row(L.field('dob'), (b.dateOfBirth || s1p.dateOfBirth) ? formatDate(b.dateOfBirth || s1p.dateOfBirth, lang) : undefined);
+  row(L.field('phone'), ltr(b.mobilePhoneNumber || s1p.phoneNumber));
+  row(L.field('address'), b.addressFull || s1p.address || [b.addressStreet, b.addressCity].filter(Boolean).join(', '));
   row(L.field('marital'), L.option('marital', b.maritalStatus));
 
   const r = app.residencyDetails || {};
+  const visaStart = r.visaStartDate || s1p.visaStartDate;
+  const visaEnd = r.visaExpiryDate || s1p.visaExpiryDate;
   section(L.field('sec.residency'));
   row(L.field('visaType'), L.option('visa', r.visaType));
-  row(L.field('visaExpiry'), r.visaExpiryDate ? formatDate(r.visaExpiryDate, lang) : undefined);
+  if (visaStart && visaEnd) {
+    row(L.field('visaValidity'), ltr(`${formatDate(visaStart, lang)} – ${formatDate(visaEnd, lang)}`));
+  }
+  row(L.field('visaExpiry'), visaEnd ? formatDate(visaEnd, lang) : undefined);
   row(L.field('entryDate'), r.dateOfEntry ? formatDate(r.dateOfEntry, lang) : undefined);
   row(L.field('yearsInIsrael'), r.yearsOfResidency);
 
   const e = app.employmentDetails || {};
+  const salaryNis = e.monthlySalaryNis !== undefined && e.monthlySalaryNis !== null && e.monthlySalaryNis !== ''
+    ? e.monthlySalaryNis
+    : s1p.monthlySalaryNis;
   section(L.field('sec.employment'));
-  row(L.field('employer'), e.employerName);
-  row(L.field('agency'), e.staffingAgencyName);
+  row(L.field('employer'), e.employerName || s1e.employerName);
+  if (e.companyName || s1e.companyName) {
+    row(L.field('company'), e.companyName || s1e.companyName);
+  }
+  row(L.field('agency'), e.staffingAgencyName || e.manpowerAgent || s1e.manpowerAgent);
   row(L.field('startDate'), e.employmentStartDate ? formatDate(e.employmentStartDate, lang) : undefined);
   row(L.field('tenure'), e.jobTenureMonths !== undefined && e.jobTenureMonths !== null && e.jobTenureMonths !== ''
     ? L.field('monthsN', { n: e.jobTenureMonths }) : undefined);
-  row(L.field('salary'), formatMoney(e.monthlySalaryNis, lang));
+  row(L.field('salary'), formatMoney(salaryNis, lang));
   row(L.field('salaryMethod'), L.option('salaryMethod', e.salaryPaymentMethod));
 
   const l = app.loanRequest || {};

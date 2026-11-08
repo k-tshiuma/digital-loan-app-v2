@@ -22,7 +22,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { Language, UserRole } from '../types';
-import { statusLabel, flowGroupLabel } from '../i18n/options';
+import { statusLabel, flowGroupLabel, optionLabel } from '../i18n/options';
 import { formatCurrency, formatDate, formatDateTime } from '../i18n/format';
 import { t } from '../i18n/translations';
 import { apiService } from '../services/api';
@@ -452,7 +452,25 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
           )}
 
           {/* TAB 1: STEP 1 (Personal, Credentials, Docs, Employment, Requested Loan) */}
-          {activeTab === 'step1' && (
+          {activeTab === 'step1' && (() => {
+            const p1 = step1.data?.personal || {};
+            const b1 = detail.borrowerDetails || {};
+            const r1 = detail.residencyDetails || {};
+            const e1 = step1.data?.employment || detail.employmentDetails || {};
+            const passportVal = p1.passportNumber || b1.passportNumber || '';
+            const countryVal = p1.countryOfOrigin || b1.countryOfOrigin || '';
+            const visaStartVal = p1.visaStartDate || r1.visaStartDate || '';
+            const visaExpiryVal = p1.visaExpiryDate || r1.visaExpiryDate || '';
+            const salaryVal =
+              Number(p1.monthlySalaryNis) > 0
+                ? Number(p1.monthlySalaryNis)
+                : Number(e1.monthlySalaryNis) > 0
+                ? Number(e1.monthlySalaryNis)
+                : Number(detail.employmentDetails?.monthlySalaryNis) > 0
+                ? Number(detail.employmentDetails.monthlySalaryNis)
+                : null;
+
+            return (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Personal Details */}
@@ -461,10 +479,32 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                     <span>{t(language, 'fi.s1.personal')}</span>
                     <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">{t(language, 'fi.stepBadge', { step: 1 })}</span>
                   </h4>
-                  <div><span className="text-slate-400">{t(language, 'fi.fullName')}</span> <span className="font-bold text-slate-900">{step1.data?.personal?.fullName || '—'}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.phone')}</span> <bdi dir="ltr" className="font-bold">{step1.data?.personal?.phoneNumber || '—'}</bdi></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.dob')}</span> {step1.data?.personal?.dateOfBirth ? formatDate(step1.data?.personal?.dateOfBirth, language) : '—'}</div>
-                  <div><span className="text-slate-400">{t(language, 'fi.address')}</span> {step1.data?.personal?.address || '—'}</div>
+                  <div><span className="text-slate-400">{t(language, 'fi.fullName')}</span> <span className="font-bold text-slate-900">{p1.fullName || b1.fullName || '—'}</span></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.phone')}</span> <bdi dir="ltr" className="font-bold">{p1.phoneNumber || b1.mobilePhoneNumber || '—'}</bdi></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.dob')}</span> {(p1.dateOfBirth || b1.dateOfBirth) ? formatDate(p1.dateOfBirth || b1.dateOfBirth, language) : '—'}</div>
+                  <div><span className="text-slate-400">{t(language, 'fi.address')}</span> {p1.address || b1.addressFull || '—'}</div>
+                  <div><span className="text-slate-400">{t(language, 'fi.passportNumber')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-900">{passportVal || '—'}</bdi></div>
+                  <div><span className="text-slate-400">{t(language, 'fi.countryOfOrigin')}</span> <span className="font-semibold text-slate-900">{countryVal ? optionLabel(language, 'country', countryVal) : '—'}</span></div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'fi.visaValidity')}</span>{' '}
+                    {visaStartVal && visaExpiryVal ? (
+                      <bdi dir="ltr" className="font-semibold text-slate-900">
+                        {formatDate(visaStartVal, language)} – {formatDate(visaExpiryVal, language)}
+                      </bdi>
+                    ) : visaExpiryVal ? (
+                      <bdi dir="ltr" className="font-semibold text-slate-900">
+                        {formatDate(visaExpiryVal, language)}
+                      </bdi>
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'fi.monthlySalary')}</span>{' '}
+                    <span className="font-mono font-bold text-emerald-800">
+                      {salaryVal !== null ? formatCurrency(salaryVal, language) : '—'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Account & Registration */}
@@ -526,7 +566,8 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* TAB 2: STEP 2 (Sponsors & Loan Duration) */}
           {activeTab === 'step2' && (
