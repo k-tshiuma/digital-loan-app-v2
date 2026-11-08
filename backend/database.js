@@ -1,7 +1,10 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+// DB_PATH lets the borrower and admin backends open the same file after the split.
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error connecting to SQLite database:', err.message);
@@ -10,8 +13,26 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+// Connection settings, not schema. The busy timeout makes a second process wait for the write lock
+// instead of failing with SQLITE_BUSY; it must be set before any statement runs, because switching to
+// WAL needs that lock too. WAL lets reads run while a write is in progress.
+db.configure('busyTimeout', 5000);
+
+// WAL mode is stored in the database file, so once any process switches it, every connection uses it.
+// When two processes start at the same moment, SQLite may refuse the switch with SQLITE_BUSY without
+// waiting; retry briefly instead of crashing.
+function enableWal(attempt = 1) {
+  db.get('PRAGMA journal_mode = WAL', (err) => {
+    if (!err) return;
+    if (attempt < 5) setTimeout(() => enableWal(attempt + 1), 100 * attempt);
+    else console.warn('Could not switch SQLite to WAL mode:', err.message);
+  });
+}
+
 // Initialize tables
 db.serialize(() => {
+  enableWal();
+
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,

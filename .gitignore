@@ -9,3 +9,6 @@ coverage/
 scratch/
 backend/uploads/*
 !backend/uploads/.gitkeep
+# SQLite WAL side files (database.js turns on WAL mode)
+backend/database.sqlite-wal
+backend/database.sqlite-shm

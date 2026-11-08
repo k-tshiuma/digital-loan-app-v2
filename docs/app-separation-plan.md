@@ -91,7 +91,7 @@ Every table stays exactly as it is. This matrix shows which backend will read or
 | `application_step_submissions` | write (snapshot on each step submit) | read (revision history) | |
 | `application_step_reviews` | read (changes-requested and rejection notes) | read/write (Step 1 and 2 decisions) | |
 | `audit_log` | write (`APPLICANT_REGISTERED`, `STEP_SUBMITTED`, `TERMS_ACCEPTED`, …) | read/write (`STAFF_LOGIN_*`, `BANK_DETAILS_VIEWED`, decisions, audit view) | Append-only from both |
-| `terms_versions` | read; seeded on startup | read | Seeding is check-then-insert with no unique key (C5) |
+| `terms_versions` | read; seeded on first read | read | Seeding is check-then-insert with no unique key (C5) |
 | `terms_acceptances` | write (Step 3) | read (inspector Step 3 tab) | |
 | `notification_deliveries` | write (submission sends) | read/write (decision sends, retries) | Shared through `flowNotifications.js` |
 
@@ -103,7 +103,7 @@ Every table stays exactly as it is. This matrix shows which backend will read or
 | C2 | **Uploads on local disk**: `UPLOAD_DIR` is fixed to `backend/uploads` | The admin backend must read files the borrower backend wrote. |
 | C3 | **Routes serving both sides** (above) | A route can't be cleanly assigned to one app. |
 | C4 | **Two processes writing one SQLite file** | Without WAL and `busy_timeout`, concurrent writes fail with `SQLITE_BUSY`. The schema setup ignores all errors, so a busy error during startup could silently skip a column. |
-| C5 | **Startup seeding**: `seedTerms` in `terms.js` checks, then inserts, and `terms_versions` has no unique key on `(type, version)` | Two processes starting together could insert duplicate terms rows. |
+| C5 | **Terms seeding**: `seedTerms` in `terms.js` runs on the first terms read in each process (not at startup), checks, then inserts, and `terms_versions` has no unique key on `(type, version)` | Two processes reading terms for the first time together could insert duplicate terms rows. |
 | C6 | **Mirrored logic**: `eligibilityScoring`, `loanCalculator`, PDF labels (each exists in backend and frontend) | Copying code between apps would add a third or fourth copy. These must be shared, never duplicated. |
 | C7 | **`storage.ts` and localStorage**: `BackOffice` reads `storageService` (demo applications, audit events, config, exports, simulated funding handoff) | Once the apps live on different origins, the admin app can't see local data saved by the borrower app. Only demo or offline fallback data is affected; backend data is not. |
 | C8 | **Demo-mode identity**: `authenticate` falls back to `demo_user` | Fine for the borrower backend. The admin backend must never fall back to it. |
