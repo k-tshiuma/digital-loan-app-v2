@@ -1,8 +1,13 @@
 /**
  * Routes of the 3-step loan application workflow (flowVersion = 2 applications).
  *
- *   registerPublic(app)     before the global `authenticate` middleware: applicant sign-up, Google, staff login
- *   registerProtected(app)  after it: applicant step endpoints and Back Office queue / decisions
+ *   registerApplicantPublic(app)  before the global `authenticate` middleware: applicant sign-up, Google
+ *   registerStaffPublic(app)      before it too: staff login
+ *   registerApplicant(app)        after it: applicant step endpoints and terms
+ *   registerStaff(app)            after it: Back Office queue, detail, decisions, messages, audit
+ *
+ * Applicant and staff routes are registered separately so the borrower and admin backends can each
+ * mount only their own (docs/app-separation-plan.md).
  *
  * Every state change goes through services/workflow.js (the transition tables) and is written to
  * audit_log. The applicant is always resolved from the token; the client never supplies a userId.
@@ -320,7 +325,7 @@ module.exports = function createFlowRoutes(ctx) {
   // -------------------------------------------------------------------------
   // PUBLIC routes
   // -------------------------------------------------------------------------
-  function registerPublic(app) {
+  function registerApplicantPublic(app) {
     // Manual registration: email + password + phone (verified by SMS code) -> account + "Lead / Registered" application.
     app.post('/api/flow/register', async (req, res) => {
       if (!registerLimiter(`reg:${req.ip}`)) return res.status(429).json({ success: false, error: 'Too many attempts. Please try again later.' });
@@ -410,7 +415,9 @@ module.exports = function createFlowRoutes(ctx) {
       const application = await ensureFlowApp(user, { leadSource: 'google', language: lang, phoneVerified: false, registration: registration && registration.disclaimerAccepted === true ? registration : null, req });
       res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: await applicantView(application, user) });
     });
+  }
 
+  function registerStaffPublic(app) {
     // Back Office sign-in with a real staff account.
     app.post('/api/auth/staff-login', async (req, res) => {
       if (!loginLimiter(`staff:${req.ip}`)) return res.status(429).json({ success: false, error: 'Too many attempts. Please try again later.' });
@@ -441,9 +448,7 @@ module.exports = function createFlowRoutes(ctx) {
   // -------------------------------------------------------------------------
   // PROTECTED routes
   // -------------------------------------------------------------------------
-  function registerProtected(app) {
-    // ---- Applicant ---------------------------------------------------------
-
+  function registerApplicant(app) {
     app.get('/api/flow/terms/current', async (_req, res) => {
       res.json({ success: true, terms: await getAllCurrentTerms() });
     });
@@ -625,9 +630,10 @@ module.exports = function createFlowRoutes(ctx) {
       broadcastAppEvent(a.id, 'status', { applicationId: a.id, flowStatus: saved.flowStatus, status: saved.status, updatedAt: saved.updatedAt });
       res.json({ success: true, application: await applicantView(saved, req.user) });
     });
+  }
 
-    // ---- Back Office -------------------------------------------------------
-
+  // ---- Back Office ---------------------------------------------------------
+  function registerStaff(app) {
     const staffView = requireStaff(...W.VIEW_ROLES);
 
     function summaryRow(a, user) {
@@ -869,5 +875,5 @@ module.exports = function createFlowRoutes(ctx) {
     });
   }
 
-  return { registerPublic, registerProtected, notifier, mirrorLegacy, maskBank };
+  return { registerApplicantPublic, registerStaffPublic, registerApplicant, registerStaff, notifier, mirrorLegacy, maskBank };
 };

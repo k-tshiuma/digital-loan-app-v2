@@ -30,7 +30,15 @@ describe('statusReasonLabel', () => {
   });
 
   it('knows every fixed reason the backend writes into the status history', () => {
-    const server = fs.readFileSync(path.resolve(__dirname, '../../../../backend/server.js'), 'utf8');
+    // server.js and the route modules split out of it (routes/borrower, routes/admin, routes/shared).
+    const backend = path.resolve(__dirname, '../../../../backend');
+    const files = [
+      path.join(backend, 'server.js'),
+      ...['borrower', 'admin', 'shared'].flatMap((dir) =>
+        fs.readdirSync(path.join(backend, 'routes', dir)).filter((f) => f.endsWith('.js')).map((f) => path.join(backend, 'routes', dir, f))
+      ),
+    ];
+    const server = files.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
     const known = Object.values(DEFAULT_STATUS_REASONS) as string[];
     // `reason: 'text'` or `reason: (...) || 'fallback text'`
     const written = [...server.matchAll(/reason:\s*(?:'([^']+)'|[^\n]*\|\|\s*'([^']+)')/g)].map((m) => m[1] ?? m[2]);
