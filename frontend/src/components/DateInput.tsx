@@ -22,6 +22,7 @@ interface DateInputProps {
   min?: string;
   max?: string;
   required?: boolean;
+  disabled?: boolean;
   /** Border and focus classes for the boxes (e.g. error state). */
   className?: string;
 }
@@ -49,7 +50,7 @@ export function partsToIso({ day, month, year }: Parts): string | null {
 const SIZES: Record<keyof Parts, number> = { day: 2, month: 2, year: 4 };
 const ORDER: Array<keyof Parts> = ['day', 'month', 'year'];
 
-export const DateInput: React.FC<DateInputProps> = ({ id, value, onChange, language, min, max, required, className = '' }) => {
+export const DateInput: React.FC<DateInputProps> = ({ id, value, onChange, language, min, max, required, disabled = false, className = '' }) => {
   const [parts, setParts] = useState<Parts>(() => isoToParts(value));
   const [touched, setTouched] = useState(false);
   const dayRef = useRef<HTMLInputElement>(null);
@@ -122,6 +123,7 @@ export const DateInput: React.FC<DateInputProps> = ({ id, value, onChange, langu
       autoComplete="off"
       maxLength={SIZES[field] + 1}
       required={required}
+      disabled={disabled}
       value={parts[field]}
       placeholder={t(language, `date.${field}Placeholder`)}
       aria-label={field === 'day' ? undefined : t(language, `date.${field}`)}
@@ -132,7 +134,7 @@ export const DateInput: React.FC<DateInputProps> = ({ id, value, onChange, langu
       onKeyDown={(e) => handleKeyDown(field, e)}
       onPaste={handlePaste}
       onFocus={(e) => e.target.select()}
-      className={`${width} min-w-0 px-2 py-3 rounded-xl border bg-white text-slate-900 text-sm font-medium text-center tabular-nums focus:outline-none focus:ring-2 transition-all ${
+      className={`${width} min-w-0 px-2 py-3 rounded-xl border bg-white text-slate-900 text-sm font-medium text-center tabular-nums focus:outline-none focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
         invalid ? 'border-red-400 focus:ring-red-200' : className
       }`}
     />
@@ -159,10 +161,11 @@ export const DateInput: React.FC<DateInputProps> = ({ id, value, onChange, langu
         <div className="relative shrink-0">
           <button
             type="button"
+            disabled={disabled}
             onClick={openPicker}
             aria-label={t(language, 'date.openCalendar')}
             title={t(language, 'date.openCalendar')}
-            className="h-full w-12 rounded-xl border border-slate-300 bg-white text-slate-600 hover:text-blue-900 hover:border-blue-900 flex items-center justify-center transition-colors"
+            className="h-full w-12 rounded-xl border border-slate-300 bg-white text-slate-600 hover:text-blue-900 hover:border-blue-900 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <CalendarDays className="w-5 h-5" />
           </button>
@@ -172,6 +175,7 @@ export const DateInput: React.FC<DateInputProps> = ({ id, value, onChange, langu
             type="date"
             tabIndex={-1}
             aria-hidden="true"
+            disabled={disabled}
             min={min}
             max={max}
             value={value || ''}

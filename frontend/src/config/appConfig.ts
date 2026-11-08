@@ -41,6 +41,23 @@ export const ORIGIN_COUNTRIES = [
   'Other',
 ];
 
+export const STEP1_ORIGIN_COUNTRIES = [
+  'China',
+  'Thailand',
+  'India',
+  'Nepal',
+  'Philippines',
+  'Nigeria',
+  'Ghana',
+  'Congo',
+  'Malawi',
+  'South Africa',
+  'Zambia',
+  'Kenya',
+  'Tanzania',
+  'Uganda',
+] as const;
+
 export const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Other'];
 
 export const SALARY_PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'Check', 'Other'];

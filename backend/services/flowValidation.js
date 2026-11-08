@@ -13,6 +13,22 @@ const { isValidLoanAmount, isValidRepaymentPeriod } = require('./loanCalculator'
 
 const ALLOWED_DOC_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
 const MAX_SPONSORS = 3;
+const STEP1_COUNTRIES = [
+  'China',
+  'Thailand',
+  'India',
+  'Nepal',
+  'Philippines',
+  'Nigeria',
+  'Ghana',
+  'Congo',
+  'Malawi',
+  'South Africa',
+  'Zambia',
+  'Kenya',
+  'Tanzania',
+  'Uganda',
+];
 
 const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const digitsOnly = (v) => String(v || '').replace(/\D/g, '');
@@ -35,7 +51,11 @@ async function cleanDocRef(ref, userId) {
   };
 }
 
-const isIsoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).getTime());
+const isIsoDate = (s) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
 
 // ---------------------------------------------------------------------------
 // Step 1: registration & loan application
@@ -47,12 +67,22 @@ async function cleanStep1(raw, userId) {
   const emp = d.employment || {};
   const loan = d.loan || {};
   const amount = Number(loan.requestedAmountNis);
+  const rawSalary = personal.monthlySalaryNis !== undefined && personal.monthlySalaryNis !== null && personal.monthlySalaryNis !== ''
+    ? Number(personal.monthlySalaryNis)
+    : Number(emp.monthlySalaryNis);
+  const salaryNis = Number.isFinite(rawSalary) && rawSalary > 0 ? Math.round(rawSalary * 100) / 100 : 0;
   return {
     personal: {
       fullName: str(personal.fullName, 120),
       phoneNumber: str(personal.phoneNumber, 30),
       dateOfBirth: str(personal.dateOfBirth, 10),
       address: str(personal.address, 250),
+      passportNumber: str(personal.passportNumber, 30),
+      countryOfOrigin: str(personal.countryOfOrigin, 60),
+      visaStartDate: str(personal.visaStartDate, 10),
+      visaExpiryDate: str(personal.visaExpiryDate, 10),
+      monthlySalaryNis: salaryNis,
+      salaryCurrency: 'ILS',
     },
     documents: {
       passport: await cleanDocRef(docs.passport, userId),
@@ -63,6 +93,8 @@ async function cleanStep1(raw, userId) {
       employerName: str(emp.employerName, 120),
       companyName: str(emp.companyName, 120),
       manpowerAgent: str(emp.manpowerAgent, 120),
+      monthlySalaryNis: salaryNis,
+      salaryCurrency: 'ILS',
     },
     loan: { requestedAmountNis: Number.isFinite(amount) ? amount : 0 },
   };
@@ -75,6 +107,17 @@ function validateStep1(d) {
   if (!d.personal.dateOfBirth) e.dateOfBirth = 'required';
   else if (!isIsoDate(d.personal.dateOfBirth) || new Date(d.personal.dateOfBirth) > new Date()) e.dateOfBirth = 'invalid';
   if (!d.personal.address) e.address = 'required';
+  if (!d.personal.passportNumber) e.passportNumber = 'required';
+  if (!d.personal.countryOfOrigin) e.countryOfOrigin = 'required';
+  else if (!STEP1_COUNTRIES.includes(d.personal.countryOfOrigin)) e.countryOfOrigin = 'invalid';
+  if (!d.personal.visaStartDate) e.visaStartDate = 'required';
+  else if (!isIsoDate(d.personal.visaStartDate)) e.visaStartDate = 'invalid';
+  if (!d.personal.visaExpiryDate) e.visaExpiryDate = 'required';
+  else if (!isIsoDate(d.personal.visaExpiryDate)) e.visaExpiryDate = 'invalid';
+  else if (d.personal.visaStartDate && isIsoDate(d.personal.visaStartDate) && d.personal.visaExpiryDate < d.personal.visaStartDate) {
+    e.visaExpiryDate = 'before_start';
+  }
+  if (!(d.personal.monthlySalaryNis > 0)) e.monthlySalaryNis = 'required';
   if (!d.documents.passport) e.passport = 'required';
   if (!d.documents.visa) e.visa = 'required';
   if (!d.documents.payslip) e.payslip = 'required';
@@ -159,6 +202,7 @@ function validateStep3(d) {
 module.exports = {
   ALLOWED_DOC_MIME,
   MAX_SPONSORS,
+  STEP1_COUNTRIES,
   cleanDocRef,
   cleanStep1, validateStep1,
   cleanStep2, validateStep2,

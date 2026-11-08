@@ -1375,23 +1375,26 @@ class StorageService {
       'Submitted At',
     ];
 
-    const rows = Array.from(this.memoryApps.values()).map((app) => [
-      `"${app.requestNumber}"`,
-      `"${app.borrowerDetails?.fullName || ''}"`,
-      `"${app.borrowerDetails?.passportNumber || ''}"`,
-      `"${app.borrowerDetails?.countryOfOrigin || ''}"`,
-      `"${app.residencyDetails?.visaType || ''}"`,
-      `"${app.residencyDetails?.visaExpiryDate || ''}"`,
-      `"${app.employmentDetails?.employerName || ''}"`,
-      app.employmentDetails?.monthlySalaryNis || 0,
-      app.loanRequest?.requestedAmountNis || 0,
-      app.loanRequest?.repaymentPeriodMonths || 0,
-      app.loanRequest?.estimatedMonthlyPaymentNis || 0,
-      `"${app.loanRequest?.repaymentSource || ''}"`,
-      `"${app.status}"`,
-      `"${app.language}"`,
-      `"${app.submittedAt || ''}"`,
-    ]);
+    const rows = Array.from(this.memoryApps.values()).map((app) => {
+      const s1p = (app as any).step1Data?.personal;
+      return [
+        `"${app.requestNumber}"`,
+        `"${app.borrowerDetails?.fullName || s1p?.fullName || ''}"`,
+        `"${app.borrowerDetails?.passportNumber || s1p?.passportNumber || ''}"`,
+        `"${app.borrowerDetails?.countryOfOrigin || s1p?.countryOfOrigin || ''}"`,
+        `"${app.residencyDetails?.visaType || ''}"`,
+        `"${app.residencyDetails?.visaExpiryDate || s1p?.visaExpiryDate || ''}"`,
+        `"${app.employmentDetails?.employerName || (app as any).step1Data?.employment?.employerName || ''}"`,
+        app.employmentDetails?.monthlySalaryNis || s1p?.monthlySalaryNis || 0,
+        app.loanRequest?.requestedAmountNis || (app as any).step1Data?.loan?.requestedAmountNis || 0,
+        app.loanRequest?.repaymentPeriodMonths || 0,
+        app.loanRequest?.estimatedMonthlyPaymentNis || 0,
+        `"${app.loanRequest?.repaymentSource || ''}"`,
+        `"${app.status}"`,
+        `"${app.language}"`,
+        `"${app.submittedAt || ''}"`,
+      ];
+    });
 
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   }

@@ -192,4 +192,56 @@ describe('FlowApplicationInspector', () => {
     await user.click(screen.getAllByRole('button', { name: 'Close' })[0]);
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('displays passport number, country of origin, visa validity period, and monthly salary in English and Hebrew', () => {
+    const detail = makeDetail('PENDING_STEP1_APPROVAL', {
+      application: {
+        step1Data: {
+          personal: {
+            fullName: 'Grace Mensah',
+            phoneNumber: '054-7788990',
+            dateOfBirth: '1992-08-15',
+            address: 'Dizengoff 100, Tel Aviv',
+            passportNumber: 'GH9988112',
+            countryOfOrigin: 'Ghana',
+            visaStartDate: '2025-03-01',
+            visaExpiryDate: '2028-02-29',
+            monthlySalaryNis: 7850,
+            salaryCurrency: 'ILS',
+          },
+          employment: { employerName: 'Moshe Cohen', companyName: 'Green Farms' },
+          loan: { requestedAmountNis: 6000 },
+        },
+      },
+    });
+
+    const handlers = {
+      onClose: vi.fn(),
+      onApproveStep: vi.fn().mockResolvedValue(undefined),
+      onRequestStepChanges: vi.fn().mockResolvedValue(undefined),
+      onRejectStep: vi.fn().mockResolvedValue(undefined),
+      onFinalDecision: vi.fn().mockResolvedValue(undefined),
+      onSendMessage: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const { rerender } = render(
+      <FlowApplicationInspector detail={detail} language="en" currentRole="credit_reviewer" {...handlers} />
+    );
+
+    expect(screen.getByText('GH9988112')).toBeInTheDocument();
+    expect(screen.getByText('Ghana')).toBeInTheDocument();
+    expect(screen.getByText(/01\/03\/2025/)).toBeInTheDocument();
+    expect(screen.getByText(/29\/02\/2028/)).toBeInTheDocument();
+    expect(screen.getByText(/7,850/)).toBeInTheDocument();
+
+    rerender(
+      <FlowApplicationInspector detail={detail} language="he" currentRole="credit_reviewer" {...handlers} />
+    );
+
+    expect(screen.getByText('GH9988112')).toBeInTheDocument();
+    expect(screen.getByText('גאנה')).toBeInTheDocument();
+    expect(screen.getByText(/01\.03\.2025/)).toBeInTheDocument();
+    expect(screen.getByText(/29\.02\.2028/)).toBeInTheDocument();
+    expect(screen.getByText(/7,850/)).toBeInTheDocument();
+  });
 });

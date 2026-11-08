@@ -115,6 +115,7 @@ export interface BorrowerDetails {
 
 export interface ResidencyDetails {
   visaType: string;
+  visaStartDate?: string; // YYYY-MM-DD
   visaExpiryDate: string; // YYYY-MM-DD
   dateOfEntry: string; // YYYY-MM-DD
   yearsOfResidency: number; // Derived automatically
@@ -128,6 +129,7 @@ export interface EmploymentDetails {
   employmentStartDate?: string; // YYYY-MM-DD
   jobTenureMonths: number;
   monthlySalaryNis: number;
+  salaryCurrency?: string;
   salaryPaymentMethod: SalaryPaymentMethod;
   otherSalaryPaymentMethodDetails?: string;
 }
@@ -450,6 +452,12 @@ export interface Step1FormData {
     phoneNumber: string;
     dateOfBirth: string;
     address: string;
+    passportNumber?: string;
+    countryOfOrigin?: string;
+    visaStartDate?: string;
+    visaExpiryDate?: string;
+    monthlySalaryNis?: number;
+    salaryCurrency?: string;
   };
   documents: {
     passport: UploadedDocRef | null;
@@ -460,6 +468,8 @@ export interface Step1FormData {
     employerName: string;
     companyName: string;
     manpowerAgent?: string;
+    monthlySalaryNis?: number;
+    salaryCurrency?: string;
   };
   loan: {
     requestedAmountNis: number;

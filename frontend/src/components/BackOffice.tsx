@@ -258,18 +258,23 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
 
     // Drafts and older records can lack any of these fields, so every one is optional.
     const b = app.borrowerDetails;
-    const applicantName = (app as any).applicantName || (app as any).step1Data?.personal?.fullName;
-    const phone = (app as any).phoneNumber || b?.mobilePhoneNumber;
+    const s1p = (app as any).step1Data?.personal;
+    const applicantName = (app as any).applicantName || s1p?.fullName;
+    const phone = (app as any).phoneNumber || s1p?.phoneNumber || b?.mobilePhoneNumber;
     const email = (app as any).email;
+    const passport = (app as any).passportNumber || s1p?.passportNumber || b?.passportNumber;
+    const country = (app as any).countryOfOrigin || s1p?.countryOfOrigin || b?.countryOfOrigin;
+    const localizedCountry = country ? optionLabel(language, 'country', country) : '';
 
     const matchesSearch = [
       app.requestNumber,
       b?.fullName,
       applicantName,
-      b?.passportNumber,
+      passport,
       phone,
       email,
-      b?.countryOfOrigin,
+      country,
+      localizedCountry,
     ].some((field) => typeof field === 'string' && field.toLowerCase().includes(q));
 
     return matchesStatus && matchesSearch;
@@ -589,16 +594,40 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                               </div>
                             </td>
                             <td className="py-3.5 px-4">
-                              <span className="font-mono"><bdi dir="ltr">{(app as any).step1Data?.personal?.passportNumber || app.borrowerDetails?.passportNumber || '—'}</bdi></span>
+                              <span className="font-mono"><bdi dir="ltr">{(app as any).passportNumber || (app as any).step1Data?.personal?.passportNumber || app.borrowerDetails?.passportNumber || '—'}</bdi></span>
                               <span className="text-[11px] text-slate-500 block">
-                                {optionLabel(language, 'country', app.borrowerDetails?.countryOfOrigin)}
+                                {optionLabel(language, 'country', (app as any).countryOfOrigin || (app as any).step1Data?.personal?.countryOfOrigin || app.borrowerDetails?.countryOfOrigin)}
                               </span>
                             </td>
                             <td className="py-3.5 px-4">
-                              <span className="font-semibold text-slate-800">{optionLabel(language, 'visa', app.residencyDetails?.visaType)}</span>
-                              <span className="text-[10px] text-slate-500 block">
-                                {t(language, 'bo.yrsInIsrael', { n: app.residencyDetails?.yearsOfResidency || 0 })}
-                              </span>
+                              {app.residencyDetails?.visaType ? (
+                                <>
+                                  <span className="font-semibold text-slate-800">{optionLabel(language, 'visa', app.residencyDetails.visaType)}</span>
+                                  <span className="text-[10px] text-slate-500 block">
+                                    {t(language, 'bo.yrsInIsrael', { n: app.residencyDetails?.yearsOfResidency || 0 })}
+                                  </span>
+                                </>
+                              ) : (() => {
+                                const vStart = (app as any).visaStartDate || (app as any).step1Data?.personal?.visaStartDate || app.residencyDetails?.visaStartDate;
+                                const vEnd = (app as any).visaExpiryDate || (app as any).step1Data?.personal?.visaExpiryDate || app.residencyDetails?.visaExpiryDate;
+                                const sal = (app as any).monthlySalaryNis || (app as any).step1Data?.personal?.monthlySalaryNis || app.employmentDetails?.monthlySalaryNis;
+                                return (
+                                  <>
+                                    <span className="font-semibold text-slate-800">
+                                      {vStart && vEnd ? (
+                                        <bdi dir="ltr">{formatDate(vStart, language)} – {formatDate(vEnd, language)}</bdi>
+                                      ) : vEnd ? (
+                                        <bdi dir="ltr">{formatDate(vEnd, language)}</bdi>
+                                      ) : (
+                                        '—'
+                                      )}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 block">
+                                      {sal ? formatCurrency(sal, language) : t(language, 'bo.yrsInIsrael', { n: app.residencyDetails?.yearsOfResidency || 0 })}
+                                    </span>
+                                  </>
+                                );
+                              })()}
                             </td>
                             <td className="py-3.5 px-4 text-end">
                               <span className="font-mono font-extrabold text-blue-900">
@@ -1018,7 +1047,17 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                     {t(language, 'bo.residencyEmployment')}
                   </div>
                   <div><span className="text-slate-400">{t(language, 'bo.visaType')}</span> <span className="font-bold">{optionLabel(language, 'visa', selectedApp.residencyDetails?.visaType)}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'bo.visaExpiry')}</span> {formatDate(selectedApp.residencyDetails?.visaExpiryDate, language)}</div>
+                  {(selectedApp.residencyDetails?.visaStartDate || (selectedApp as any).step1Data?.personal?.visaStartDate) && (
+                    <div>
+                      <span className="text-slate-400">{t(language, 'bo.visaValidity')}</span>{' '}
+                      <bdi dir="ltr">
+                        {formatDate(selectedApp.residencyDetails?.visaStartDate || (selectedApp as any).step1Data?.personal?.visaStartDate, language)}
+                        {' – '}
+                        {formatDate(selectedApp.residencyDetails?.visaExpiryDate || (selectedApp as any).step1Data?.personal?.visaExpiryDate, language)}
+                      </bdi>
+                    </div>
+                  )}
+                  <div><span className="text-slate-400">{t(language, 'bo.visaExpiry')}</span> {formatDate(selectedApp.residencyDetails?.visaExpiryDate || (selectedApp as any).step1Data?.personal?.visaExpiryDate, language)}</div>
                   <div><span className="text-slate-400">{t(language, 'bo.yearsInIsrael')}</span> {t(language, 'bo.yrs', { n: selectedApp.residencyDetails?.yearsOfResidency ?? 0 })}</div>
                   <div><span className="text-slate-400">{t(language, 'bo.employer')}</span> {selectedApp.employmentDetails?.employerName}</div>
                   <div><span className="text-slate-400">{t(language, 'bo.monthlySalary')}</span> <span className="font-mono font-bold text-emerald-800">{formatCurrency(selectedApp.employmentDetails?.monthlySalaryNis, language)}</span></div>

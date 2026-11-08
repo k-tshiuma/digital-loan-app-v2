@@ -59,7 +59,18 @@ async function main() {
     '/flow/application/steps/1/submit',
     {
       data: {
-        personal: { fullName, phoneNumber, dateOfBirth: '1991-03-22', address: 'Rothschild Blvd 12, Tel Aviv' },
+        personal: {
+          fullName,
+          phoneNumber,
+          dateOfBirth: '1991-03-22',
+          address: 'Rothschild Blvd 12, Tel Aviv',
+          passportNumber: 'TH8842109',
+          countryOfOrigin: 'Thailand',
+          visaStartDate: '2025-06-01',
+          visaExpiryDate: '2028-05-31',
+          monthlySalaryNis: 7500,
+          salaryCurrency: 'ILS',
+        },
         documents: { passport, visa, payslip },
         employment: { employerName: 'Dana Levi', companyName: 'Levi Greenhouses Ltd', manpowerAgent: 'AgroManpower TLV' },
         loan: { requestedAmountNis: 6000 },

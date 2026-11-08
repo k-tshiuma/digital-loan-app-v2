@@ -196,8 +196,8 @@ async function runTests() {
     assert.strictEqual(visaDoc.status, 200);
     assert.strictEqual(payslipDoc.status, 200);
 
-    // Submit Step 1
-    const step1SubmitRes = await request('POST', '/api/flow/application/steps/1/submit', {
+    // Validate the 4 mandatory Step 1 employee fields before submission
+    const missingNewFieldsRes = await request('POST', '/api/flow/application/steps/1/submit', {
       data: {
         personal: {
           fullName: 'Somchai Prasert',
@@ -220,10 +220,111 @@ async function runTests() {
         },
       },
     }, applicantToken);
+    assert.strictEqual(missingNewFieldsRes.status, 422, 'Missing mandatory Step 1 employee fields must return 422');
+    assert.strictEqual(missingNewFieldsRes.body.fieldErrors.passportNumber, 'required');
+    assert.strictEqual(missingNewFieldsRes.body.fieldErrors.countryOfOrigin, 'required');
+    assert.strictEqual(missingNewFieldsRes.body.fieldErrors.visaStartDate, 'required');
+    assert.strictEqual(missingNewFieldsRes.body.fieldErrors.visaExpiryDate, 'required');
+    assert.strictEqual(missingNewFieldsRes.body.fieldErrors.monthlySalaryNis, 'required');
+
+    const invalidCountryAndVisaRangeRes = await request('POST', '/api/flow/application/steps/1/submit', {
+      data: {
+        personal: {
+          fullName: 'Somchai Prasert',
+          phoneNumber: testPhone,
+          dateOfBirth: '1988-05-14',
+          address: 'Herzl St 45, Tel Aviv',
+          passportNumber: 'TH7744112',
+          countryOfOrigin: 'Atlantis',
+          visaStartDate: '2027-06-01',
+          visaExpiryDate: '2026-05-31',
+          monthlySalaryNis: 0,
+        },
+        documents: {
+          passport: passDoc.body.file,
+          visa: visaDoc.body.file,
+          payslip: payslipDoc.body.file,
+        },
+        employment: {
+          employerName: 'Yossi Cohen',
+          companyName: 'Cohen Citrus Groves Ltd',
+        },
+        loan: {
+          requestedAmountNis: 5000,
+        },
+      },
+    }, applicantToken);
+    assert.strictEqual(invalidCountryAndVisaRangeRes.status, 422);
+    assert.strictEqual(invalidCountryAndVisaRangeRes.body.fieldErrors.countryOfOrigin, 'invalid');
+    assert.strictEqual(invalidCountryAndVisaRangeRes.body.fieldErrors.visaExpiryDate, 'before_start');
+    assert.strictEqual(invalidCountryAndVisaRangeRes.body.fieldErrors.monthlySalaryNis, 'required');
+    console.log('  ✓ PASS: Mandatory validation enforces passportNumber, countryOfOrigin, visa validity period, and monthlySalaryNis\n');
+
+    // Submit Step 1
+    const step1SubmitRes = await request('POST', '/api/flow/application/steps/1/submit', {
+      data: {
+        personal: {
+          fullName: 'Somchai Prasert',
+          phoneNumber: testPhone,
+          dateOfBirth: '1988-05-14',
+          address: 'Herzl St 45, Tel Aviv',
+          passportNumber: 'TH7744112',
+          countryOfOrigin: 'Thailand',
+          visaStartDate: '2025-06-01',
+          visaExpiryDate: '2028-05-31',
+          monthlySalaryNis: 8200,
+          salaryCurrency: 'ILS',
+        },
+        documents: {
+          passport: passDoc.body.file,
+          visa: visaDoc.body.file,
+          payslip: payslipDoc.body.file,
+        },
+        employment: {
+          employerName: 'Yossi Cohen',
+          companyName: 'Cohen Citrus Groves Ltd',
+          manpowerAgent: 'AgroManpower TLV',
+        },
+        loan: {
+          requestedAmountNis: 5000,
+        },
+      },
+    }, applicantToken);
 
     assert.strictEqual(step1SubmitRes.status, 200, `Step 1 submit failed: ${JSON.stringify(step1SubmitRes.body)}`);
     assert.strictEqual(step1SubmitRes.body.application.flowStatus, 'PENDING_STEP1_APPROVAL');
-    console.log('  ✓ PASS: Step 1 submitted; status changed to PENDING_STEP1_APPROVAL\n');
+    const submittedStep1Personal = step1SubmitRes.body.application.steps[1].data.personal;
+    assert.strictEqual(submittedStep1Personal.passportNumber, 'TH7744112');
+    assert.strictEqual(submittedStep1Personal.countryOfOrigin, 'Thailand');
+    assert.strictEqual(submittedStep1Personal.visaStartDate, '2025-06-01');
+    assert.strictEqual(submittedStep1Personal.visaExpiryDate, '2028-05-31');
+    assert.strictEqual(submittedStep1Personal.monthlySalaryNis, 8200);
+    assert.strictEqual(submittedStep1Personal.salaryCurrency, 'ILS');
+
+    // Verify Back Office queue & centralized detail record synchronize all 4 fields
+    const boDetailRes = await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken);
+    assert.strictEqual(boDetailRes.status, 200);
+    assert.strictEqual(boDetailRes.body.application.step1Data.personal.passportNumber, 'TH7744112');
+    assert.strictEqual(boDetailRes.body.application.step1Data.personal.countryOfOrigin, 'Thailand');
+    assert.strictEqual(boDetailRes.body.application.step1Data.personal.visaStartDate, '2025-06-01');
+    assert.strictEqual(boDetailRes.body.application.step1Data.personal.visaExpiryDate, '2028-05-31');
+    assert.strictEqual(boDetailRes.body.application.step1Data.personal.monthlySalaryNis, 8200);
+    assert.strictEqual(boDetailRes.body.application.borrowerDetails.passportNumber, 'TH7744112');
+    assert.strictEqual(boDetailRes.body.application.borrowerDetails.countryOfOrigin, 'Thailand');
+    assert.strictEqual(boDetailRes.body.application.residencyDetails.visaStartDate, '2025-06-01');
+    assert.strictEqual(boDetailRes.body.application.residencyDetails.visaExpiryDate, '2028-05-31');
+    assert.strictEqual(boDetailRes.body.application.employmentDetails.monthlySalaryNis, 8200);
+
+    const boQueueSearchRes = await request('GET', '/api/flow/applications?q=TH7744112', null, reviewerToken);
+    assert.strictEqual(boQueueSearchRes.status, 200);
+    const queueRow = boQueueSearchRes.body.applications.find((r) => r.id === appId);
+    assert.ok(queueRow, 'Back Office queue search by passportNumber must return the application');
+    assert.strictEqual(queueRow.passportNumber, 'TH7744112');
+    assert.strictEqual(queueRow.countryOfOrigin, 'Thailand');
+    assert.strictEqual(queueRow.visaStartDate, '2025-06-01');
+    assert.strictEqual(queueRow.visaExpiryDate, '2028-05-31');
+    assert.strictEqual(queueRow.monthlySalaryNis, 8200);
+    console.log('  ✓ PASS: Step 1 submitted; all 4 new employee fields saved & synchronized to Back Office\n');
 
     // Try modifying Step 1 while pending -> MUST BE REJECTED 409
     const illegalEditRes = await request('PUT', '/api/flow/application/steps/1/draft', {
@@ -389,7 +490,18 @@ async function runTests() {
     };
     const step1Payload = (phone, docs) => ({
       data: {
-        personal: { fullName: 'Guest Uploader', phoneNumber: phone, dateOfBirth: '1990-01-01', address: 'Allenby 1, Tel Aviv' },
+        personal: {
+          fullName: 'Guest Uploader',
+          phoneNumber: phone,
+          dateOfBirth: '1990-01-01',
+          address: 'Allenby 1, Tel Aviv',
+          passportNumber: 'NG5510982',
+          countryOfOrigin: 'Nigeria',
+          visaStartDate: '2025-01-01',
+          visaExpiryDate: '2027-12-31',
+          monthlySalaryNis: 7200,
+          salaryCurrency: 'ILS',
+        },
         documents: docs,
         employment: { employerName: 'Employer', companyName: 'Company Ltd' },
         loan: { requestedAmountNis: 5000 },
