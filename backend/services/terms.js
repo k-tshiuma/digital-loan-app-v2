@@ -68,6 +68,8 @@ async function seedTerms() {
 /** Latest version (by effectiveFrom) of one terms type that is already in effect. */
 let seeded = null;
 function ensureSeeded() {
+  // Only the schema owner seeds (DB_INIT=false elsewhere), so two processes never insert the same version.
+  if (process.env.DB_INIT === 'false') return Promise.resolve();
   if (!seeded) seeded = seedTerms().catch((err) => { seeded = null; throw err; });
   return seeded;
 }

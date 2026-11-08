@@ -2,7 +2,7 @@
 const { dbGet, dbAll, newId, safeJson } = require('../../services/dbHelpers');
 const { isStaff, canAccessUser } = require('../../core/auth');
 const { parseApp, getAppById, writeApp, nextRequestNumber } = require('../../core/applications');
-const { sseClients } = require('../../core/sse');
+const { sseClients, lastSent } = require('../../core/sse');
 
 function evaluateReusableDocuments(documents, residencyDetails, sourceAppId) {
   const reusableDocs = [];
@@ -238,6 +238,8 @@ function register(app) {
 
     if (!sseClients.has(a.id)) sseClients.set(a.id, new Set());
     sseClients.get(a.id).add(res);
+    // Baseline for the status poller (core/ssePoller.js): changes after this moment are reported.
+    if (!lastSent.has(a.id)) lastSent.set(a.id, { status: a.status, flowStatus: a.flowStatus, updatedAt: a.updatedAt });
     const heartbeat = setInterval(() => res.write(': ping\n\n'), 25000);
 
     req.on('close', () => {
@@ -245,7 +247,10 @@ function register(app) {
       const set = sseClients.get(a.id);
       if (set) {
         set.delete(res);
-        if (set.size === 0) sseClients.delete(a.id);
+        if (set.size === 0) {
+          sseClients.delete(a.id);
+          lastSent.delete(a.id);
+        }
       }
     });
   });

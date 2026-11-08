@@ -290,6 +290,12 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
   - The SSE test passes across processes.
   - Stopping either backend leaves the other fully working.
 
+- **Done (2026-11-09).** Notes against the steps above:
+  - The old `server.js` stays runnable and still passes every test; it now shares `core/appBase.js` with the two new entry points instead of keeping its own copy of the middleware and error handling.
+  - Guards: the borrower backend refuses valid staff tokens (401); the admin backend refuses every non-staff or invalid token (401) and has no demo identity. Each backend checks the token before the route, so a request without a valid token gets 401 even on a route that only exists on the other backend; with a valid token it gets 404.
+  - The SSE poller sets its baseline when a stream opens, so a staff change in the first seconds is not missed, and drops it when the last stream closes.
+  - Ports: `BORROWER_PORT` (falls back to `PORT`) and `ADMIN_PORT` (default 5100), because both processes read the same `backend/.env` locally and `PORT` there is 5000. The admin backend defaults to `DB_INIT=false`.
+  - Verified by the route matrix on both backends (owned routes answer exactly as on `server.js` except for the intended guard 401s), `WORKFLOW_SPLIT=1 node test_workflow.js`, and `test_split_backends.js` (shared uploads, concurrent writes, each backend surviving the other's stop). The concurrency check is a moderate load (150 requests in parallel batches), not a stress test.
 ### Phase 7: Physical move (required, mechanical only)
 
 - **Do:** `git mv` into the final tree (section 4) so history follows, with no edits beyond require and import paths. Move `generate-hebrew-review.ts` to the root `scripts/` and update its paths. Update `CLAUDE.md`, the `docs/` files that name paths, and the backend test ports. `database.sqlite` can stay where it is, referenced through `DB_PATH`; moving it to `data/` is optional.

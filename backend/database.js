@@ -29,9 +29,14 @@ function enableWal(attempt = 1) {
   });
 }
 
+// Only one process may create the schema when two share the file (docs/app-separation-plan.md, C4):
+// the borrower backend does; the admin backend runs with DB_INIT=false.
+const OWNS_SCHEMA = process.env.DB_INIT !== 'false';
+
 // Initialize tables
 db.serialize(() => {
   enableWal();
+  if (!OWNS_SCHEMA) return;
 
   db.run(`
     CREATE TABLE IF NOT EXISTS users (

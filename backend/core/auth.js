@@ -99,6 +99,42 @@ function requireStaff(...roles) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Per-backend guards (borrower and admin backends, docs/app-separation-plan.md). The combined server.js
+// uses neither.
+// ---------------------------------------------------------------------------
+
+/** Borrower backend: a valid staff token is refused everywhere, so staff branches never run here. */
+function rejectStaffTokens(req, res, next) {
+  if (isStaff(req)) return res.status(401).json({ success: false, error: 'This service accepts borrower sessions only.' });
+  return next();
+}
+
+/**
+ * Admin backend, instead of optionalAuth: sets req.auth only for a valid staff token. Any other token
+ * (borrower, expired, forged) is refused, and there is no demo identity, even in demo mode.
+ */
+function staffOnlyAuth(req, res, next) {
+  const token = readToken(req);
+  if (!token) return next();
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload && payload.type === 'staff') {
+      req.auth = payload;
+      return next();
+    }
+  } catch {
+    /* fall through */
+  }
+  return res.status(401).json({ success: false, error: 'Invalid or expired staff session. Please sign in again.' });
+}
+
+/** Admin backend, instead of authenticate: every protected route needs a valid staff token. */
+function authenticateStaff(req, res, next) {
+  if (!isStaff(req)) return res.status(401).json({ success: false, error: 'Authentication required' });
+  return next();
+}
+
 const canAccessUser = (req, userId) => isStaff(req) || (req.auth && req.auth.sub === userId) || (DEMO_MODE && (!req.headers.authorization || req.auth?.sub === 'demo_user') && userId === 'demo_user');
 
 // In-memory OTP store: phone -> { codeHash, expiresAt, attempts }
@@ -151,6 +187,9 @@ module.exports = {
   optionalAuth,
   isStaff,
   requireStaff,
+  rejectStaffTokens,
+  staffOnlyAuth,
+  authenticateStaff,
   canAccessUser,
   otpStore,
   OTP_TTL_MS,

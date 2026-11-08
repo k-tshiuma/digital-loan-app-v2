@@ -4,13 +4,17 @@
  * Calls every API route as each identity (no token, a bad token, a borrower, and each staff role)
  * and compares the HTTP status codes with the snapshot in fixtures/route-matrix.json. It runs two
  * servers: one in demo mode (port 5013) and one with DEMO_MODE=false (port 5014), because access
- * rules differ between them.
+ * rules differ between them. It does the same for the split backends (Phase 6): borrower-server.js and
+ * admin-server.js, each in demo mode (5015/5016) and with DEMO_MODE=false (5017/5018), the admin ones
+ * with DB_INIT=false as in production.
  *
  * Requests are built so nothing real is changed: bodies fail validation, mutating routes use IDs
  * that don't exist, and routes that would write only touch the test borrower's own records.
  *
  * Also checks:
- * - SSE: a staff status change reaches the borrower's open event stream
+ * - SSE: a staff status change reaches the borrower's open event stream, in one process and across the
+ *   two backends (the borrower backend's status poller)
+ * - Split boundaries: each backend answers 404 for the other one's routes, even with the right token
  * - PDF: borrower and staff copies are generated in English and Hebrew
  *
  * Usage:
@@ -27,6 +31,13 @@ const SNAPSHOT_PATH = path.join(__dirname, 'fixtures', 'route-matrix.json');
 const UPDATE = process.argv.includes('--update');
 const DEMO_PORT = 5013;
 const STRICT_PORT = 5014;
+// Split backends: [snapshot key, port, entry file, demo mode].
+const SPLIT = [
+  ['borrowerDemo', 5015, 'borrower-server', true],
+  ['adminDemo', 5016, 'admin-server', true],
+  ['borrowerStrict', 5017, 'borrower-server', false],
+  ['adminStrict', 5018, 'admin-server', false],
+];
 
 const MATRIX_USER = {
   fullName: 'Route Matrix Test',
@@ -116,8 +127,9 @@ function openEventStream(port, urlPath, token) {
 
 // --- Servers ----------------------------------------------------------------
 
-function startServer(port, extraEnv) {
-  const child = spawn(process.execPath, ['-e', `require('./server').listen(${port})`], {
+// `code` is the start-up script for the child: by default the combined server.js.
+function startServer(port, extraEnv, code = `require('./server').listen(${port})`) {
+  const child = spawn(process.execPath, ['-e', code], {
     cwd: __dirname,
     env: { ...process.env, NODE_ENV: '', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -288,8 +300,8 @@ async function ensureClassicApp(port, ctx) {
   return r.body.application;
 }
 
-async function checkSse(port, ctx) {
-  console.log('\n--- SSE: staff status change reaches the borrower stream');
+async function checkSse(port, ctx, { staffPort = port, label = 'one process' } = {}) {
+  console.log(`\n--- SSE: staff status change reaches the borrower stream (${label})`);
   const app = await ensureClassicApp(port, ctx);
   const stream = openEventStream(port, `/api/applications/${app.id}/events`, ctx.borrowerToken);
   try {
@@ -297,9 +309,9 @@ async function checkSse(port, ctx) {
     const connected = await stream.waitFor((e) => e.event === 'connected', 3000);
     connected ? ok('borrower stream connects') : fail('borrower stream sent no "connected" event');
 
-    const staffView = await request(port, 'GET', `/api/applications/${app.id}`, { token: ctx.staffTokens.credit_reviewer });
+    const staffView = await request(staffPort, 'GET', `/api/applications/${app.id}`, { token: ctx.staffTokens.credit_reviewer });
     const nextStatus = staffView.body.application.status === 'Under Review' ? 'Received' : 'Under Review';
-    const put = await request(port, 'PUT', `/api/applications/${app.id}`, {
+    const put = await request(staffPort, 'PUT', `/api/applications/${app.id}`, {
       token: ctx.staffTokens.credit_reviewer,
       body: { ...staffView.body.application, status: nextStatus },
     });
@@ -323,6 +335,44 @@ async function checkPdf(port, ctx, app) {
         && Buffer.isBuffer(r.body) && r.body.slice(0, 5).toString() === '%PDF-';
       isPdf ? ok(`${name} PDF (${lang}) is generated`) : fail(`${name} PDF (${lang}): status ${r.status}, type ${r.headers['content-type']}`);
     }
+  }
+}
+
+// --- Split boundaries ----------------------------------------------------------
+
+/**
+ * Each split backend answers 404 for the other one's routes, even with the token that route needs.
+ * (Each backend checks the token before the route, so a request without one, or a staff token on the
+ * borrower backend, gets 401 first.)
+ */
+function checkSplitBoundaries(actual) {
+  console.log('\n--- Split backends: each answers 404 for the other one\'s routes');
+  const cases = [
+    // [snapshot key, route, identity, why]
+    ['borrowerDemo', 'GET /api/flow/applications', 'borrower', 'staff list'],
+    ['borrowerDemo', 'GET /api/analytics/summary', 'borrower', 'analytics'],
+    ['borrowerDemo', 'POST /api/auth/staff-login', 'none', 'staff login'],
+    ['borrowerStrict', 'POST /api/auth/staff-token', 'borrower', 'demo staff tokens'],
+    ['adminDemo', 'GET /api/applications/active/:own', 'credit_reviewer', 'classic draft'],
+    ['adminDemo', 'GET /api/flow/application', 'credit_reviewer', 'applicant flow'],
+    ['adminDemo', 'POST /api/users/request-otp', 'credit_reviewer', 'borrower sign-in'],
+    ['adminDemo', 'GET /api/applications/:own/events', 'credit_reviewer', 'live status stream'],
+    ['adminStrict', 'POST /api/upload', 'credit_reviewer', 'uploads'],
+  ];
+  for (const [mode, route, who, why] of cases) {
+    const got = actual[mode][route] && actual[mode][route][who];
+    got === 404 ? ok(`${mode}: ${route} (${why}) as ${who} -> 404`) : fail(`${mode}: ${route} (${why}) as ${who} -> ${got}, expected 404`);
+  }
+  // The guards: staff tokens never reach borrower handlers, and admin never falls back to a demo identity.
+  const guard = [
+    ['borrowerDemo', 'GET /api/users/me', 'system_admin', 401, 'staff token refused by the borrower backend'],
+    ['adminDemo', 'GET /api/flow/applications', 'none', 401, 'no demo identity on the admin backend in demo mode'],
+    ['adminDemo', 'GET /api/flow/applications', 'borrower', 401, 'borrower token refused by the admin backend'],
+    ['adminDemo', 'GET /api/flow/applications', 'badToken', 401, 'bad token refused by the admin backend'],
+  ];
+  for (const [mode, route, who, want, why] of guard) {
+    const got = actual[mode][route] && actual[mode][route][who];
+    got === want ? ok(`${why} (${got})`) : fail(`${why}: got ${got}, expected ${want}`);
   }
 }
 
@@ -354,12 +404,21 @@ function compare(mode, actual, expected) {
   console.log('================================================================');
   const demo = startServer(DEMO_PORT, { DEMO_MODE: 'true' });
   const strict = startServer(STRICT_PORT, { DEMO_MODE: 'false' });
+  // The borrower backends poll fast here so the cross-process SSE check doesn't wait 5 s.
+  const split = SPLIT.map(([key, port, entry, demoMode]) => [key, port, startServer(
+    port,
+    { DEMO_MODE: demoMode ? 'true' : 'false', ...(entry === 'admin-server' ? { DB_INIT: 'false' } : {}) },
+    entry === 'borrower-server'
+      ? `require('./core/ssePoller').startStatusPoller({ intervalMs: 300 }); require('./borrower-server').listen(${port})`
+      : `require('./admin-server').listen(${port})`
+  )]);
   let exitCode = 0;
   try {
-    await Promise.all([demo.waitUp(), strict.waitUp()]);
+    await Promise.all([demo.waitUp(), strict.waitUp(), ...split.map(([, , srv]) => srv.waitUp())]);
     const ctx = await setup(DEMO_PORT);
 
     const actual = { demo: await runMatrix(DEMO_PORT, ctx), strict: await runMatrix(STRICT_PORT, ctx) };
+    for (const [key, port] of split) actual[key] = await runMatrix(port, ctx);
 
     if (UPDATE) {
       fs.writeFileSync(SNAPSHOT_PATH, JSON.stringify(actual, null, 2) + '\n');
@@ -368,15 +427,19 @@ function compare(mode, actual, expected) {
       const expected = fs.existsSync(SNAPSHOT_PATH) ? JSON.parse(fs.readFileSync(SNAPSHOT_PATH, 'utf8')) : {};
       compare('demo mode', actual.demo, expected.demo);
       compare('DEMO_MODE=false', actual.strict, expected.strict);
+      for (const [key] of split) compare(`split: ${key}`, actual[key], expected[key]);
     }
+    checkSplitBoundaries(actual);
 
     const app = await checkSse(DEMO_PORT, ctx);
+    await checkSse(5015, ctx, { staffPort: 5016, label: 'borrower backend stream, staff change on the admin backend' });
     await checkPdf(DEMO_PORT, ctx, app);
   } catch (err) {
     fail(err.message);
   } finally {
     demo.child.kill();
     strict.child.kill();
+    for (const [, , srv] of split) srv.child.kill();
   }
   console.log('\n================================================================');
   console.log(`TOTAL TESTS: ${passed + failed} | PASSED: ${passed} | FAILED: ${failed}`);

@@ -1,24 +1,13 @@
+// Both portals in one process: the original single backend, kept for rollback and for the existing tests.
+// The split backends are borrower-server.js (port 5000) and admin-server.js (port 5100).
 const dotenv = require('dotenv');
 dotenv.config();
 
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-require('./database'); // opens the database and creates the schema
-const { sendSms } = require('./services/smsService');
-const { sendEmail } = require('./services/emailService');
-const { resolveMessageLanguage } = require('./services/messages');
-const createFlowRoutes = require('./routes/flow');
-const { IS_PRODUCTION, DEMO_MODE, JWT_SECRET, BCRYPT_ROUNDS } = require('./core/config');
-const {
-  normalizePhone, sanitizeUser, signUserToken, authenticate, optionalAuth, isStaff, requireStaff, checkOtp,
-} = require('./core/auth');
-const { parseApp, nextRequestNumber } = require('./core/applications');
-const { broadcastAppEvent } = require('./core/sse');
-const { notifyStatusChange } = require('./core/notifications');
+const { DEMO_MODE } = require('./core/config');
+const { authenticate, optionalAuth } = require('./core/auth');
+const { createBaseApp, finishApp } = require('./core/appBase');
 
-// Routes, grouped by who uses them (docs/app-separation-plan.md). After the split each backend mounts
-// its own group plus the shared one.
+// Routes, grouped by who uses them (docs/app-separation-plan.md).
 const borrowerAuth = require('./routes/borrower/auth');
 const borrowerUploads = require('./routes/borrower/uploads');
 const borrowerApplications = require('./routes/borrower/applications');
@@ -31,37 +20,12 @@ const adminConfig = require('./routes/admin/config');
 const sharedAccounts = require('./routes/shared/accounts');
 const sharedApplications = require('./routes/shared/applications');
 
-const app = express();
 const PORT = process.env.PORT || 5000;
-
-app.use(cors());
-app.use(express.json({ limit: '5mb' }));
-app.use(optionalAuth);
-
-const flowRoutes = createFlowRoutes({
-  DEMO_MODE,
-  BCRYPT_ROUNDS,
-  JWT_SECRET,
-  normalizePhone,
-  sanitizeUser,
-  signUserToken,
-  isStaff,
-  requireStaff,
-  checkOtp,
-  nextRequestNumber,
-  parseApp,
-  broadcastAppEvent,
-  sendSms,
-  sendEmail,
-  notifyStatusChange,
-  resolveMessageLanguage,
-});
+const { app, flowRoutes } = createBaseApp({ authMiddleware: optionalAuth });
 
 // ===========================================================================
 // PUBLIC ROUTES (no token required). They must be registered before `authenticate` below.
 // ===========================================================================
-app.get('/api/health', (_req, res) => res.json({ success: true, demoMode: DEMO_MODE }));
-
 borrowerAuth.register(app);
 adminStaffAuth.register(app);
 flowRoutes.registerApplicantPublic(app);
@@ -90,20 +54,7 @@ adminNotifications.register(app);
 adminAnalytics.register(app);
 adminConfig.register(app);
 
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
-app.use('/api', (_req, res) => res.status(404).json({ success: false, error: 'Not found' }));
-
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-  if (err instanceof multer.MulterError) {
-    const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File is too large' : (err.field || err.message);
-    return res.status(400).json({ success: false, error: msg });
-  }
-  console.error('[SERVER ERROR]', err);
-  res.status(500).json({ success: false, error: IS_PRODUCTION ? 'Internal server error' : err.message });
-});
+finishApp(app);
 
 if (require.main === module) {
   app.listen(PORT, () => {

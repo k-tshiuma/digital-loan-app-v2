@@ -7,6 +7,10 @@
  * - Rejection and Changes Requested handling
  * - Notifications generation (SMS, Email, In-App)
  * - Loan calculation parity verification
+ *
+ * WORKFLOW_SPLIT=1 runs the same flow against the split backends instead of server.js: borrower-server.js
+ * (port 5022) and admin-server.js (port 5023, DB_INIT=false) as two processes on the same database.
+ * Staff requests go to the admin backend, everything else to the borrower backend.
  */
 const assert = require('assert');
 const path = require('path');
@@ -17,15 +21,62 @@ const fixtures = require('./fixtures/loan-calc-fixtures.json');
 const { calculateLoanRepayment } = require('./services/loanCalculator');
 
 const TEST_PORT = 5012;
+const SPLIT = process.env.WORKFLOW_SPLIT === '1';
+const BORROWER_PORT = 5022;
+const ADMIN_PORT = 5023;
 let server;
+const children = [];
 
-function request(method, path, body = null, token = null) {
+const tokenType = (token) => {
+  try {
+    return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).type;
+  } catch {
+    return null;
+  }
+};
+/** Which server a request goes to. In split mode: staff sign-in and staff tokens -> admin, the rest -> borrower. */
+function portFor(path, token, to) {
+  if (!SPLIT) return TEST_PORT;
+  if (to === 'admin') return ADMIN_PORT;
+  if (to === 'borrower') return BORROWER_PORT;
+  if (/^\/api\/auth\/staff-/.test(path) || (token && tokenType(token) === 'staff')) return ADMIN_PORT;
+  return BORROWER_PORT;
+}
+
+/** Split mode: starts both backends as child processes and waits until they answer. */
+async function startSplitServers() {
+  const { spawn } = require('child_process');
+  const start = (entry, port, env) => {
+    const child = spawn(process.execPath, ['-e', `require('./${entry}').listen(${port})`], {
+      cwd: __dirname,
+      env: { ...process.env, NODE_ENV: '', DEMO_MODE: 'true', ...env },
+      stdio: ['ignore', 'ignore', 'inherit'],
+    });
+    children.push(child);
+  };
+  start('borrower-server', BORROWER_PORT, {});
+  start('admin-server', ADMIN_PORT, { DB_INIT: 'false' });
+  for (const port of [BORROWER_PORT, ADMIN_PORT]) {
+    for (let i = 0; ; i++) {
+      const up = await new Promise((resolve) => {
+        const req = http.get({ hostname: '127.0.0.1', port, path: '/api/health', timeout: 1000 }, (res) => { res.resume(); resolve(res.statusCode === 200); });
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      });
+      if (up) break;
+      if (i > 300) throw new Error(`backend on port ${port} did not start`);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+}
+
+function request(method, path, body = null, token = null, { to } = {}) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const req = http.request(
       {
         hostname: '127.0.0.1',
-        port: TEST_PORT,
+        port: portFor(path, token, to),
         path,
         method,
         headers: {
@@ -64,7 +115,7 @@ function uploadDummyFile(filename, mimeType, magicBuffer, token) {
     const req = http.request(
       {
         hostname: '127.0.0.1',
-        port: TEST_PORT,
+        port: SPLIT ? BORROWER_PORT : TEST_PORT,
         path: '/api/upload',
         method: 'POST',
         headers: {
@@ -109,10 +160,15 @@ async function runTests() {
   }
   console.log('  ✓ PASS: Server loan calculator matches all fixture standards accurately\n');
 
-  // Start HTTP server for API tests
-  await new Promise((resolve) => {
-    server = app.listen(TEST_PORT, resolve);
-  });
+  // Start HTTP server(s) for API tests
+  if (SPLIT) {
+    console.log('(split mode: borrower backend on 5022, admin backend on 5023)\n');
+    await startSplitServers();
+  } else {
+    await new Promise((resolve) => {
+      server = app.listen(TEST_PORT, resolve);
+    });
+  }
 
   try {
     // 2. Staff Authentication
@@ -520,13 +576,16 @@ async function runTests() {
     for (const d of Object.values(guestDocs)) assert.strictEqual(await ownerOf(d.filename), adopter.userId, 'Guest upload should move to the new account');
     assert.strictEqual(await ownerOf(ownedByFirstApplicant), regRes.body.user.id, 'Another account\'s file must not be adopted');
 
-    // Verify clients cannot access Back Office endpoints or mint staff tokens
-    const clientFlowBoAttempt = await request('GET', '/api/flow/applications', null, adopter.token);
-    assert.strictEqual(clientFlowBoAttempt.status, 403, 'Client token must be denied Back Office flow list');
-    const clientClassicBoAttempt = await request('GET', '/api/applications', null, adopter.token);
-    assert.strictEqual(clientClassicBoAttempt.status, 403, 'Client token must be denied Back Office classic list');
-    const clientStaffTokenAttempt = await request('POST', '/api/auth/staff-token', { role: 'credit_reviewer' }, adopter.token);
-    assert.strictEqual(clientStaffTokenAttempt.status, 403, 'Client token must be denied /api/auth/staff-token');
+    // Verify clients cannot access Back Office endpoints or mint staff tokens. Split mode sends them to the
+    // admin backend (where those routes live), which refuses any non-staff token outright: 401, not 403.
+    const denied = SPLIT ? 401 : 403;
+    const toAdmin = { to: 'admin' };
+    const clientFlowBoAttempt = await request('GET', '/api/flow/applications', null, adopter.token, toAdmin);
+    assert.strictEqual(clientFlowBoAttempt.status, denied, 'Client token must be denied Back Office flow list');
+    const clientClassicBoAttempt = await request('GET', '/api/applications', null, adopter.token, toAdmin);
+    assert.strictEqual(clientClassicBoAttempt.status, denied, 'Client token must be denied Back Office classic list');
+    const clientStaffTokenAttempt = await request('POST', '/api/auth/staff-token', { role: 'credit_reviewer' }, adopter.token, toAdmin);
+    assert.strictEqual(clientStaffTokenAttempt.status, denied, 'Client token must be denied /api/auth/staff-token');
 
     // Verify calling classic /api/applications/active/:userId does NOT pollute flowVersion=2 lead with Thailand
     await request('GET', `/api/applications/active/${adopter.userId}`, null, adopter.token);
@@ -560,6 +619,7 @@ async function runTests() {
     if (server) {
       server.close();
     }
+    for (const child of children) child.kill();
   }
 }
 
@@ -569,6 +629,7 @@ if (require.main === module) {
   }).catch((err) => {
     console.error('\n❌ TEST FAILED:', err);
     if (server) server.close();
+    for (const child of children) child.kill();
     process.exit(1);
   });
 }
