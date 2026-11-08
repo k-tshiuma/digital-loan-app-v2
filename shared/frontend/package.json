@@ -1,0 +1,11 @@
+{
+  "name": "@quickloan/ui-core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Frontend code shared by the borrower app and the admin dashboard: i18n core, types, business config, eligibility scoring, API core, shared components. TypeScript source, no build step; each app's Vite build compiles it.",
+  "peerDependencies": {
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.1"
+  }
+}

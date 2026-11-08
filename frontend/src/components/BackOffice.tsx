@@ -32,12 +32,12 @@ import {
   ApplicationConfig,
   AuditEvent,
   CreditRules,
-} from '../types';
-import { STATUS_BADGE_CONFIG } from '../config/appConfig';
-import { storageService } from '../services/storage';
+} from '@quickloan/ui-core/types';
+import { STATUS_BADGE_CONFIG } from '@quickloan/ui-core/config/appConfig';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { apiService } from '../services/api';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
-import { t } from '../i18n/translations';
+import { t } from '@quickloan/ui-core/i18n/translations';
 import {
   docTypeLabel,
   optionLabel,
@@ -49,11 +49,11 @@ import {
   flowGroupLabel,
   statusReasonLabel,
   DEFAULT_STATUS_REASONS,
-} from '../i18n/options';
-import { localizeError } from '../i18n/apiErrors';
-import { formatCurrency, formatDate, formatDateTime } from '../i18n/format';
-import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
-import { EligibilityScoreBar } from './EligibilityScoreBar';
+} from '@quickloan/ui-core/i18n/options';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
+import { formatCurrency, formatDate, formatDateTime } from '@quickloan/ui-core/i18n/format';
+import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
+import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 import { FlowApplicationInspector } from './FlowApplicationInspector';
 
 /** Shows only the last 4 digits of an account number. */

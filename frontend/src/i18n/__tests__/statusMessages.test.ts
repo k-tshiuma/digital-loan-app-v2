@@ -2,9 +2,9 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { DEFAULT_STATUS_REASONS, statusReasonLabel, statusLabel } from '../options';
-import { t } from '../translations';
-import { storageService } from '../../services/storage';
+import { DEFAULT_STATUS_REASONS, statusReasonLabel, statusLabel } from '@quickloan/ui-core/i18n/options';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { storageService } from '@quickloan/ui-core/services/storage';
 
 const HEBREW = /[֐-׿]/;
 

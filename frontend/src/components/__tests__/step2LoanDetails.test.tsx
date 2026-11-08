@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Step2ApplicationCompletion } from '../Step2ApplicationCompletion';
 import { Step3FinalSubmission } from '../Step3FinalSubmission';
-import { LOAN_PERIOD_OPTIONS, MAX_REPAYMENT_PERIOD_MONTHS } from '../../config/appConfig';
-import { LeadData, LoanBreakdown, TermsVersionRecord } from '../../types';
+import { LOAN_PERIOD_OPTIONS, MAX_REPAYMENT_PERIOD_MONTHS } from '@quickloan/ui-core/config/appConfig';
+import { LeadData, LoanBreakdown, TermsVersionRecord } from '@quickloan/ui-core/types';
 
 describe('Step 2 & Step 3 Workflow Details', () => {
   const dummyLead: LeadData = {

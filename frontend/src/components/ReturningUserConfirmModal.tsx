@@ -11,10 +11,10 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { Language, LoanApplication, BankAccountDetails } from '../types';
-import { ISRAELI_BANKS } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { formatCurrency } from '../i18n/format';
+import { Language, LoanApplication, BankAccountDetails } from '@quickloan/ui-core/types';
+import { ISRAELI_BANKS } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { formatCurrency } from '@quickloan/ui-core/i18n/format';
 
 interface ReturningUserConfirmModalProps {
   language: Language;

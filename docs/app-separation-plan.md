@@ -251,6 +251,9 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
   - Move the tests that read backend files (C10) into `tests/contracts/`, so they no longer depend on where either app lives.
 - **Risk:** the i18n scanner tests (`no-hardcoded-text`, `no-physical-direction`, `no-bare-tolocale`, `coverage`) only scan `src/`. **Mitigation:** point them at `shared/frontend` too.
 - **Verify:** `npm test`, `npm run lint` and `npm run build` are green, and the UI looks the same.
+- **Done (2026-11-09), with two changes from the steps above:**
+  - The translation core built its dictionary from every message group, including the app-only ones (`auth`, `wizard`, `leadFlow`, `backoffice`), so moving it as-is would have made shared code import app code. `translations.ts` now has `registerMessages()`; the shared list holds `common` and `status`, and `frontend/src/i18n/appMessages.ts` registers the rest at start-up. The resulting dictionary was checked to be identical (no key appears in two groups).
+  - Moving the backend-reading tests to `tests/contracts/` is deferred to Phase 5, when the tests are split by app anyway. The backend paths they read do not change until Phase 7.
 
 ### Phase 5: Two frontends, still on one backend (required; a safe midpoint)
 

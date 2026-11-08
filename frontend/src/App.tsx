@@ -14,7 +14,7 @@ import {
   ConsentRecord,
   DigitalSignature,
   BankAccountDetails,
-} from './types';
+} from '@quickloan/ui-core/types';
 import { Header } from './components/Header';
 import { WizardProgress } from './components/WizardProgress';
 import { HelpModal } from './components/HelpModal';
@@ -38,12 +38,12 @@ import { BackOffice } from './components/BackOffice';
 import { StaffLoginGate } from './components/StaffLoginGate';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { storageService } from './services/storage';
+import { ErrorBoundary } from '@quickloan/ui-core/components/ErrorBoundary';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { apiService, authTokens, StaffAccount, StaffRole } from './services/api';
-import { useI18n } from './i18n/LanguageContext';
-import { ENABLED_LANGUAGES, isEnabledLanguage, t } from './i18n/translations';
-import { LeadData, LeadStatus, FlowApplicationView, Step1FormData, Step2FormData, Step3FormData, TermsVersionRecord } from './types';
+import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
+import { ENABLED_LANGUAGES, isEnabledLanguage, t } from '@quickloan/ui-core/i18n/translations';
+import { LeadData, LeadStatus, FlowApplicationView, Step1FormData, Step2FormData, Step3FormData, TermsVersionRecord } from '@quickloan/ui-core/types';
 
 function detectBackOfficeUrl(): boolean {
   if (typeof window === 'undefined') return false;

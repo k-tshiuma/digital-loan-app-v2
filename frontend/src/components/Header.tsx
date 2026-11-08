@@ -13,10 +13,10 @@ import {
   Bell,
   Phone,
 } from 'lucide-react';
-import { Language, User, UserRole } from '../types';
-import { ENABLED_LANGUAGES, t } from '../i18n/translations';
+import { Language, User, UserRole } from '@quickloan/ui-core/types';
+import { ENABLED_LANGUAGES, t } from '@quickloan/ui-core/i18n/translations';
 import { NotificationBell } from './NotificationBell';
-import { SUPPORT_CONFIG } from '../config/appConfig';
+import { SUPPORT_CONFIG } from '@quickloan/ui-core/config/appConfig';
 import { Linking } from '../utils/linking';
 
 interface HeaderProps {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { localizeError, KNOWN_ERROR_KEYS } from '../apiErrors';
+import { localizeError, KNOWN_ERROR_KEYS } from '@quickloan/ui-core/i18n/apiErrors';
 import { ApiError } from '../../services/api';
-import { TRANSLATIONS, t } from '../translations';
+import { TRANSLATIONS, t } from '@quickloan/ui-core/i18n/translations';
 
 describe('localizeError (T3.4)', () => {
   it('translates a known backend error to Hebrew', () => {

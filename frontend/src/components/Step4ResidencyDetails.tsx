@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, CheckCircle2, ArrowRight, ArrowLeft, Calendar, Info, ShieldCheck } from 'lucide-react';
-import { Language, ResidencyDetails } from '../types';
-import { VISA_TYPES, calculateYearsOfResidency, isVisaValidForLoan } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { optionLabel } from '../i18n/options';
-import { DateInput } from './DateInput';
+import { Language, ResidencyDetails } from '@quickloan/ui-core/types';
+import { VISA_TYPES, calculateYearsOfResidency, isVisaValidForLoan } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { DateInput } from '@quickloan/ui-core/components/DateInput';
 
 interface Step4ResidencyDetailsProps {
   language: Language;

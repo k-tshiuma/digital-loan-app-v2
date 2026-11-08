@@ -1,4 +1,4 @@
-import type { MessageModule } from './types';
+import type { MessageModule } from '@quickloan/ui-core/i18n/messages/types';
 
 export const wizard: MessageModule = {
   en: {

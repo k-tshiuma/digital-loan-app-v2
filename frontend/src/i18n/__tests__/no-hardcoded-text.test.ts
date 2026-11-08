@@ -2,17 +2,22 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect } from 'vitest';
 import { scanFile } from './hardcodedText';
-import { BASE_TRANSLATIONS } from '../translations';
-import { MESSAGE_MODULES } from '../messages';
+import { BASE_TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
+import { MESSAGE_MODULES } from '@quickloan/ui-core/i18n/messages';
 
 const COMPONENTS = path.resolve(__dirname, '../../components');
+// Shared components (used by both apps) live in shared/frontend and follow the same rules.
+const SHARED_COMPONENTS = path.resolve(__dirname, '../../../../shared/frontend/components');
 
 // Files still being converted. Empty since Phase 3 finished; add a file here only temporarily.
 const PENDING = new Set<string>();
 
 const APP = path.resolve(__dirname, '../../App.tsx');
 const files = fs.readdirSync(COMPONENTS).filter((f) => f.endsWith('.tsx'));
-const fullPath = (f: string) => (f === 'App.tsx' ? APP : path.join(COMPONENTS, f));
+const sharedFiles = fs.readdirSync(SHARED_COMPONENTS).filter((f) => f.endsWith('.tsx'));
+const fullPath = (f: string) =>
+  f === 'App.tsx' ? APP : sharedFiles.includes(f) ? path.join(SHARED_COMPONENTS, f) : path.join(COMPONENTS, f);
+files.push(...sharedFiles);
 files.push('App.tsx');
 
 describe('No hard-coded English in components (T3.1)', () => {

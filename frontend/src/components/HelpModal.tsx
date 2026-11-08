@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, HelpCircle, Phone, MessageSquare, ShieldCheck, FileText, Clock, AlertCircle } from 'lucide-react';
-import { Language } from '../types';
-import { t } from '../i18n/translations';
+import { Language } from '@quickloan/ui-core/types';
+import { t } from '@quickloan/ui-core/i18n/translations';
 
 interface HelpModalProps {
   isOpen: boolean;

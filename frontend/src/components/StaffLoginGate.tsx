@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Shield, Lock, AlertCircle, Globe } from 'lucide-react';
-import { Language } from '../types';
+import { Language } from '@quickloan/ui-core/types';
 import { apiService, StaffAccount } from '../services/api';
-import { ENABLED_LANGUAGES, t } from '../i18n/translations';
-import { localizeError } from '../i18n/apiErrors';
+import { ENABLED_LANGUAGES, t } from '@quickloan/ui-core/i18n/translations';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 
 interface StaffLoginGateProps {
   language: Language;

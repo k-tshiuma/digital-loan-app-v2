@@ -2,8 +2,8 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Step1LeadGeneration } from '../Step1LeadGeneration';
-import { STEP1_ORIGIN_COUNTRIES } from '../../config/appConfig';
-import { Step1FormData, UploadedDocRef } from '../../types';
+import { STEP1_ORIGIN_COUNTRIES } from '@quickloan/ui-core/config/appConfig';
+import { Step1FormData, UploadedDocRef } from '@quickloan/ui-core/types';
 
 const EXPECTED_COUNTRIES = [
   'China',

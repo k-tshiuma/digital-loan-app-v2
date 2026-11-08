@@ -5,11 +5,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
-import { LanguageProvider } from '../i18n/LanguageContext';
-import { storageService } from '../services/storage';
+import { LanguageProvider } from '@quickloan/ui-core/i18n/LanguageContext';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { authTokens } from '../services/api';
-import { t } from '../i18n/translations';
-import { User } from '../types';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { User } from '@quickloan/ui-core/types';
 
 const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
 const jwtFor = (sub: string) => `${b64({ alg: 'HS256' })}.${b64({ sub, exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { X, CheckCheck, Bell, MessageSquare, Smartphone, Clock } from 'lucide-react';
-import { Language, NotificationItem } from '../types';
+import { Language, NotificationItem } from '@quickloan/ui-core/types';
 import { apiService } from '../services/api';
-import { storageService } from '../services/storage';
-import { t } from '../i18n/translations';
-import { formatDateTime } from '../i18n/format';
-import { LtrText } from '../i18n/LtrText';
+import { storageService } from '@quickloan/ui-core/services/storage';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { formatDateTime } from '@quickloan/ui-core/i18n/format';
+import { LtrText } from '@quickloan/ui-core/i18n/LtrText';
 
 interface NotificationDrawerProps {
   isOpen: boolean;

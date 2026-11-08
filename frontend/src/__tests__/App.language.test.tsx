@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
-import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '../i18n/LanguageContext';
-import { storageService } from '../services/storage';
+import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '@quickloan/ui-core/i18n/LanguageContext';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { authTokens } from '../services/api';
-import { t } from '../i18n/translations';
+import { t } from '@quickloan/ui-core/i18n/translations';
 
 // Backend is "offline" except for the language endpoint, which we record.
 let languageCalls: Array<{ language: string }> = [];

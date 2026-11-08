@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, AlertCircle, ArrowRight, ArrowLeft, Coins, Calendar, Sparkles, Building2, ShieldCheck } from 'lucide-react';
-import { Language, LoanRequest, BankAccountDetails } from '../types';
+import { Language, LoanRequest, BankAccountDetails } from '@quickloan/ui-core/types';
 import {
   LOAN_PERIOD_OPTIONS,
   LOAN_PURPOSE_OPTIONS,
@@ -8,10 +8,10 @@ import {
   ISRAELI_BANKS,
   calculateLoanRepayment,
   DEFAULT_APP_CONFIG,
-} from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { optionLabel } from '../i18n/options';
-import { formatCurrency } from '../i18n/format';
+} from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { formatCurrency } from '@quickloan/ui-core/i18n/format';
 
 interface Step6LoanDetailsProps {
   language: Language;

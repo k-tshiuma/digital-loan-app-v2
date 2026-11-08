@@ -25,13 +25,13 @@ import {
   Step1FormData,
   UploadedDocRef,
   Language,
-} from '../types';
-import { STEP1_ORIGIN_COUNTRIES } from '../config/appConfig';
-import { DateInput } from './DateInput';
-import { formatCurrency } from '../i18n/format';
-import { optionLabel } from '../i18n/options';
-import { t } from '../i18n/translations';
-import { localizeError } from '../i18n/apiErrors';
+} from '@quickloan/ui-core/types';
+import { STEP1_ORIGIN_COUNTRIES } from '@quickloan/ui-core/config/appConfig';
+import { DateInput } from '@quickloan/ui-core/components/DateInput';
+import { formatCurrency } from '@quickloan/ui-core/i18n/format';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import { apiService, ApiError } from '../services/api';
 
 interface Step1LeadGenerationProps {

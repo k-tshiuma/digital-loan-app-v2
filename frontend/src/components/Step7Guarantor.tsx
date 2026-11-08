@@ -20,14 +20,14 @@ import {
   GuarantorItem,
   UploadedFile,
   LoanApplication,
-} from '../types';
-import { GUARANTOR_RELATIONSHIPS } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { optionLabel } from '../i18n/options';
-import { localizeError } from '../i18n/apiErrors';
+} from '@quickloan/ui-core/types';
+import { GUARANTOR_RELATIONSHIPS } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import { apiService } from '../services/api';
-import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
-import { EligibilityScoreBar } from './EligibilityScoreBar';
+import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
+import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 
 interface Step7GuarantorProps {
   language: Language;

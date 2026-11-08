@@ -5,13 +5,14 @@ import path from 'path';
 import { describe, it, expect } from 'vitest';
 
 const SRC = path.resolve(__dirname, '../..');
-const FILES = [
-  path.join(SRC, 'App.tsx'),
-  ...fs
-    .readdirSync(path.join(SRC, 'components'))
+// Shared components (used by both apps) live in shared/frontend and follow the same rules.
+const SHARED = path.resolve(SRC, '../../shared/frontend');
+const componentsIn = (dir: string) =>
+  fs
+    .readdirSync(path.join(dir, 'components'))
     .filter((f) => f.endsWith('.tsx'))
-    .map((f) => path.join(SRC, 'components', f)),
-];
+    .map((f) => path.join(dir, 'components', f));
+const FILES = [path.join(SRC, 'App.tsx'), ...componentsIn(SRC), ...componentsIn(SHARED)];
 
 // A physical class token, with optional variants (hover:, sm:, before: ...).
 const PHYSICAL =

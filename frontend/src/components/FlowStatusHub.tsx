@@ -14,10 +14,10 @@ import {
 import {
   FlowApplicationView,
   Language,
-} from '../types';
-import { statusLabel } from '../i18n/options';
-import { formatCurrency, formatDate } from '../i18n/format';
-import { t } from '../i18n/translations';
+} from '@quickloan/ui-core/types';
+import { statusLabel } from '@quickloan/ui-core/i18n/options';
+import { formatCurrency, formatDate } from '@quickloan/ui-core/i18n/format';
+import { t } from '@quickloan/ui-core/i18n/translations';
 
 interface FlowStatusHubProps {
   application: FlowApplicationView;

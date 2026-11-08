@@ -3,8 +3,8 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
-import { formatCurrency, formatDate, formatDateTime, formatNumber, formatTime } from '../format';
-import { LanguageProvider, useI18n } from '../LanguageContext';
+import { formatCurrency, formatDate, formatDateTime, formatNumber, formatTime } from '@quickloan/ui-core/i18n/format';
+import { LanguageProvider, useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 
 // Drop bidi marks and turn every kind of space into a plain one.
 const norm = (s: string) => s.replace(/[‎‏؜]/g, '').replace(/[\s  ]+/g, ' ').trim();

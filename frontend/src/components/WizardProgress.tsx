@@ -1,6 +1,6 @@
 import React from 'react';
-import { Language } from '../types';
-import { t } from '../i18n/translations';
+import { Language } from '@quickloan/ui-core/types';
+import { t } from '@quickloan/ui-core/i18n/translations';
 
 interface WizardProgressProps {
   currentStep: number;

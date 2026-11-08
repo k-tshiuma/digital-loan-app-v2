@@ -19,10 +19,10 @@ import {
   Step3FormData,
   UploadedDocRef,
   TermsVersionRecord,
-} from '../types';
-import { ISRAELI_BANKS } from '../config/appConfig';
-import { formatCurrency } from '../i18n/format';
-import { t } from '../i18n/translations';
+} from '@quickloan/ui-core/types';
+import { ISRAELI_BANKS } from '@quickloan/ui-core/config/appConfig';
+import { formatCurrency } from '@quickloan/ui-core/i18n/format';
+import { t } from '@quickloan/ui-core/i18n/translations';
 import { apiService } from '../services/api';
 
 interface Step3FinalSubmissionProps {

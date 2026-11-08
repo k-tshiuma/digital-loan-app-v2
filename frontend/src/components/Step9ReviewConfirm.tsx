@@ -12,12 +12,12 @@ import {
   AlertTriangle,
   RotateCw,
 } from 'lucide-react';
-import { Language, LoanApplication, DigitalSignature, ConsentRecord } from '../types';
-import { t } from '../i18n/translations';
-import { optionLabel } from '../i18n/options';
-import { formatCurrency, formatDate } from '../i18n/format';
-import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
-import { EligibilityScoreBar } from './EligibilityScoreBar';
+import { Language, LoanApplication, DigitalSignature, ConsentRecord } from '@quickloan/ui-core/types';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { formatCurrency, formatDate } from '@quickloan/ui-core/i18n/format';
+import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
+import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 
 interface Step9ReviewConfirmProps {
   language: Language;

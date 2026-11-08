@@ -14,14 +14,14 @@ import {
   SimplifiedSponsor,
   Step2FormData,
   Language,
-} from '../types';
+} from '@quickloan/ui-core/types';
 import {
   calculateLoanRepayment,
   LOAN_PERIOD_OPTIONS,
   MAX_REPAYMENT_PERIOD_MONTHS,
-} from '../config/appConfig';
-import { formatCurrency } from '../i18n/format';
-import { t } from '../i18n/translations';
+} from '@quickloan/ui-core/config/appConfig';
+import { formatCurrency } from '@quickloan/ui-core/i18n/format';
+import { t } from '@quickloan/ui-core/i18n/translations';
 
 interface Step2ApplicationCompletionProps {
   language: Language;

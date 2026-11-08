@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FlowApplicationInspector } from '../FlowApplicationInspector';
 import { normalizeFlowDetail } from '../../services/flowDetail';
-import { UserRole } from '../../types';
+import { UserRole } from '@quickloan/ui-core/types';
 
 function makeDetail(flowStatus: string, extra: Record<string, any> = {}) {
   return normalizeFlowDetail({

@@ -21,12 +21,12 @@ import {
   Lock,
   Eye,
 } from 'lucide-react';
-import { Language, UserRole } from '../types';
-import { statusLabel, flowGroupLabel, optionLabel } from '../i18n/options';
-import { formatCurrency, formatDate, formatDateTime } from '../i18n/format';
-import { t } from '../i18n/translations';
+import { Language, UserRole } from '@quickloan/ui-core/types';
+import { statusLabel, flowGroupLabel, optionLabel } from '@quickloan/ui-core/i18n/options';
+import { formatCurrency, formatDate, formatDateTime } from '@quickloan/ui-core/i18n/format';
+import { t } from '@quickloan/ui-core/i18n/translations';
 import { apiService } from '../services/api';
-import { localizeError } from '../i18n/apiErrors';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 
 interface FlowApplicationInspectorProps {
   detail: any;

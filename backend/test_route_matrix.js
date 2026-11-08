@@ -49,7 +49,7 @@ const fail = (msg) => { failed++; console.log(`  ✗ FAIL: ${msg}`); };
 
 // --- HTTP helpers -----------------------------------------------------------
 
-function request(port, method, urlPath, { body, token, raw = false } = {}) {
+function request(port, method, urlPath, { body, token, raw = false, timeoutMs } = {}) {
   return new Promise((resolve, reject) => {
     const payload = body !== undefined ? JSON.stringify(body) : null;
     const req = http.request({
@@ -74,6 +74,7 @@ function request(port, method, urlPath, { body, token, raw = false } = {}) {
       });
     });
     req.on('error', reject);
+    if (timeoutMs) req.setTimeout(timeoutMs, () => req.destroy(new Error(`no answer within ${timeoutMs} ms`)));
     if (payload) req.write(payload);
     req.end();
   });
@@ -119,16 +120,23 @@ function startServer(port, extraEnv) {
   const child = spawn(process.execPath, ['-e', `require('./server').listen(${port})`], {
     cwd: __dirname,
     env: { ...process.env, NODE_ENV: '', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ...extraEnv },
-    stdio: ['ignore', 'ignore', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  let stderr = '';
-  child.stderr.on('data', (c) => { stderr += c.toString(); });
+  // Keep the tail of the server's output so a failed start can be explained.
+  let output = '';
+  const keep = (c) => { output = (output + c.toString()).slice(-4000); };
+  child.stdout.on('data', keep);
+  child.stderr.on('data', keep);
+  let exitCode = null;
+  child.on('exit', (code) => { exitCode = code; });
   const waitUp = async () => {
-    for (let i = 0; i < 100; i++) {
-      try { const r = await request(port, 'GET', '/api/health'); if (r.status === 200) return; } catch { /* not up yet */ }
+    // Up to 30 s: a cold start on a busy machine can take well over the usual second.
+    for (let i = 0; i < 300 && exitCode === null; i++) {
+      try { const r = await request(port, 'GET', '/api/health', { timeoutMs: 1000 }); if (r.status === 200) return; } catch { /* not up yet */ }
       await new Promise((r) => setTimeout(r, 100));
     }
-    throw new Error(`server on ${port} did not start:\n${stderr}`);
+    const why = exitCode !== null ? `exited with code ${exitCode}` : 'did not answer within 30 s';
+    throw new Error(`server on ${port} ${why}. Last output:\n${output.split('\n').filter((l) => !/^\[(SMS|EMAIL)/.test(l)).slice(-15).join('\n')}`);
   };
   return { child, waitUp };
 }

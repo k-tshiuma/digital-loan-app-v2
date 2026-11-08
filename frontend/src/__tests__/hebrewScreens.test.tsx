@@ -4,16 +4,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
-import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '../i18n/LanguageContext';
-import { t } from '../i18n/translations';
-import { storageService } from '../services/storage';
+import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '@quickloan/ui-core/i18n/LanguageContext';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { authTokens } from '../services/api';
 import { Step2Auth } from '../components/Step2Auth';
 import { Step10SubmissionSuccess } from '../components/Step10SubmissionSuccess';
 import { Step11StatusTimeline } from '../components/Step11StatusTimeline';
 import { BackOffice } from '../components/BackOffice';
 import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
-import { LoanApplication } from '../types';
+import { LoanApplication } from '@quickloan/ui-core/types';
 
 /** Two or more Latin words in a row (e.g. "Loan Details"). Single brand words like "QuickLoan" are fine. */
 const ENGLISH_SENTENCE = /\b[A-Za-z]{3,}(?:\s+[A-Za-z]{3,})+\b/;

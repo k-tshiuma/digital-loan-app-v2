@@ -1,9 +1,9 @@
 // Older records stored the visa's display label ("B-1 Work Visa (Agriculture / חקלאות)") or a bare
 // "b1" instead of a code. They are shown translated like any other value.
 import { describe, it, expect } from 'vitest';
-import { optionLabel, canonicalOptionValue } from '../options';
-import { t } from '../translations';
-import { VISA_TYPES } from '../../config/appConfig';
+import { optionLabel, canonicalOptionValue } from '@quickloan/ui-core/i18n/options';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { VISA_TYPES } from '@quickloan/ui-core/config/appConfig';
 
 describe('legacy visa values', () => {
   it('every old visa label maps to its code', () => {

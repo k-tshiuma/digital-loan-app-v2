@@ -7,8 +7,8 @@ import { FlowApplicationInspector } from '../FlowApplicationInspector';
 import { Step3BorrowerDetails } from '../Step3BorrowerDetails';
 import App from '../../App';
 import { authTokens } from '../../services/api';
-import { storageService } from '../../services/storage';
-import { LanguageProvider } from '../../i18n/LanguageContext';
+import { storageService } from '@quickloan/ui-core/services/storage';
+import { LanguageProvider } from '@quickloan/ui-core/i18n/LanguageContext';
 
 describe('Back Office Security & Employee Information Consistency', () => {
   const originalPath = window.location.pathname;

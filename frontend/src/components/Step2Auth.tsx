@@ -15,12 +15,12 @@ import {
   User as UserIcon,
   Globe,
 } from 'lucide-react';
-import { Language, User } from '../types';
-import { COUNTRY_PHONE_CODES } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { storageService } from '../services/storage';
+import { Language, User } from '@quickloan/ui-core/types';
+import { COUNTRY_PHONE_CODES } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { apiService, isNetworkError } from '../services/api';
-import { localizeError } from '../i18n/apiErrors';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 
 interface Step2AuthProps {
   language: Language;

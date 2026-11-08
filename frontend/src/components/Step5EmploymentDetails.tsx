@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, Briefcase, DollarSign, ArrowRight, ArrowLeft, ShieldCheck, Calendar } from 'lucide-react';
-import { Language, EmploymentDetails } from '../types';
-import { SALARY_PAYMENT_METHODS, calculateJobTenureMonths } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { optionLabel } from '../i18n/options';
-import { DateInput } from './DateInput';
+import { Language, EmploymentDetails } from '@quickloan/ui-core/types';
+import { SALARY_PAYMENT_METHODS, calculateJobTenureMonths } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { DateInput } from '@quickloan/ui-core/components/DateInput';
 
 interface Step5EmploymentDetailsProps {
   language: Language;

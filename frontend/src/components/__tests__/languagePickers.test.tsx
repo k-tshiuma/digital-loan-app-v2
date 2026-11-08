@@ -4,8 +4,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Header } from '../Header';
 import { Step1Language } from '../Step1Language';
-import { Language } from '../../types';
-import { t } from '../../i18n/translations';
+import { Language } from '@quickloan/ui-core/types';
+import { t } from '@quickloan/ui-core/i18n/translations';
 
 function HeaderHarness({ initial = 'en' as Language }) {
   const [lang, setLang] = useState<Language>(initial);

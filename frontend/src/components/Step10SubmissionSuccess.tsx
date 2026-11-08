@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Copy, ArrowRight, ShieldCheck, Clock, MessageSquare, Check, Download, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { Language, LoanApplication } from '../types';
-import { t } from '../i18n/translations';
-import { localizeError } from '../i18n/apiErrors';
+import { Language, LoanApplication } from '@quickloan/ui-core/types';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import { apiService } from '../services/api';
-import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
-import { EligibilityScoreBar } from './EligibilityScoreBar';
+import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
+import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 
 interface Step10SubmissionSuccessProps {
   language: Language;

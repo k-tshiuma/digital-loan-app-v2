@@ -16,17 +16,17 @@ import {
   Loader2,
   Radio,
 } from 'lucide-react';
-import { Language, LoanApplication, CanonicalStatus, UploadedFile, NotificationItem } from '../types';
-import { STATUS_BADGE_CONFIG } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { optionLabel, statusLabel, statusReasonLabel } from '../i18n/options';
-import { localizeError } from '../i18n/apiErrors';
-import { formatCurrency, formatDate, formatTime } from '../i18n/format';
-import { LtrText } from '../i18n/LtrText';
-import { storageService } from '../services/storage';
+import { Language, LoanApplication, CanonicalStatus, UploadedFile, NotificationItem } from '@quickloan/ui-core/types';
+import { STATUS_BADGE_CONFIG } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel, statusLabel, statusReasonLabel } from '@quickloan/ui-core/i18n/options';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
+import { formatCurrency, formatDate, formatTime } from '@quickloan/ui-core/i18n/format';
+import { LtrText } from '@quickloan/ui-core/i18n/LtrText';
+import { storageService } from '@quickloan/ui-core/services/storage';
 import { apiService } from '../services/api';
-import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
-import { EligibilityScoreBar } from './EligibilityScoreBar';
+import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
+import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 
 interface Step11StatusTimelineProps {
   language: Language;

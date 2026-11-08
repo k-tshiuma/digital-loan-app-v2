@@ -1,0 +1,9 @@
+{
+  "name": "quickloan",
+  "private": true,
+  "description": "QuickLoan monorepo root. Only declares npm workspaces; each app keeps its own scripts. See docs/app-separation-plan.md.",
+  "workspaces": [
+    "frontend",
+    "shared/frontend"
+  ]
+}

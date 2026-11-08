@@ -12,8 +12,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Module, { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { BASE_TRANSLATIONS } from '../src/i18n/translations';
-import { MESSAGE_MODULES } from '../src/i18n/messages';
+import { BASE_TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
+import { MESSAGE_MODULES } from '@quickloan/ui-core/i18n/messages';
+import '../src/i18n/appMessages'; // adds the app's own groups to MESSAGE_MODULES
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');

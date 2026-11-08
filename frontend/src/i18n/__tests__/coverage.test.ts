@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, it, expect } from 'vitest';
-import { TRANSLATIONS } from '../translations';
+import { TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
 import {
   RISK_FLAG_CODES,
   docTypeLabel,
@@ -11,7 +11,7 @@ import {
   riskLevelLabel,
   roleLabel,
   statusLabel,
-} from '../options';
+} from '@quickloan/ui-core/i18n/options';
 import {
   COUNTRY_PHONE_CODES,
   DOCUMENT_TYPE_CONFIG,
@@ -22,9 +22,10 @@ import {
   REPAYMENT_SOURCE_OPTIONS,
   SALARY_PAYMENT_METHODS,
   VISA_TYPES,
-} from '../../config/appConfig';
+} from '@quickloan/ui-core/config/appConfig';
 
 const SRC = path.resolve(__dirname, '../..');
+const SHARED = path.resolve(SRC, '../../shared/frontend');
 const BACKEND = path.resolve(SRC, '../../backend');
 const HEBREW = /[֐-׿]/;
 
@@ -32,12 +33,15 @@ const has = (key: string) => !!TRANSLATIONS.en[key] && !!TRANSLATIONS.he[key];
 
 describe('Every t() key used in the code exists in English and Hebrew', () => {
   it('no component or App references a missing key', () => {
+    // App.tsx, the app's components and the shared components (shared/frontend).
     const files = [
       path.join(SRC, 'App.tsx'),
-      ...fs
-        .readdirSync(path.join(SRC, 'components'))
-        .filter((f) => f.endsWith('.tsx'))
-        .map((f) => path.join(SRC, 'components', f)),
+      ...[SRC, SHARED].flatMap((dir) =>
+        fs
+          .readdirSync(path.join(dir, 'components'))
+          .filter((f) => f.endsWith('.tsx'))
+          .map((f) => path.join(dir, 'components', f))
+      ),
     ];
     const missing: string[] = [];
     let checked = 0;
@@ -120,7 +124,7 @@ describe('Risk flags (T3.6)', () => {
 
 describe('Eligibility factor descriptions', () => {
   for (const file of [
-    path.join(SRC, 'services/eligibilityScoring.ts'),
+    path.join(SHARED, 'services/eligibilityScoring.ts'),
     path.join(BACKEND, 'services/eligibilityScoring.js'),
   ]) {
     it(`${path.basename(path.dirname(path.dirname(file)))}/${path.basename(file)} only uses keys that exist`, () => {

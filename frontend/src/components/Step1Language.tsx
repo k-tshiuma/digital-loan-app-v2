@@ -1,7 +1,7 @@
 import React from 'react';
 import { Globe, Check, ArrowRight } from 'lucide-react';
-import { Language } from '../types';
-import { ENABLED_LANGUAGES, t } from '../i18n/translations';
+import { Language } from '@quickloan/ui-core/types';
+import { ENABLED_LANGUAGES, t } from '@quickloan/ui-core/i18n/translations';
 
 interface Step1LanguageProps {
   selectedLanguage: Language;

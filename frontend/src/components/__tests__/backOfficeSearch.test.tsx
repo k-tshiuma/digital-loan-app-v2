@@ -5,9 +5,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BackOffice } from '../BackOffice';
-import { storageService } from '../../services/storage';
-import { t } from '../../i18n/translations';
-import { LoanApplication } from '../../types';
+import { storageService } from '@quickloan/ui-core/services/storage';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { LoanApplication } from '@quickloan/ui-core/types';
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));

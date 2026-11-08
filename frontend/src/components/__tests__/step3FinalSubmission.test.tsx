@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Step3FinalSubmission } from '../Step3FinalSubmission';
 import { apiService } from '../../services/api';
-import { LoanBreakdown, Step3FormData, TermsVersionRecord } from '../../types';
+import { LoanBreakdown, Step3FormData, TermsVersionRecord } from '@quickloan/ui-core/types';
 
 const breakdown: LoanBreakdown = {
   requestedAmountNis: 5000,

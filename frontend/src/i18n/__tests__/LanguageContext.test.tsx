@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { LanguageProvider, LANGUAGE_STORAGE_KEY, resolveInitialLanguage, useI18n } from '../LanguageContext';
-import { ENABLED_LANGUAGES, TRANSLATIONS } from '../translations';
+import { LanguageProvider, LANGUAGE_STORAGE_KEY, resolveInitialLanguage, useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
+import { ENABLED_LANGUAGES, TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <LanguageProvider>{children}</LanguageProvider>;
 

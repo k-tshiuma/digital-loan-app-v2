@@ -6,8 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { Step2Auth } from '../components/Step2Auth';
 import { Step10SubmissionSuccess } from '../components/Step10SubmissionSuccess';
 import { Step11StatusTimeline } from '../components/Step11StatusTimeline';
-import { t } from '../i18n/translations';
-import { LoanApplication } from '../types';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { LoanApplication } from '@quickloan/ui-core/types';
 
 /** The direction an element gets from its nearest `dir` attribute (as the browser would). */
 const dirOf = (el: Element | null) => el?.closest('[dir]')?.getAttribute('dir');

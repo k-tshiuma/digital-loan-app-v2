@@ -13,14 +13,14 @@ import {
   ShieldCheck,
   RotateCcw,
 } from 'lucide-react';
-import { Language, UploadedFile, DocumentTypeCode, GuarantorItem, LoanApplication } from '../types';
-import { DOCUMENT_TYPE_CONFIG } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { localizeError } from '../i18n/apiErrors';
-import { formatDate } from '../i18n/format';
+import { Language, UploadedFile, DocumentTypeCode, GuarantorItem, LoanApplication } from '@quickloan/ui-core/types';
+import { DOCUMENT_TYPE_CONFIG } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
+import { formatDate } from '@quickloan/ui-core/i18n/format';
 import { apiService } from '../services/api';
-import { calculateIndicativeEligibility } from '../services/eligibilityScoring';
-import { EligibilityScoreBar } from './EligibilityScoreBar';
+import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
+import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 
 interface Step8DocumentUploadProps {
   language: Language;

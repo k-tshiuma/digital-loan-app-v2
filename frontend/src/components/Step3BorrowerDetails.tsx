@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { User, Calendar, MapPin, Flag, AlertTriangle, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
-import { Language, BorrowerDetails } from '../types';
-import { ORIGIN_COUNTRIES, STEP1_ORIGIN_COUNTRIES, MARITAL_STATUSES, calculateAge } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { optionLabel } from '../i18n/options';
-import { storageService } from '../services/storage';
-import { DateInput } from './DateInput';
+import { Language, BorrowerDetails } from '@quickloan/ui-core/types';
+import { ORIGIN_COUNTRIES, STEP1_ORIGIN_COUNTRIES, MARITAL_STATUSES, calculateAge } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { storageService } from '@quickloan/ui-core/services/storage';
+import { DateInput } from '@quickloan/ui-core/components/DateInput';
 
 const ALL_ORIGIN_COUNTRIES = Array.from(new Set<string>([...STEP1_ORIGIN_COUNTRIES, ...ORIGIN_COUNTRIES]));
 

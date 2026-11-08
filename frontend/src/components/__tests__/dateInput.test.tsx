@@ -6,9 +6,9 @@ import React, { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DateInput, dateSeparator, isoToParts, partsToIso } from '../DateInput';
-import { t } from '../../i18n/translations';
-import { Language } from '../../types';
+import { DateInput, dateSeparator, isoToParts, partsToIso } from '@quickloan/ui-core/components/DateInput';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { Language } from '@quickloan/ui-core/types';
 
 describe('date helpers', () => {
   it('use the same separator as formatDate', () => {
@@ -136,11 +136,14 @@ describe('<DateInput>', () => {
 
 describe('Guard', () => {
   it('no component shows a native date field directly (they show the browser format)', () => {
-    const dir = path.resolve(__dirname, '..');
-    const offenders = fs
-      .readdirSync(dir)
-      .filter((f) => f.endsWith('.tsx') && f !== 'DateInput.tsx')
-      .filter((f) => /type=["']date["']/.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+    // App components and the shared components (shared/frontend).
+    const dirs = [path.resolve(__dirname, '..'), path.resolve(__dirname, '../../../../shared/frontend/components')];
+    const offenders = dirs.flatMap((dir) =>
+      fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.tsx') && f !== 'DateInput.tsx')
+        .filter((f) => /type=["']date["']/.test(fs.readFileSync(path.join(dir, f), 'utf8')))
+    );
     expect(offenders).toEqual([]);
   });
 });

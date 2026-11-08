@@ -3,10 +3,10 @@
 import path from 'path';
 import { createRequire } from 'module';
 import { describe, it, expect } from 'vitest';
-import { TRANSLATIONS } from '../translations';
-import { statusLabel } from '../options';
-import { DOCUMENT_TYPE_CONFIG, VISA_TYPES } from '../../config/appConfig';
-import { CanonicalStatus } from '../../types';
+import { TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
+import { statusLabel } from '@quickloan/ui-core/i18n/options';
+import { DOCUMENT_TYPE_CONFIG, VISA_TYPES } from '@quickloan/ui-core/config/appConfig';
+import { CanonicalStatus } from '@quickloan/ui-core/types';
 
 const requireBackend = createRequire(path.resolve(__dirname, '../../../../backend/package.json'));
 const { VALUES, DOC_TITLE_KEYS, LEGACY_VALUES } = requireBackend('./services/pdfLabels.js');

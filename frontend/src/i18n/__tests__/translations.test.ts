@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TRANSLATIONS, t } from '../translations';
+import { TRANSLATIONS, t } from '@quickloan/ui-core/i18n/translations';
 
 const en = TRANSLATIONS.en;
 const he = TRANSLATIONS.he;

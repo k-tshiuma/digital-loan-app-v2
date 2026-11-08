@@ -1,5 +1,6 @@
 import { Language } from '../types';
 import { MESSAGE_MODULES } from './messages';
+import type { MessageModule } from './messages/types';
 
 export interface LanguageOption {
   code: Language;
@@ -1572,6 +1573,18 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = Object.fro
     ),
   ])
 ) as Record<Language, Record<string, string>>;
+
+/**
+ * Adds an app's own message groups (e.g. the wizard or Back Office texts). Each app calls this once at
+ * start-up, before anything renders; the test setup does the same. Keys must not clash with existing ones.
+ */
+export function registerMessages(modules: Record<string, MessageModule>): void {
+  Object.assign(MESSAGE_MODULES, modules);
+  for (const m of Object.values(modules)) {
+    Object.assign(TRANSLATIONS.en, m.en);
+    Object.assign(TRANSLATIONS.he, m.he);
+  }
+}
 
 /**
  * Helper to get a translation with optional placeholder replacements

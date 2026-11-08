@@ -11,14 +11,14 @@ import {
   X,
   Loader2,
 } from 'lucide-react';
-import { Language, LoanApplication, User } from '../types';
-import { STATUS_BADGE_CONFIG } from '../config/appConfig';
-import { t } from '../i18n/translations';
-import { statusLabel } from '../i18n/options';
-import { localizeError } from '../i18n/apiErrors';
-import { formatCurrency, formatDate } from '../i18n/format';
+import { Language, LoanApplication, User } from '@quickloan/ui-core/types';
+import { STATUS_BADGE_CONFIG } from '@quickloan/ui-core/config/appConfig';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { statusLabel } from '@quickloan/ui-core/i18n/options';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
+import { formatCurrency, formatDate } from '@quickloan/ui-core/i18n/format';
 import { apiService } from '../services/api';
-import { storageService } from '../services/storage';
+import { storageService } from '@quickloan/ui-core/services/storage';
 
 interface MyApplicationsProps {
   isOpen: boolean;
