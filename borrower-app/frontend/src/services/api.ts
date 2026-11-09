@@ -100,7 +100,7 @@ export const apiService = {
   /** Opens an SSE stream for an application. Returns null when not authenticated. */
   openApplicationEvents(applicationId: string): EventSource | null {
     const token = authTokens.get();
-    if (!token) return null;
+    if (!token || typeof EventSource === 'undefined') return null;
     return new EventSource(`${API_BASE_URL}/applications/${applicationId}/events?token=${encodeURIComponent(token)}`);
   },
 

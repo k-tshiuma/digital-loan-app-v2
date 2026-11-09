@@ -46,7 +46,11 @@ function portFor(path, token, to) {
 async function startSplitServers() {
   const { spawn } = require('child_process');
   const start = (entry, port, env) => {
-    const child = spawn(process.execPath, ['-e', `require(${JSON.stringify(SERVER_ENTRY[entry])}).listen(${port})`], {
+    // The borrower API polls for staff changes when it runs on its own (server.js main); started here too, fast.
+    const poller = entry === 'borrower-server'
+      ? `require(${JSON.stringify(require('path').resolve(__dirname, '../../borrower-app/backend/ssePoller.js'))}).startStatusPoller({ intervalMs: 300 }); `
+      : '';
+    const child = spawn(process.execPath, ['-e', `${poller}require(${JSON.stringify(SERVER_ENTRY[entry])}).listen(${port})`], {
       cwd: __dirname,
       env: { ...process.env, NODE_ENV: '', DEMO_MODE: 'true', ...env },
       stdio: ['ignore', 'ignore', 'inherit'],
@@ -102,6 +106,43 @@ function request(method, path, body = null, token = null, { to } = {}) {
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+/** Opens the applicant's live status stream on the borrower API. next(event, ms) resolves with the event data or null. */
+function openStatusStream(applicationId, token) {
+  let buffer = '';
+  const events = [];
+  const waiters = [];
+  let resolveConnected;
+  const connected = new Promise((r) => { resolveConnected = r; });
+  const req = http.get({ hostname: '127.0.0.1', port: BORROWER_PORT, path: `/api/applications/${applicationId}/events?token=${encodeURIComponent(token)}` }, (res) => {
+    res.setEncoding('utf8');
+    res.on('data', (chunk) => {
+      buffer += chunk;
+      let i;
+      while ((i = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, i);
+        buffer = buffer.slice(i + 2);
+        const event = (/^event: (.*)$/m.exec(block) || [])[1];
+        const data = (/^data: (.*)$/m.exec(block) || [])[1];
+        if (!event) continue;
+        if (event === 'connected') { resolveConnected(); continue; }
+        const parsed = data ? JSON.parse(data) : null;
+        events.push({ event, data: parsed });
+        waiters.splice(0).forEach((w) => w());
+      }
+    });
+  });
+  req.on('error', () => resolveConnected());
+  const next = (name, ms) => new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    const check = () => {
+      const hit = events.find((e) => e.event === name);
+      if (hit) { clearTimeout(timer); resolve(hit.data); } else waiters.push(check);
+    };
+    check();
+  });
+  return { connected, next, close: () => req.destroy() };
 }
 
 function uploadDummyFile(filename, mimeType, magicBuffer, token) {
@@ -475,6 +516,10 @@ async function runTests() {
 
     // 5. Back Office Step 1 Approval
     console.log('--- 5. BACK OFFICE STEP 1 APPROVAL ---');
+    // The applicant's 3-step screens listen to this stream (useFlowLiveUpdates): the approval, made on the
+    // admin API, must reach it through the borrower API's status poller.
+    const stream = openStatusStream(appId, applicantToken);
+    await stream.connected;
     const approveStep1 = await request('POST', `/api/flow/applications/${appId}/steps/1/decision`, {
       decision: 'approve',
       note: 'All identity and employment documents verified.',
@@ -482,6 +527,11 @@ async function runTests() {
     assert.strictEqual(approveStep1.status, 200);
     assert.strictEqual(approveStep1.body.flowStatus, 'STEP1_APPROVED');
     console.log('  ✓ PASS: Credit Reviewer approved Step 1; status is STEP1_APPROVED\n');
+    const liveEvent = await stream.next('status', 8000);
+    stream.close();
+    assert.ok(liveEvent, 'The applicant\'s live stream must receive a "status" event for the Step 1 approval');
+    assert.strictEqual(liveEvent.flowStatus, 'STEP1_APPROVED');
+    console.log('  ✓ PASS: The approval reached the applicant\'s live stream (borrower API) as a "status" event\n');
 
     // Check applicant status now has Step 2 unlocked
     const appStateAfterS1 = await request('GET', '/api/flow/application', null, applicantToken);
