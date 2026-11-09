@@ -97,24 +97,22 @@ async function saveClassicApplication(next, prev, now) {
 }
 
 /**
- * The application for a PDF request. If it isn't stored yet and the client sent it in the body (offline
- * draft), it is stored first. Returns null when there is nothing to export.
+ * The application for a PDF request: { app, stored }. The stored record when there is one (the caller's
+ * access to it must be checked). Otherwise, if the client sent the application in the body (an offline
+ * draft that never reached the server), that payload, only to render; it is never saved, so this route
+ * can't create records or bypass the rules of PUT /api/applications/:id. Null when there is nothing to export.
  */
 async function applicationForPdf(req) {
-  let a = await getAppById(req.params.id);
-  if (!a && req.body && (req.body.id || req.body.borrowerDetails)) {
-    const candidate = req.body.application || req.body;
-    a = parseApp(candidate);
-    if (a && (a.id || a.requestNumber)) {
-      if (!a.id) a.id = req.params.id;
-      try {
-        await writeApp(a);
-      } catch (e) {
-        console.warn('Could not auto-persist application from PDF request:', e.message);
-      }
+  const stored = await getAppById(req.params.id);
+  if (stored) return { app: stored, stored: true };
+  if (req.body && (req.body.id || req.body.borrowerDetails)) {
+    const app = parseApp(req.body.application || req.body);
+    if (app) {
+      if (!app.id) app.id = req.params.id;
+      return { app, stored: false };
     }
   }
-  return a || null;
+  return null;
 }
 
 /** Path and stored metadata of an uploaded file, or null when the file doesn't exist. Blocks path traversal. */

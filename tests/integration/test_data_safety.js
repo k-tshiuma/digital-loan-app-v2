@@ -6,6 +6,8 @@
  * - Flow saves write only what they changed: a staff message (admin API) and a draft save (borrower API)
  *   at the same moment both survive.
  * - Registration consent sent several times at once is recorded once.
+ * - A PDF request with an application in the body (offline fallback) never stores it: no records for
+ *   other users, no fields that bypass the normal save rules.
  *
  * Usage: npm run seed:staff (once), then node tests/integration/test_data_safety.js
  */
@@ -42,7 +44,7 @@ function request(port, method, urlPath, { body, token } = {}) {
       res.on('end', () => {
         let parsed = Buffer.concat(chunks).toString();
         try { parsed = JSON.parse(parsed); } catch { /* not JSON */ }
-        resolve({ status: res.statusCode, body: parsed });
+        resolve({ status: res.statusCode, headers: res.headers, body: parsed });
       });
     });
     req.on('error', reject);
@@ -169,6 +171,30 @@ async function main() {
     check('the consent is recorded once in the audit log', auditRes.status === 200 && entries.length === 1, `HTTP ${auditRes.status}, ${entries.length} entries`);
     const after = await request(BORROWER_PORT, 'GET', '/api/flow/application', { token: t2 });
     check('the application now has the consent', after.body.application.needsRegistrationConsent === false);
+
+    // --- PDF fallback ---------------------------------------------------------------------------------------
+    console.log('--- PDF with an application in the body (offline fallback)');
+    const isPdf = (r) => r.status === 200 && String(r.headers['content-type']).includes('application/pdf');
+    const forged = (id) => ({ id, userId: 'someone_else', status: 'Approved', isSubmitted: true, riskScore: 99,
+      borrowerDetails: { fullName: 'PDF Probe' }, language: 'en' });
+    const probeId = `pdf_probe_${Date.now()}`;
+    const borrowerPdf = await request(BORROWER_PORT, 'POST', `/api/applications/${probeId}/pdf`, { token: applicantToken, body: forged(probeId) });
+    check('an unsaved application sent by a borrower still gets a PDF', isPdf(borrowerPdf), `HTTP ${borrowerPdf.status}`);
+    const afterBorrower = await request(ADMIN_PORT, 'GET', `/api/applications/${probeId}`, { token: staffToken });
+    check('... and is not stored (no record for another user, no forged status)', afterBorrower.status === 404, `HTTP ${afterBorrower.status}`);
+
+    const staffProbeId = `pdf_probe_staff_${Date.now()}`;
+    const staffPdf = await request(ADMIN_PORT, 'POST', `/api/applications/${staffProbeId}/pdf`, { token: staffToken, body: forged(staffProbeId) });
+    const afterStaff = await request(ADMIN_PORT, 'GET', `/api/applications/${staffProbeId}`, { token: staffToken });
+    check('the admin API renders it too, and stores nothing', isPdf(staffPdf) && afterStaff.status === 404, `HTTP ${staffPdf.status} / ${afterStaff.status}`);
+
+    if (draft) {
+      const before = (await request(ADMIN_PORT, 'GET', `/api/applications/${draft.id}`, { token: staffToken })).body.application;
+      const other = await request(BORROWER_PORT, 'POST', `/api/applications/${draft.id}/pdf`, { token: applicantToken, body: { ...forged(draft.id), userId: draft.userId } });
+      check('another user\'s stored application is refused (403)', other.status === 403, `HTTP ${other.status}`);
+      const unchanged = (await request(ADMIN_PORT, 'GET', `/api/applications/${draft.id}`, { token: staffToken })).body.application;
+      check('... and stays unchanged', unchanged.status === before.status && unchanged.updatedAt === before.updatedAt);
+    }
   } finally {
     await Promise.all([borrower.stop(), admin.stop()]);
   }
