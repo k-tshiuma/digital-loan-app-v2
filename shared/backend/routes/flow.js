@@ -169,7 +169,17 @@ module.exports = function createFlowRoutes(ctx) {
     );
   }
 
-  const flowRowToApp = (row) => (row ? parseApp(row) : null);
+  // Column values as loaded, so updateFlowApp writes only what a handler changed. A symbol key: copied by
+  // object spread ({ ...a }), never sent in JSON.
+  const LOADED = Symbol('loadedFlowColumns');
+  const flowRowToApp = (row) => {
+    if (!row) return null;
+    const a = parseApp(row);
+    a[LOADED] = Object.fromEntries(FLOW_UPDATE_COLS.map((c) => [c, toDb(a, c)]));
+    return a;
+  };
+  // A JSON column as an object for json_set (NULL, 'null' or anything else that isn't an object -> '{}').
+  const asJsonObject = (col) => `CASE WHEN json_valid(${col}) THEN CASE WHEN json_type(${col}) = 'object' THEN ${col} ELSE '{}' END ELSE '{}' END`;
   const getFlowAppByUser = async (userId) =>
     flowRowToApp(await dbGet('SELECT * FROM applications WHERE userId = ? AND flowVersion = 2 ORDER BY createdAt DESC LIMIT 1', [userId]));
   const getFlowAppById = async (id) =>
@@ -284,12 +294,25 @@ module.exports = function createFlowRoutes(ctx) {
    * still in that status (optimistic lock), which stops double submits and double approvals.
    * Returns true when a row was updated.
    */
+  /**
+   * Saves a flow application. Only the columns the handler changed since it was loaded are written, so a
+   * column someone else changed in the meantime (a staff message while the applicant saves a draft, say) is
+   * kept instead of being overwritten with this request's stale copy. An object that wasn't loaded through
+   * getFlowAppById/getFlowAppByUser writes every column. With expectedFlowStatus nothing is written if the
+   * status has changed; returns false then.
+   */
   async function updateFlowApp(a, expectedFlowStatus) {
-    const sql = `UPDATE applications SET ${FLOW_UPDATE_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ? AND flowVersion = 2${expectedFlowStatus ? ' AND flowStatus = ?' : ''}`;
-    const params = [...FLOW_UPDATE_COLS.map((c) => toDb(a, c)), a.id];
+    const loaded = a[LOADED];
+    const values = Object.fromEntries(FLOW_UPDATE_COLS.map((c) => [c, toDb(a, c)]));
+    let cols = FLOW_UPDATE_COLS.filter((c) => !loaded || values[c] !== loaded[c]);
+    if (cols.length === 0) cols = ['updatedAt']; // still runs the status check
+    const sql = `UPDATE applications SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ? AND flowVersion = 2${expectedFlowStatus ? ' AND flowStatus = ?' : ''}`;
+    const params = [...cols.map((c) => values[c]), a.id];
     if (expectedFlowStatus) params.push(expectedFlowStatus);
     const r = await dbRun(sql, params);
-    return r.changes === 1;
+    if (r.changes !== 1) return false;
+    a[LOADED] = values; // a later save of the same object writes only what changes after this one
+    return true;
   }
 
   const maskBank = (b) => (b && b.accountNumber ? { ...b, accountNumber: mask(b.accountNumber) } : b);
@@ -375,10 +398,18 @@ module.exports = function createFlowRoutes(ctx) {
   /** Records the location + disclaimer consent on an application that does not have it yet. */
   async function recordConsent(a, registration, req, actor) {
     if (hasConsent(a)) return a;
-    a.step1Data = { ...(a.step1Data || {}), registration: consentRecord(registration, new Date().toISOString()) };
-    a.updatedAt = new Date().toISOString();
-    await updateFlowApp(a);
-    await audit(req, { applicationId: a.id, action: 'REGISTRATION_CONSENT', metadata: { disclaimerVersion: REGISTRATION_VERSION, locationGranted: true, position: !!a.step1Data.registration.location }, ...(actor ? { actor } : {}) });
+    const now = new Date().toISOString();
+    const record = consentRecord(registration, now);
+    // Merged into the stored step1Data in one statement (a Step 1 draft saved at the same moment is kept),
+    // and only while there is no consent yet, so two requests at once record it once.
+    const r = await dbRun(
+      `UPDATE applications SET step1Data = json_set(${asJsonObject('step1Data')}, '$.registration', json(?)), updatedAt = ?
+       WHERE id = ? AND flowVersion = 2 AND json_extract(${asJsonObject('step1Data')}, '$.registration.disclaimerAcceptedAt') IS NULL`,
+      [JSON.stringify(record), now, a.id]
+    );
+    if (r.changes === 1) {
+      await audit(req, { applicationId: a.id, action: 'REGISTRATION_CONSENT', metadata: { disclaimerVersion: REGISTRATION_VERSION, locationGranted: true, position: !!record.location }, ...(actor ? { actor } : {}) });
+    }
     return getFlowAppById(a.id);
   }
 
@@ -591,10 +622,12 @@ module.exports = function createFlowRoutes(ctx) {
       const a = await getFlowAppByUser(u.id);
       if (a) {
         if (sets.phoneNumber) {
-          a.phoneVerified = true;
-          a.borrowerDetails = { ...(a.borrowerDetails || {}), mobilePhoneNumber: sets.phoneNumber };
-          a.updatedAt = now;
-          await updateFlowApp(a);
+          // Only these two fields, merged into the stored borrowerDetails (anything else saved meanwhile is kept).
+          await dbRun(
+            `UPDATE applications SET phoneVerified = 1, borrowerDetails = json_set(${asJsonObject('borrowerDetails')}, '$.mobilePhoneNumber', ?), updatedAt = ?
+             WHERE id = ? AND flowVersion = 2`,
+            [sets.phoneNumber, now, a.id]
+          );
         }
         await audit(req, { applicationId: a.id, action: 'ACCOUNT_CONTACT_COMPLETED', metadata: { fields: cols.filter((c) => c !== 'phoneVerifiedAt') } });
       }
