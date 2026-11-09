@@ -2,7 +2,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { safeJson } = require('../services/dbHelpers');
-const { DEMO_MODE, JWT_SECRET, JWT_EXPIRES_IN } = require('./config');
+const { DEMO_MODE, JWT_SECRETS, JWT_EXPIRES_IN } = require('./config');
 
 const normalizePhone = (p) => String(p || '').replace(/[\s()-]/g, '');
 const isBcryptHash = (value) => typeof value === 'string' && /^\$2[aby]\$/.test(value);
@@ -20,16 +20,51 @@ function sanitizeUser(row) {
   };
 }
 
-function signUserToken(user) {
-  return jwt.sign(
-    { sub: user.id, type: 'borrower', phone: normalizePhone(user.phoneNumber) },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  );
+// Each token kind has its own secret and audience: a borrower token can't be verified as a staff token or
+// the reverse, even if the two secrets were ever the same.
+const AUDIENCES = { borrower: 'quickloan-borrower', staff: 'quickloan-admin' };
+const ALGORITHM = 'HS256';
+
+function secretFor(kind) {
+  const secret = JWT_SECRETS[kind];
+  if (!secret) throw new Error(`No signing secret for ${kind} tokens in this process`);
+  return secret;
 }
 
+function signToken(kind, payload, expiresIn) {
+  return jwt.sign({ ...payload, type: kind }, secretFor(kind), { expiresIn, audience: AUDIENCES[kind], algorithm: ALGORITHM });
+}
+
+function signUserToken(user) {
+  return signToken('borrower', { sub: user.id, phone: normalizePhone(user.phoneNumber) }, JWT_EXPIRES_IN);
+}
+
+/** Demo role-picker token (admin API, DEMO_MODE only). */
 function signStaffToken(role) {
-  return jwt.sign({ sub: `staff_${role}`, type: 'staff', role }, JWT_SECRET, { expiresIn: '12h' });
+  return signToken('staff', { sub: `staff_${role}`, role }, '12h');
+}
+
+/** Session for a real staff account (staff login). */
+function signStaffSession(staff) {
+  return signToken('staff', { sub: staff.id, role: staff.role, name: staff.fullName || staff.email }, '12h');
+}
+
+/** What the token says it is, without checking it. Only used to pick the key, or to refuse it. */
+const claimedKind = (token) => {
+  const decoded = jwt.decode(token);
+  return decoded && decoded.type === 'staff' ? 'staff' : 'borrower';
+};
+
+/**
+ * Verifies a token with the secret and audience of the kind it claims to be. Throws when the signature,
+ * audience or expiry is wrong, or when this process has no secret for that kind (e.g. a staff token on
+ * a borrower API that only knows the borrower secret).
+ */
+function verifyToken(token) {
+  const kind = claimedKind(token);
+  const payload = jwt.verify(token, secretFor(kind), { audience: AUDIENCES[kind], algorithms: [ALGORITHM] });
+  if (payload.type !== kind) throw new Error('Token type mismatch');
+  return payload;
 }
 
 function readToken(req) {
@@ -50,7 +85,7 @@ function authenticate(req, res, next) {
     return res.status(401).json({ success: false, error: 'Authentication required' });
   }
   try {
-    req.auth = jwt.verify(token, JWT_SECRET);
+    req.auth = verifyToken(token);
     return next();
   } catch {
     if (DEMO_MODE) {
@@ -74,7 +109,7 @@ function optionalAuth(req, _res, next) {
   const token = readToken(req);
   if (token) {
     try {
-      req.auth = jwt.verify(token, JWT_SECRET);
+      req.auth = verifyToken(token);
     } catch {
       if (DEMO_MODE) {
         const decoded = jwt.decode(token);
@@ -104,9 +139,13 @@ function requireStaff(...roles) {
 // uses neither.
 // ---------------------------------------------------------------------------
 
-/** Borrower backend: a valid staff token is refused everywhere, so staff branches never run here. */
+/**
+ * Borrower backend: a staff token is refused everywhere, so staff branches never run here. That includes
+ * staff tokens this process can't verify (it may not know the admin secret).
+ */
 function rejectStaffTokens(req, res, next) {
-  if (isStaff(req)) return res.status(401).json({ success: false, error: 'This service accepts borrower sessions only.' });
+  const token = readToken(req);
+  if (isStaff(req) || (token && claimedKind(token) === 'staff')) return res.status(401).json({ success: false, error: 'This service accepts borrower sessions only.' });
   return next();
 }
 
@@ -118,7 +157,7 @@ function staffOnlyAuth(req, res, next) {
   const token = readToken(req);
   if (!token) return next();
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = verifyToken(token);
     if (payload && payload.type === 'staff') {
       req.auth = payload;
       return next();
@@ -180,8 +219,11 @@ module.exports = {
   hashCode,
   generateCode,
   sanitizeUser,
+  AUDIENCES,
   signUserToken,
   signStaffToken,
+  signStaffSession,
+  verifyToken,
   readToken,
   authenticate,
   optionalAuth,

@@ -38,7 +38,7 @@ import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
 import { ErrorBoundary } from '@quickloan/ui-core/components/ErrorBoundary';
 import { storageService } from '@quickloan/ui-core/services/storage';
-import { apiService, authTokens } from './services/api';
+import { apiService, authTokens, SESSION_EXPIRED_EVENT } from './services/api';
 import { goToAdminPortal } from './utils/portalRedirect';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from '@quickloan/ui-core/i18n/translations';
@@ -443,6 +443,19 @@ export default function App() {
     setCurrentStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // The backend rejected the saved token (expired, or signed with an old secret): back to sign-in.
+  // handleSignOut only uses state setters and services, so the first render's copy stays correct.
+  useEffect(() => {
+    const onExpired = (e: Event) => {
+      if ((e as CustomEvent<{ scope?: string }>).detail?.scope !== 'borrower') return;
+      setFlowLoadFailed(false);
+      handleSignOut();
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // The Back Office is a separate app (admin-app/frontend); old /backoffice and /admin links go there.
   useEffect(() => {

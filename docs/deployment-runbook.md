@@ -81,9 +81,10 @@ sudo chown root:quickloan /etc/quickloan/*.env && sudo chmod 640 /etc/quickloan/
 ```
 
 Then edit them:
-- `shared.env`: `JWT_SECRET` (`openssl rand -hex 32`), Twilio (`TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`) and SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`). **Without Twilio, borrowers never receive their login codes**: the API only writes them to its log and prints a `WARNING` at start-up.
+- `borrower.env` and `admin.env`: `BORROWER_JWT_SECRET` and `ADMIN_JWT_SECRET`, two different values (`openssl rand -hex 32` each). Each API only gets its own; they refuse to start in production without it, or if the two are the same.
+- `shared.env`: Twilio (`TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`) and SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`). **Without Twilio, borrowers never receive their login codes**: the API only writes them to its log and prints a `WARNING` at start-up.
 - `deploy.env`: the two public URLs.
-- `borrower.env`, `admin.env`: the defaults are fine.
+- `borrower.env`, `admin.env`: apart from the secrets, the defaults are fine.
 
 Settings are read by `deploy/ecosystem.config.js` when pm2 starts the APIs. Don't put `.env` files in the checkout on the server.
 
@@ -174,6 +175,8 @@ sudo -iu quickloan bash -c 'cd /opt/quickloan/app && deploy/deploy.sh v1.0.1'
 - open status screens reconnect on their own;
 - login codes requested in the last minutes are lost (kept in memory), so a borrower may have to ask for a new one.
 
+Changing `BORROWER_JWT_SECRET` or `ADMIN_JWT_SECRET` signs everyone of that app out: the next request returns 401 and the app goes back to its sign-in screen. Do that to cut off all sessions (for example after a leak).
+
 Database changes stay additive (`ALTER TABLE ... ADD COLUMN` in `shared/backend/database.js`). The borrower API applies them at start-up, which is why it restarts first.
 
 ## 5. Rollback
@@ -213,6 +216,7 @@ node /opt/quickloan/app/deploy/smoke.js https://app.example.com https://admin.ex
 | --- | --- |
 | API exits at start-up with `GLIBC_2.38 not found` | OS older than Ubuntu 24.04; see 2.1 |
 | `Missing /etc/quickloan/...env` from pm2 | A settings file is missing; see 2.5 |
+| API exits: `BORROWER_JWT_SECRET must be set` / `ADMIN_JWT_SECRET must be set` / `must be different` | Give each API its own secret in `borrower.env` / `admin.env`, and no `JWT_SECRET` in `shared.env`; see 2.5 |
 | 502 on `/api/...` | That API is down: `pm2 ls`, `pm2 logs <name>` |
 | Status screen doesn't update | Proxy buffering: the `events` location in `quickloan-locations.conf` must be installed |
 | Everyone gets "Too many attempts" together, audit log shows 127.0.0.1 | `TRUST_PROXY=loopback` missing in `shared.env` |

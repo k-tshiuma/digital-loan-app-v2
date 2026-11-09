@@ -14,7 +14,6 @@
  */
 const path = require('path');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { dbGet, dbAll, dbRun, newId, sha256, safeJson } = require('../services/dbHelpers');
 const W = require('../services/workflow');
 const V = require('../services/flowValidation');
@@ -145,7 +144,7 @@ function createRateLimiter(max, windowMs) {
 
 module.exports = function createFlowRoutes(ctx) {
   const {
-    DEMO_MODE, BCRYPT_ROUNDS, JWT_SECRET, normalizePhone, sanitizeUser, signUserToken, isStaff, requireStaff, checkOtp,
+    DEMO_MODE, BCRYPT_ROUNDS, normalizePhone, sanitizeUser, signUserToken, signStaffSession, isStaff, requireStaff, checkOtp,
     nextRequestNumber, parseApp, broadcastAppEvent, sendSms, sendEmail, notifyStatusChange, resolveMessageLanguage,
   } = ctx;
 
@@ -524,7 +523,7 @@ module.exports = function createFlowRoutes(ctx) {
         return generic();
       }
       await dbRun('UPDATE staff_users SET failedAttempts = 0, lockedUntil = NULL, lastLoginAt = ?, updatedAt = ? WHERE id = ?', [now, now, staff.id]);
-      const token = jwt.sign({ sub: staff.id, type: 'staff', role: staff.role, name: staff.fullName || staff.email }, JWT_SECRET, { expiresIn: '12h' });
+      const token = signStaffSession(staff);
       await audit(req, { action: 'STAFF_LOGIN', actor: { type: 'staff', id: staff.id, role: staff.role, name: staff.fullName } });
       res.json({ success: true, token, staff: { id: staff.id, email: staff.email, fullName: staff.fullName, role: staff.role } });
     });
