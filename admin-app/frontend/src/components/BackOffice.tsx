@@ -295,7 +295,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     );
 
     try {
-      await apiService.saveApplication(updated, 'staff');
+      await apiService.saveApplication(updated);
     } catch (err) {
       console.warn('Backend sync failed, saved locally:', err);
     }
@@ -313,7 +313,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     const rec = storageService.simulateFundingHandoff(selectedApp.id, `FundingOfficer (${currentRole})`);
     try {
       const fresh = storageService.getApplication(selectedApp.id);
-      if (fresh) await apiService.saveApplication(fresh, 'staff');
+      if (fresh) await apiService.saveApplication(fresh);
     } catch {}
     setActionSuccessMessage(t(language, 'bo.msg.pushedToFunding'));
     reloadData();
@@ -995,7 +995,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             onSendMessage={handleSendApplicantMessage}
             onDownloadPdf={async () => {
               try {
-                await apiService.downloadApplicationPdf(selectedApp, 'staff', language);
+                await apiService.downloadApplicationPdf(selectedApp, language);
               } catch (e: any) {
                 setActionSuccessMessage(t(language, 'bo.msg.pdfFailed', { error: localizeError(e, language, 'err.pdfFailed') }));
               }
@@ -1036,7 +1036,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                   onClick={async () => {
                     if (!selectedApp) return;
                     try {
-                      await apiService.downloadApplicationPdf(selectedApp, 'staff', language);
+                      await apiService.downloadApplicationPdf(selectedApp, language);
                     } catch (e: any) {
                       setActionSuccessMessage(t(language, 'bo.msg.pdfFailed', { error: localizeError(e, language, 'err.pdfFailed') }));
                     }
@@ -1290,7 +1290,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {selectedApp.documents?.map((doc) => {
-                    const resolvedUrl = apiService.resolveFileUrl(doc.fileUrl, 'staff') || doc.dataUrl;
+                    const resolvedUrl = apiService.resolveFileUrl(doc.fileUrl) || doc.dataUrl;
                     const isImg = doc.mimeType?.startsWith('image/') || resolvedUrl?.startsWith('data:image/');
                     return (
                       <div key={doc.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">

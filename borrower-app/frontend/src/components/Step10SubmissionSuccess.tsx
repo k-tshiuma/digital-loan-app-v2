@@ -44,7 +44,7 @@ export const Step10SubmissionSuccess: React.FC<Step10SubmissionSuccessProps> = (
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
-      await apiService.downloadApplicationPdf(application, 'borrower', language);
+      await apiService.downloadApplicationPdf(application, language);
     } catch (err: any) {
       console.error('Failed to download PDF:', err);
       alert(localizeError(err, language, 'pdf.downloadFailed'));

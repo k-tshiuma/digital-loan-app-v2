@@ -1,6 +1,6 @@
 // Classic wizard for borrowers: active draft (with returning-user prefill), history, live status events (SSE).
 const { dbGet, dbAll, newId, safeJson } = require('@quickloan/backend-core/services/dbHelpers');
-const { isStaff, canAccessUser } = require('@quickloan/backend-core/core/auth');
+const { canAccessUser } = require('@quickloan/backend-core/core/auth');
 const { parseApp, getAppById, writeApp, nextRequestNumber } = require('@quickloan/backend-core/core/applications');
 const { sseClients, lastSent } = require('@quickloan/backend-core/core/sse');
 
@@ -215,7 +215,7 @@ function register(app) {
     const rows = await dbAll('SELECT * FROM applications WHERE userId = ? AND isSubmitted = 1 ORDER BY submittedAt DESC', [userId]);
     const apps = rows.map(parseApp).map((a) => {
       // Risk scoring is an internal underwriting signal — not shown to borrowers.
-      if (!isStaff(req)) { delete a.riskScore; delete a.riskLevel; delete a.riskFlags; }
+      delete a.riskScore; delete a.riskLevel; delete a.riskFlags;
       return a;
     });
     res.json({ success: true, applications: apps });

@@ -1,22 +1,12 @@
 // The backend request core shared by both apps: base URL, error type, token storage and the request
 // helper. Each app builds its own endpoint methods on top of it (see api.ts).
-import { User, UserRole, LoanApplication, Language } from '../types';
+import { User, LoanApplication, Language } from '../types';
 
 export const API_BASE_URL: string =
   ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL) || 'http://localhost:5000/api';
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 const TOKEN_KEY = 'quickloan_auth_token';
-const STAFF_TOKEN_KEY = 'quickloan_staff_token_v1';
-
-export type ApiScope = 'borrower' | 'staff';
-export type StaffRole = Exclude<UserRole, 'borrower'>;
-export interface StaffAccount {
-  id: string;
-  email: string;
-  fullName: string;
-  role: StaffRole;
-}
 
 export class ApiError extends Error {
   status: number;
@@ -38,7 +28,8 @@ export const isNetworkError = (err: unknown) => !(err instanceof ApiError);
 // ---------------------------------------------------------------------------
 // Token storage (JWT in localStorage, per plan step 1.6)
 // ---------------------------------------------------------------------------
-function tokenPayload(token: string): Record<string, unknown> | null {
+/** The payload of a JWT, without checking it (the server does that). */
+export function readTokenPayload(token: string): Record<string, unknown> | null {
   try {
     return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
   } catch {
@@ -46,21 +37,31 @@ function tokenPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-function tokenExpiry(token: string): number | null {
-  const exp = tokenPayload(token)?.exp;
-  return typeof exp === 'number' ? exp * 1000 : null;
-}
-
-const isTokenValid = (token: string | null): token is string => {
+/** False for a missing token or one that expires within 5 s. */
+export const isTokenUsable = (token: string | null): token is string => {
   if (!token) return false;
-  const exp = tokenExpiry(token);
-  return exp === null || exp > Date.now() + 5000;
+  const exp = readTokenPayload(token)?.exp;
+  return typeof exp !== 'number' || exp * 1000 > Date.now() + 5000;
 };
 
+/**
+ * Where an app keeps its login token. Each app has exactly one: the borrower app the default below
+ * (`authTokens`), the admin app its staff session (admin-app/frontend/src/services/staffSession.ts),
+ * installed with setSessionStore. Every request, file URL and PDF download uses it.
+ */
+export interface SessionStore {
+  /** Sent as detail.scope with SESSION_EXPIRED_EVENT: 'borrower' or 'staff'. */
+  scope: string;
+  get(): string | null;
+  clear(): void;
+}
+
+/** The borrower session (the default). */
 export const authTokens = {
+  scope: 'borrower',
   get(): string | null {
     const t = localStorage.getItem(TOKEN_KEY);
-    return isTokenValid(t) ? t : null;
+    return isTokenUsable(t) ? t : null;
   },
   set(token: string) {
     localStorage.setItem(TOKEN_KEY, token);
@@ -71,44 +72,17 @@ export const authTokens = {
   /** The backend user id in the saved borrower token, if it is still valid. */
   subject(): string | null {
     const t = this.get();
-    const sub = t ? tokenPayload(t)?.sub : null;
+    const sub = t ? readTokenPayload(t)?.sub : null;
     return typeof sub === 'string' ? sub : null;
   },
-  getStaff(role?: StaffRole): string | null {
-    try {
-      const cached = JSON.parse(localStorage.getItem(STAFF_TOKEN_KEY) || 'null') as { role: StaffRole; token: string; staff?: StaffAccount } | null;
-      if (cached && isTokenValid(cached.token) && (!role || cached.role === role)) {
-        const payload = tokenPayload(cached.token);
-        if (payload === null || payload.type === 'staff') {
-          return cached.token;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    return null;
-  },
-  getStaffSession(): { role: StaffRole; token: string; staff?: StaffAccount } | null {
-    try {
-      const cached = JSON.parse(localStorage.getItem(STAFF_TOKEN_KEY) || 'null') as { role: StaffRole; token: string; staff?: StaffAccount } | null;
-      if (cached && isTokenValid(cached.token)) {
-        const payload = tokenPayload(cached.token);
-        if (payload === null || payload.type === 'staff') {
-          return cached;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    return null;
-  },
-  setStaff(role: StaffRole, token: string, staff?: StaffAccount) {
-    localStorage.setItem(STAFF_TOKEN_KEY, JSON.stringify({ role, token, ...(staff ? { staff } : {}) }));
-  },
-  clearStaff() {
-    localStorage.removeItem(STAFF_TOKEN_KEY);
-  },
 };
+
+let session: SessionStore = authTokens;
+
+/** The admin app calls this once with its staff session. */
+export function setSessionStore(store: SessionStore) {
+  session = store;
+}
 
 /**
  * Fired on window when the backend rejects a saved token (expired, signed with an old secret, account
@@ -122,13 +96,12 @@ export const SESSION_EXPIRED_EVENT = 'quickloan:session-expired';
 // ---------------------------------------------------------------------------
 export async function request<T = any>(
   path: string,
-  opts: { method?: string; body?: unknown; formData?: FormData; scope?: ApiScope; auth?: boolean } = {}
+  opts: { method?: string; body?: unknown; formData?: FormData; auth?: boolean } = {}
 ): Promise<T> {
-  const { method = 'GET', body, formData, scope = 'borrower', auth = true } = opts;
+  const { method = 'GET', body, formData, auth = true } = opts;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  const currentToken = () => (scope === 'staff' ? authTokens.getStaff() : authTokens.get());
-  const sentToken = auth ? currentToken() : null;
+  const sentToken = auth ? session.get() : null;
   if (sentToken) headers.Authorization = `Bearer ${sentToken}`;
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -139,10 +112,9 @@ export async function request<T = any>(
   const data = await res.json().catch(() => ({}));
   // 401 to a request that carried a token: the session is no longer valid. Unless the user has signed in
   // again meanwhile, drop the token and tell the app.
-  if (res.status === 401 && sentToken && currentToken() === sentToken) {
-    if (scope === 'staff') authTokens.clearStaff();
-    else authTokens.clear();
-    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { scope } }));
+  if (res.status === 401 && sentToken && session.get() === sentToken) {
+    session.clear();
+    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { scope: session.scope } }));
   }
   if (!res.ok || data.success === false) {
     throw new ApiError(data.error || `Request failed (${res.status})`, res.status, { code: data.code, fieldErrors: data.fieldErrors });
@@ -169,20 +141,19 @@ export function triggerDownload(blob: Blob, filename: string) {
 }
 
 /** Absolute, token-bearing URL for <img src> / <a href> to a server-stored file. */
-export function resolveFileUrl(url: string | undefined, scope: ApiScope = 'borrower'): string | undefined {
+export function resolveFileUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
   if (!url.startsWith('/api/')) return url;
-  const token = scope === 'staff' ? authTokens.getStaff() : authTokens.get();
+  const token = session.get();
   return `${API_ORIGIN}${url}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 }
 
 /** `language` picks the PDF language (the language on screen); without it the backend uses the application's. */
 export async function downloadApplicationPdf(
   app: LoanApplication | Pick<LoanApplication, 'id' | 'requestNumber'>,
-  scope: ApiScope = 'borrower',
   language?: Language
 ): Promise<void> {
-  const token = scope === 'staff' ? authTokens.getStaff() : authTokens.get();
+  const token = session.get();
   const pdfUrl = `${API_BASE_URL}/applications/${app.id}/pdf${language ? `?lang=${encodeURIComponent(language)}` : ''}`;
   let res: Response | null = null;
 

@@ -14,8 +14,8 @@ const borrowerAuth = require('./routes/auth');
 const borrowerUploads = require('./routes/uploads');
 const borrowerApplications = require('./routes/applications');
 const borrowerNotifications = require('./routes/notifications');
-const sharedAccounts = require('@quickloan/backend-core/routes/shared/accounts');
-const sharedApplications = require('@quickloan/backend-core/routes/shared/applications');
+const borrowerAccount = require('./routes/account');
+const borrowerApplicationDetail = require('./routes/applicationDetail');
 
 const PORT = process.env.BORROWER_PORT || process.env.PORT || 5000;
 const { app, flowRoutes } = createBaseApp({ authMiddleware: optionalAuth, service: 'borrower' });
@@ -28,13 +28,13 @@ flowRoutes.registerApplicantPublic(app);
 app.use('/api', authenticate);
 
 flowRoutes.registerApplicant(app);
-sharedAccounts.register(app);
+borrowerAccount.register(app);
 borrowerUploads.register(app);
-// Before sharedApplications: /api/applications/active/:userId and /history/:userId must be matched
+// Before applicationDetail: /api/applications/active/:userId and /history/:userId must be matched
 // before /api/applications/:id/pdf, which would otherwise catch e.g. /api/applications/active/pdf.
 borrowerApplications.register(app);
 borrowerNotifications.register(app);
-sharedApplications.register(app);
+borrowerApplicationDetail.register(app);
 
 finishApp(app);
 

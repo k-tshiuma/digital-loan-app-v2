@@ -26,8 +26,6 @@ interface HeaderProps {
   onSignOut: () => void;
   currentRole?: UserRole;
   onRoleChange?: (role: UserRole) => void;
-  isBackOfficeOpen?: boolean;
-  onToggleBackOffice?: () => void;
   onOpenHelp: () => void;
   isOnline: boolean;
   draftSaved: boolean;
@@ -41,7 +39,6 @@ export const Header: React.FC<HeaderProps> = ({
   onLanguageChange,
   currentUser,
   onSignOut,
-  isBackOfficeOpen,
   onOpenHelp,
   isOnline,
   draftSaved,
@@ -182,9 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Center: Brand Logo with FinBest-style connected node mark */}
         <div
           className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none"
-          onClick={() =>
-            !isBackOfficeOpen && window.scrollTo({ top: 0, behavior: 'smooth' })
-          }
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         >
           <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shadow-xs border border-slate-800">
             <svg

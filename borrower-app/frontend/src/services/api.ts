@@ -3,12 +3,10 @@
 import { User, LoanApplication, Language, NotificationItem } from '@quickloan/ui-core/types';
 import {
   API_BASE_URL, authTokens, request, storeAuth, resolveFileUrl, downloadApplicationPdf,
-  type ApiScope,
 } from '@quickloan/ui-core/services/apiCore';
 
 // The shared request core lives in apiCore.ts; re-exported so existing imports from this file keep working.
 export { API_BASE_URL, ApiError, isNetworkError, authTokens, SESSION_EXPIRED_EVENT } from '@quickloan/ui-core/services/apiCore';
-export type { ApiScope, StaffRole, StaffAccount } from '@quickloan/ui-core/services/apiCore';
 
 export const apiService = {
   // --- Auth (Phase 1) ------------------------------------------------------
@@ -66,17 +64,17 @@ export const apiService = {
   },
 
   // --- Applications --------------------------------------------------------
-  async saveApplication(app: LoanApplication, scope: ApiScope = 'borrower'): Promise<LoanApplication> {
-    const res = await request<{ application: LoanApplication }>(`/applications/${app.id}`, { method: 'PUT', body: app, scope });
+  async saveApplication(app: LoanApplication): Promise<LoanApplication> {
+    const res = await request<{ application: LoanApplication }>(`/applications/${app.id}`, { method: 'PUT', body: app });
     return res.application;
   },
 
-  async getActiveApplication(userId: string, scope: ApiScope = 'borrower'): Promise<{ application: LoanApplication; isReturningUser: boolean; previousDocumentsReport?: any[] }> {
-    return request(`/applications/active/${userId}`, { scope });
+  async getActiveApplication(userId: string): Promise<{ application: LoanApplication; isReturningUser: boolean; previousDocumentsReport?: any[] }> {
+    return request(`/applications/active/${userId}`, {});
   },
 
-  async getApplication(id: string, scope: ApiScope = 'borrower'): Promise<LoanApplication> {
-    const res = await request<{ application: LoanApplication }>(`/applications/${id}`, { scope });
+  async getApplication(id: string): Promise<LoanApplication> {
+    const res = await request<{ application: LoanApplication }>(`/applications/${id}`, {});
     return res.application;
   },
 
@@ -86,16 +84,16 @@ export const apiService = {
   },
 
   // --- Files (Phase 2) -----------------------------------------------------
-  async uploadFile(file: File, scope: ApiScope = 'borrower'): Promise<{ filename: string; url: string; mimeType: string; size: number; originalName: string }> {
+  async uploadFile(file: File): Promise<{ filename: string; url: string; mimeType: string; size: number; originalName: string }> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await request<{ file: any }>('/upload', { method: 'POST', formData, scope });
+    const res = await request<{ file: any }>('/upload', { method: 'POST', formData });
     return res.file;
   },
 
   /** Absolute, token-bearing URL for <img src> / <a href> to a server-stored file. */
-  resolveFileUrl(url: string | undefined, scope: ApiScope = 'borrower'): string | undefined {
-    return resolveFileUrl(url, scope);
+  resolveFileUrl(url: string | undefined): string | undefined {
+    return resolveFileUrl(url);
   },
 
   // --- Real-time (Phase 4) -------------------------------------------------
@@ -125,10 +123,9 @@ export const apiService = {
   /** `language` picks the PDF language (the language on screen); without it the backend uses the application's. */
   async downloadApplicationPdf(
     app: LoanApplication | Pick<LoanApplication, 'id' | 'requestNumber'>,
-    scope: ApiScope = 'borrower',
     language?: Language
   ): Promise<void> {
-    return downloadApplicationPdf(app, scope, language);
+    return downloadApplicationPdf(app, language);
   },
 
   // -------------------------------------------------------------------------

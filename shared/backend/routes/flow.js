@@ -413,8 +413,8 @@ module.exports = function createFlowRoutes(ctx) {
     return getFlowAppById(a.id);
   }
 
+  // Applicant routes are only on the borrower API, which refuses staff tokens before any route.
   function requireApplicant(req, res, next) {
-    if (isStaff(req)) return res.status(403).json({ success: false, error: 'Applicant account required' });
     dbGet('SELECT * FROM users WHERE id = ?', [req.auth && req.auth.sub]).then((user) => {
       if (!user) return res.status(401).json({ success: false, error: 'Please sign in to continue.' });
       req.user = user;
