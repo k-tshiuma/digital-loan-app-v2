@@ -19,8 +19,8 @@
 - Readiness (proposed): add a check that runs `SELECT 1` against SQLite and confirms the uploads dir is writable.
 
 ## 3. Backups [Needs team confirmation]
-- Back up `backend/database.sqlite` with SQLite (this needs the `sqlite3` command-line tool, which is **not** a project dependency; the npm `sqlite3` package does not provide it)'s online backup API (`sqlite3 database.sqlite ".backup 'backup.sqlite'"`) rather than a raw file copy while the server is running.
-- Back up `backend/uploads/` together with the DB, because documents reference upload filenames.
+- Back up `data/database.sqlite` with SQLite (this needs the `sqlite3` command-line tool, which is **not** a project dependency; the npm `sqlite3` package does not provide it)'s online backup API (`sqlite3 database.sqlite ".backup 'backup.sqlite'"`) rather than a raw file copy while the server is running.
+- Back up `data/uploads/` together with the DB, because documents reference upload filenames.
 - Encrypt backups, because they contain passport and bank data.
 - Test restores regularly.
 

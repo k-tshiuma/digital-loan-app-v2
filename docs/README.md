@@ -2,6 +2,8 @@
 
 Reverse-engineered documentation of the existing codebase, produced on **2026-10-11** from branch `feature/guarantor-enhancements-and-scoring` (HEAD `397b7d9`). The source code is the source of truth. Where this documentation and the code disagree, the code wins, and please update this documentation.
 
+> **Layout changed (2026-11-09, docs/app-separation-plan.md).** The app is now split into borrower-app/ (frontend + backend), admin-app/ (frontend + backend), shared/ (frontend and backend code both use), data/ (database.sqlite, uploads) and tests/. File paths in these docs were updated, but line numbers and mentions of backend/server.js describe the old single backend: its routes now live in borrower-app/backend/routes, admin-app/backend/routes and shared/backend/routes; its helpers in shared/backend/core. See CLAUDE.md for the current layout.
+
 ## At a glance
 
 - **What it is:** a mobile-first **web** application (React 19 SPA + Express 5 API + SQLite) where foreign workers in Israel apply for micro-loans (₪500–10,000, 3–12 months) and track their status. Staff review applications in a back office.
@@ -67,6 +69,7 @@ Reverse-engineered documentation of the existing codebase, produced on **2026-10
 - [development-setup.md](development-setup.md)
 - [environment-configuration.md](environment-configuration.md): every environment variable found in code
 - [build-and-release.md](build-and-release.md)
+- [deployment-runbook.md](deployment-runbook.md): production setup, releases, rollback, backups (Phase 8)
 - [operations-and-recovery.md](operations-and-recovery.md)
 
 ### Maintenance

@@ -2,7 +2,7 @@
 
 All variables listed here were found in source code. Values shown are defaults or placeholders. **Never commit real values.** `.gitignore` excludes `.env*` except `.env.example`.
 
-## Backend (`backend/`, loaded with `dotenv` from `backend/.env`)
+## Backend (`backend/`, loaded with `dotenv` from `.env`)
 
 | Variable | Default | Used at | Purpose / notes |
 |---|---|---|---|
@@ -22,7 +22,7 @@ All variables listed here were found in source code. Values shown are defaults o
 
 Not configurable today (hard-coded): the SQLite path (`database.js:4`), the uploads directory (`server.js:41`), the CORS policy (`server.js:44`), the JSON body limit (5 MB), OTP TTL and attempts, bcrypt rounds, the trust-proxy setting (not set).
 
-### Example `backend/.env` (placeholders)
+### Example `.env` (placeholders)
 ```dotenv
 NODE_ENV=production
 PORT=5000
@@ -38,9 +38,9 @@ SMTP_PORT=587
 SMTP_USER=<smtp-user>
 SMTP_PASS=<smtp-password>
 ```
-There is **no `backend/.env.example`** in the repo. Adding one is recommended.
+There is **no `.env.example`** in the repo. Adding one is recommended.
 
-## Frontend (`frontend/`, Vite)
+## Frontend (`borrower-app/frontend/`, Vite)
 
 | Variable | Default | Used at | Notes |
 |---|---|---|---|

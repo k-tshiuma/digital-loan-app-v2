@@ -8,7 +8,7 @@ These are recommendations. Nothing below has been implemented as part of this do
 |---|---|---|---|
 | 0.1 | Invert DEMO_MODE: enabled **only** when `DEMO_MODE=true`. Remove the `jwt.decode` fallback in `authenticate`/`optionalAuth`. Remove the no-token → `demo_user` identity. Log a prominent startup warning | SEC-01 | S |
 | 0.2 | Make `/applications/:id/pdf` GET-only and read-only. Delete the auto-persist branch (`server.js:1114-1126`) and update `api.ts:235-268` to GET only | SEC-02 | S |
-| 0.3 | Confirm whether `backend/database.sqlite` contains real data. Untrack it and add it to `.gitignore`. If real, purge history and follow the incident process | SEC-14 | S–M |
+| 0.3 | Confirm whether `data/database.sqlite` contains real data. Untrack it and add it to `.gitignore`. If real, purge history and follow the incident process | SEC-14 | S–M |
 | 0.4 | Require `JWT_SECRET` whenever the server binds to anything other than localhost. Rotate it | SEC-13 | S |
 | 0.5 | Remove client-side authentication fallbacks in `Step2Auth.tsx` and the user and password store in `storage.ts`. On sign-out call `apiService.logout()` and clear `quickloan_*` | SEC-05, SEC-06, SEC-07 | M |
 

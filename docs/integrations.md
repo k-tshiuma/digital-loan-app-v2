@@ -4,16 +4,16 @@ Only integrations with evidence in source are listed.
 
 | Integration | Status | Code |
 |---|---|---|
-| Twilio SMS | Implemented. **Optional**: mocked when env vars are missing | `backend/services/smsService.js` |
-| SMTP email (Nodemailer) | Implemented. **Optional**: mocked when `SMTP_USER` is missing | `backend/services/emailService.js` |
-| pdfkit (local library, not a service) | Implemented | `backend/services/pdfService.js` |
+| Twilio SMS | Implemented. **Optional**: mocked when env vars are missing | `shared/backend/services/smsService.js` |
+| SMTP email (Nodemailer) | Implemented. **Optional**: mocked when `SMTP_USER` is missing | `shared/backend/services/emailService.js` |
+| pdfkit (local library, not a service) | Implemented | `shared/backend/services/pdfService.js` |
 | Google sign-in | **Mock only.** No OAuth | `server.js:522-542`, `Step2Auth.tsx:182-199` |
 | Funding partner / bank ("Bank Leumi FinTech Gateway") | **Simulated in browser.** No network | `storage.ts:1233-1266` |
 | OCR / document quality | **Simulated** with `Math.random` | `Step8DocumentUpload.tsx:148-171` |
-| Google Gemini (`@google/genai`) | **Declared dependency, never used** | `frontend/package.json` |
+| Google Gemini (`@google/genai`) | **Declared dependency, never used** | `borrower-app/frontend/package.json` |
 | Object storage (S3 etc.) | Not implemented. The `s3://` string is cosmetic | `Step11StatusTimeline.tsx:130` |
-| **Google Fonts** (Heebo, Plus Jakarta Sans, Sarabun, Noto Sans SC) | Implemented. Loaded from `fonts.googleapis.com` / `fonts.gstatic.com` on every page view | `frontend/index.html:12-14` |
-| Google AI Studio applet manifest | Metadata only. Declares `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` and the `camera` frame permission, but no code uses Gemini | `frontend/metadata.json` |
+| **Google Fonts** (Heebo, Plus Jakarta Sans, Sarabun, Noto Sans SC) | Implemented. Loaded from `fonts.googleapis.com` / `fonts.gstatic.com` on every page view | `borrower-app/frontend/index.html:12-14` |
+| Google AI Studio applet manifest | Metadata only. Declares `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` and the `camera` frame permission, but no code uses Gemini | `borrower-app/frontend/metadata.json` |
 | Credit bureau, KYC/identity provider, payment gateway, push notifications, analytics, crash reporting | Not implemented | — |
 
 ---
@@ -61,7 +61,7 @@ See FIN-07 in [financial-integrity-risks.md](financial-integrity-risks.md). The 
 | Item | Detail |
 |---|---|
 | Purpose | Web fonts for Latin, Hebrew (Heebo), Thai (Sarabun) and Chinese (Noto Sans SC) text |
-| Mechanism | `<link rel="preconnect">` plus a stylesheet `<link>` in `frontend/index.html:12-14` |
+| Mechanism | `<link rel="preconnect">` plus a stylesheet `<link>` in `borrower-app/frontend/index.html:12-14` |
 | Privacy | Every visitor's browser contacts Google servers, which disclose the visitor's IP address and user agent. Consider self-hosting the fonts, and mention this in the privacy notice |
 | Availability | If Google Fonts is blocked or offline, the CSS fallback fonts are used |
 | CSP | Any future Content-Security-Policy must allow these origins, or the fonts must be self-hosted |

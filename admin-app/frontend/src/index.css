@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "@quickloan/ui-core/styles/base.css";
+/* Shared components live outside this app (shared/frontend); scan them too so their classes are generated. */
+@source "../../../shared/frontend";

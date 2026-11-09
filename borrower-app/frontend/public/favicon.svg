@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- QuickLoan mark, same as the header logo (components/Header.tsx) -->
+  <rect width="32" height="32" rx="8" fill="#0f172a"/>
+  <g transform="translate(4 4)" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="8.5" y1="13.2" x2="15.5" y2="17.8" stroke="#0284c7"/>
+    <line x1="15.5" y1="6.2" x2="8.5" y2="10.8" stroke="#0284c7"/>
+    <circle cx="18" cy="5" r="2.5" fill="#38bdf8" stroke="#38bdf8"/>
+    <circle cx="6" cy="12" r="2.5" fill="#0284c7" stroke="#0284c7"/>
+    <circle cx="18" cy="19" r="2.5" fill="#ff6b35" stroke="#ff6b35"/>
+  </g>
+</svg>

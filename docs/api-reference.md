@@ -4,7 +4,7 @@ Source of truth: `backend/server.js`. Every endpoint below was read in source (*
 
 ## Conventions
 
-- **Base URL:** `http://<host>:<PORT>/api`. `PORT` defaults to 5000. The client reads `VITE_API_URL` (`frontend/src/services/api.ts:11-12`).
+- **Base URL:** `http://<host>:<PORT>/api`. `PORT` defaults to 5000. The client reads `VITE_API_URL` (`borrower-app/frontend/src/services/api.ts:11-12`).
 - **Envelope:** success responses return `{ "success": true, ... }`. Errors return `{ "success": false, "error": "<message>" }` with a 4xx or 5xx status.
 - **Auth:** `Authorization: Bearer <JWT>`. For **GET only**, `?token=<JWT>` is also accepted (`server.js:91-97`).
 - **DEMO_MODE caveat:** while demo mode is on, "auth required" routes also accept no token (the caller becomes `demo_user`) or an unverifiable token (decoded without verification). See SEC-01 in [security-and-privacy.md](security-and-privacy.md). The authorization column below describes behaviour **with DEMO_MODE off**.

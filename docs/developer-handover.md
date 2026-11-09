@@ -6,10 +6,10 @@ Read this first if you have never seen the project. It is specific to this codeb
 QuickLoan / LendGlobal lets foreign workers in Israel apply for small loans (₪500–₪10,000, 3–12 months) in five languages. Borrowers sign in by SMS code, fill an 11-step wizard and track their status live. Staff review applications in a back office. **No money moves through this system.** It handles applications and decisions only. See [project-inventory.md](project-inventory.md).
 
 ## 2. Repository organisation
-Two independent npm projects: `backend/` (Express 5 + SQLite, CommonJS) and `frontend/` (React 19 + Vite + Tailwind, TypeScript). There is no shared package. Layout: [project-inventory.md §4](project-inventory.md#4-repository-structure).
+Two independent npm projects: `backend/` (Express 5 + SQLite, CommonJS) and `borrower-app/frontend/` (React 19 + Vite + Tailwind, TypeScript). There is no shared package. Layout: [project-inventory.md §4](project-inventory.md#4-repository-structure).
 
 ## 3. Files that initialise the application
-- Backend: `backend/server.js`. Read it top to bottom: helpers (1-160) → application helpers (165-307) → SSE and notifications (309-380) → **public routes** (382-614) → `app.use('/api', authenticate)` (619) → protected routes (621-1286) → error handlers → `listen`. `backend/database.js` runs the schema on `require`.
+- Backend: `backend/server.js`. Read it top to bottom: helpers (1-160) → application helpers (165-307) → SSE and notifications (309-380) → **public routes** (382-614) → `app.use('/api', authenticate)` (619) → protected routes (621-1286) → error handlers → `listen`. `shared/backend/database.js` runs the schema on `require`.
 - Frontend: `src/main.tsx` → `src/App.tsx`. `src/services/storage.ts` seeds localStorage the moment it is imported.
 
 ## 4. How navigation works
@@ -34,10 +34,10 @@ The most confusing aspect of the codebase is that **two data layers exist side b
 `apiService` (`src/services/api.ts`) wraps `fetch`. `request(path, {method, body, formData, scope, auth})` attaches `Authorization: Bearer` from localStorage (`scope: 'borrower' | 'staff'`). An error envelope becomes `ApiError(message, status)`. Network failures are plain errors (`isNetworkError`). There are no timeouts or retries. See [api-reference.md](api-reference.md) and [openapi.yaml](openapi.yaml).
 
 ## 7. Where models and business logic live
-- Types: `frontend/src/types.ts`. The server has no types and stores JSON blobs ([data-models.md](data-models.md)).
-- Limits, fees and the repayment formula: `frontend/src/config/appConfig.ts`, **client only**.
-- Eligibility score: `backend/services/eligibilityScoring.js`, mirrored by hand in `frontend/src/services/eligibilityScoring.ts`.
-- Risk pre-screen: `backend/creditEngine.js`.
+- Types: `shared/frontend/types.ts`. The server has no types and stores JSON blobs ([data-models.md](data-models.md)).
+- Limits, fees and the repayment formula: `shared/frontend/config/appConfig.ts`, **client only**.
+- Eligibility score: `shared/backend/services/eligibilityScoring.js`, mirrored by hand in `shared/frontend/services/eligibilityScoring.ts`.
+- Risk pre-screen: `shared/backend/creditEngine.js`.
 - Application rules (immutability, status, request numbers, prefill, document reuse): `backend/server.js` around the `PUT` and `/active` routes.
 
 ## 8. How authentication works

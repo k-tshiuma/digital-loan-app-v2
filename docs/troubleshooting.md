@@ -7,7 +7,7 @@
 | `npm run lint` fails with `Cannot find name 'useEffect'` / `'GuarantorItem'` | DEF-01 / DEF-02: missing imports | Add `useEffect` to the React import in `Step7Guarantor.tsx` and `Step8DocumentUpload.tsx`. Import `GuarantorItem` from `./types` in `App.tsx` |
 | Step 7 or Step 8 renders blank and the console shows `ReferenceError: useEffect is not defined` | DEF-01 | Same as above |
 | `node test_guarantors_and_scoring.js` fails 3 tests (expected 90/100, got 80/90) | DEF-06: fixture `visaExpiryDate: '2027-10-08'` is now less than 12 months away | Use relative dates in the fixtures |
-| `git status` shows `backend/database.sqlite` modified | The dev server and tests write to the committed DB | `git checkout -- backend/database.sqlite`. Long-term: untrack it (SEC-14) |
+| `git status` shows `data/database.sqlite` modified | The dev server and tests write to the committed DB | `git checkout -- data/database.sqlite`. Long-term: untrack it (SEC-14) |
 | Tests fail with `EADDRINUSE` | Port 5002/5003/5004 in use (e.g. a previous run is still alive) | Kill the process, or change `PORT`/`TEST_PORT` in the script |
 | `sqlite3` install fails | No prebuilt binary for your Node or platform | Use Node 20 LTS, or install build tools |
 | Frontend cannot reach the API | `VITE_API_URL` is wrong or missing `/api`. Backend not running | Set `VITE_API_URL=http://localhost:5000/api` and restart Vite (it is inlined at build time) |
@@ -34,5 +34,5 @@
 
 ## Where to look
 - **Backend logs (stdout):** `[SERVER ERROR]`, `[NOTIFY]`, `[SMS MOCK]`/`[SMS ERROR]`, `[EMAIL MOCK]`/`[EMAIL ERROR]`, `[UPLOAD]`, `[USER PROFILE UPDATE]`, `[DB ALTER]`.
-- **Database:** `sqlite3 backend/database.sqlite`. Read-only queries are safe. Remember it contains PII.
+- **Database:** `sqlite3 data/database.sqlite`. Read-only queries are safe. Remember it contains PII.
 - **Browser:** DevTools → Application → Local Storage → `quickloan_*` keys. Console warnings. Network tab for `PUT /api/applications/*`.

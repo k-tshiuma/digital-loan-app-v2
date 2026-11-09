@@ -1,12 +1,14 @@
 # Build and Release
 
-> **Important:** the repository contains **no CI/CD, no deployment scripts, no Dockerfile, no hosting configuration and no release process** (Verified absent). Sections marked **[Needs team confirmation]** are recommendations, not existing procedures.
+> **Update (2026-11-09):** deployment scripts and hosting configuration now exist in `deploy/` (one Ubuntu server, nginx, pm2, two APIs). See [deployment-runbook.md](deployment-runbook.md), which replaces sections 3 and 4 below. There is still no CI/CD.
+>
+> **Original note:** the repository contains **no CI/CD, no deployment scripts, no Dockerfile, no hosting configuration and no release process** (Verified absent). Sections marked **[Needs team confirmation]** are recommendations, not existing procedures.
 
 ## 1. What exists
 
 | Artifact | How it is built | Output |
 |---|---|---|
-| Frontend SPA | `cd frontend && npm ci && npm run build` (Vite) | `frontend/dist/` (static `index.html` plus assets) |
+| Frontend SPA | `cd frontend && npm ci && npm run build` (Vite) | `borrower-app/frontend/dist/` (static `index.html` plus assets) |
 | Backend API | Not built. Runs from source with `node server.js` | — |
 
 Verified on 2026-10-11: `vite build` succeeds (about 39 s, one chunk larger than 500 kB). `tsc --noEmit` **fails** (see [testing-and-qa.md](testing-and-qa.md)).
@@ -14,7 +16,7 @@ Verified on 2026-10-11: `vite build` succeeds (about 39 s, one chunk larger than
 Native mobile builds (Android signing, iOS provisioning, store releases) are **Not Applicable**. This is a web app.
 
 ## 2. Versioning
-- `backend/package.json` is version `1.0.0`, `frontend/package.json` is `0.0.0`. Neither is bumped or used.
+- `backend/package.json` is version `1.0.0`, `borrower-app/frontend/package.json` is `0.0.0`. Neither is bumped or used.
 - No git tags, changelog or release branches. Work happens on feature branches merged to `main` (PR #1 in history).
 
 ## 3. Recommended release pipeline [Needs team confirmation]
@@ -36,7 +38,7 @@ Minimum gates before any internet-facing deployment:
 
 ## 4. Deployment topology constraints (from code)
 - **One backend process only.** The OTP store and SSE subscribers live in memory (`server.js:160, 312`). Multiple instances would break OTP verification and live updates.
-- **Persistent disk required** for `backend/database.sqlite` and `backend/uploads/`. Ephemeral container filesystems would lose data.
+- **Persistent disk required** for `data/database.sqlite` and `data/uploads/`. Ephemeral container filesystems would lose data.
 - A reverse proxy must terminate TLS and allow long-lived SSE responses (the server already sends `X-Accel-Buffering: no` for nginx). `app.set('trust proxy', …)` is not configured, which will matter once rate limiting or IP logging is added.
 - Serve the frontend `dist/` from a static host or CDN. It calls the API at the build-time `VITE_API_URL`. CORS is currently open to all origins (restrict it, SEC-12).
 
