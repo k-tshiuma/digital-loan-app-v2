@@ -302,6 +302,23 @@ db.serialize(() => {
     )
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_deliveries_app ON notification_deliveries (applicationId)');
+
+  // Request numbers: one counter row per year, taken in a single statement, so the two processes never
+  // hand out the same number (core/applications.js nextRequestNumber).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS request_counters (
+      year INTEGER PRIMARY KEY,
+      lastNumber INTEGER NOT NULL
+    )
+  `);
+  // Safety net: no two applications share a request number. Only fails if an older database already has
+  // duplicates; new numbers still come from the counter, so they stay unique.
+  db.run(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_request_number ON applications (requestNumber) WHERE requestNumber IS NOT NULL AND requestNumber <> ''",
+    (err) => {
+      if (err) console.warn('[DB] Duplicate request numbers in this database; the unique index was not created:', err.message);
+    }
+  );
 });
 
 module.exports = db;

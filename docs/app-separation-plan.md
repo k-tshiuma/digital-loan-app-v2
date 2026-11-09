@@ -329,6 +329,10 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
   - Existing tokens have no audience, so everyone signs in once more after this deploys. The frontends now return to sign-in when a request with a token gets a 401; before, an expired session left the borrower app stuck on "could not load".
   - CORS: each API allows only its own Vite dev site locally and nothing in production (same origin behind nginx); `CORS_ORIGIN` overrides.
   - Tested by `tests/integration/test_tokens_and_cors.js` (27 checks) and `shared/frontend/services/__tests__/apiCore.test.ts`.
+- **Done (2026-11-09): data-safety fixes (C11 and the unchecked flow updates).**
+  - Request numbers come from a per-year counter (`request_counters`) taken in one atomic statement, starting above the highest number already used. A unique index on `applications.requestNumber` backs it up (if an old database already has duplicates, it logs a warning instead). The classic `PUT /api/applications/:id` no longer accepts a request number from the client.
+  - Instead of passing an expected status to the unchecked calls (which would have made a staff message fail just because a decision landed first, and still let a status-neutral write overwrite the other side's change), `updateFlowApp` now writes only the columns the handler changed since loading. Registration consent and adding a phone merge their key into the stored JSON with `json_set`, and consent is recorded once even when sent several times at once. There were three unchecked calls by then: consent, staff message, and the account-contact route added with the sign-in feature.
+  - `tests/integration/test_data_safety.js` (13 checks). Against the previous code it fails: 120 simultaneous request numbers came out as one, the client could take another application's number, a staff message or a draft was lost in almost every round, and consent was recorded six times.
 
 - Separate JWT secrets and an `aud` claim (section 3).
 - CORS limited to each app's own origin (currently `cors()` allows everyone).

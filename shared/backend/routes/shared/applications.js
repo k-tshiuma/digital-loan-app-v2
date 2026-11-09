@@ -55,6 +55,9 @@ function register(app) {
     }
 
     const next = { ...incoming, id, updatedAt: now, createdAt: (prev && prev.createdAt) || incoming.createdAt || now };
+    // Request numbers are assigned by the server and never change; a client could otherwise take another
+    // application's number.
+    next.requestNumber = (prev && prev.requestNumber) || (await nextRequestNumber());
     // Risk data and eligibility scores are computed server-side only to prevent tampering.
     delete next.riskScore; delete next.riskLevel; delete next.riskFlags;
     delete next.eligibilityScore; delete next.eligibilityBreakdown;
@@ -111,14 +114,7 @@ function register(app) {
       }
     }
 
-    // Server owns request-number uniqueness for submitted applications.
-    if (next.isSubmitted) {
-      const clash = next.requestNumber
-        ? await dbGet('SELECT id FROM applications WHERE requestNumber = ? AND id != ?', [next.requestNumber, id])
-        : null;
-      if (!next.requestNumber || clash) next.requestNumber = await nextRequestNumber();
-      if (!next.submittedAt) next.submittedAt = now;
-    }
+    if (next.isSubmitted && !next.submittedAt) next.submittedAt = now;
 
     // Phase 8: advisory pre-screening on every save of a submitted application
     if (next.isSubmitted) await applyRiskScore(next);

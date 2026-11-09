@@ -181,11 +181,22 @@ async function writeApp(a) {
   );
 }
 
+/**
+ * The next REQ-<year>-<number>. Taken from the year's counter in one statement, which SQLite runs atomically
+ * even across the borrower and admin processes, so no number is handed out twice. The counter never goes
+ * below the highest number already used that year (applications from before the counter existed).
+ */
 async function nextRequestNumber() {
   const year = new Date().getFullYear();
   const rows = await dbAll('SELECT requestNumber FROM applications WHERE requestNumber LIKE ?', [`REQ-${year}-%`]);
-  const max = rows.reduce((m, r) => Math.max(m, parseInt(String(r.requestNumber).split('-')[2], 10) || 0), 100);
-  return `REQ-${year}-${String(max + 1).padStart(6, '0')}`;
+  const used = rows.reduce((m, r) => Math.max(m, parseInt(String(r.requestNumber).split('-')[2], 10) || 0), 100);
+  const row = await dbGet(
+    `INSERT INTO request_counters (year, lastNumber) VALUES (?, ?)
+     ON CONFLICT(year) DO UPDATE SET lastNumber = max(lastNumber + 1, excluded.lastNumber)
+     RETURNING lastNumber`,
+    [year, used + 1]
+  );
+  return `REQ-${year}-${String(row.lastNumber).padStart(6, '0')}`;
 }
 
 // ---------------------------------------------------------------------------
