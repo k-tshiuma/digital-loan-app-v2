@@ -322,6 +322,14 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
 
 ### Phase 9: Optional improvements, after cut-over
 
+- **Done (2026-11-09): separate JWT secrets with an `aud` claim, and CORS per app.**
+  - Borrower tokens: `BORROWER_JWT_SECRET`, audience `quickloan-borrower`. Staff tokens: `ADMIN_JWT_SECRET`, audience `quickloan-admin`. HS256 only. Each is checked against the secret and audience of the kind it claims, so a borrower-signed token can't pass as staff.
+  - In production each API needs its own secret and the two must differ, or it refuses to start. Locally both fall back to `JWT_SECRET`.
+  - The borrower API still refuses staff tokens it can't verify, so the route matrix is unchanged.
+  - Existing tokens have no audience, so everyone signs in once more after this deploys. The frontends now return to sign-in when a request with a token gets a 401; before, an expired session left the borrower app stuck on "could not load".
+  - CORS: each API allows only its own Vite dev site locally and nothing in production (same origin behind nginx); `CORS_ORIGIN` overrides.
+  - Tested by `tests/integration/test_tokens_and_cors.js` (27 checks) and `shared/frontend/services/__tests__/apiCore.test.ts`.
+
 - Separate JWT secrets and an `aud` claim (section 3).
 - CORS limited to each app's own origin (currently `cors()` allows everyone).
 - Remove the dead staff branches from borrower-side handlers, and the borrower branches from admin-side ones.

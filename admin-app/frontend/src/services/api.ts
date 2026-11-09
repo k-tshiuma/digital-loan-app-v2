@@ -8,7 +8,7 @@ import {
 } from '@quickloan/ui-core/services/apiCore';
 
 // Re-exported so the dashboard imports everything API-related from this file.
-export { API_BASE_URL, ApiError, isNetworkError, authTokens } from '@quickloan/ui-core/services/apiCore';
+export { API_BASE_URL, ApiError, isNetworkError, authTokens, SESSION_EXPIRED_EVENT } from '@quickloan/ui-core/services/apiCore';
 export type { ApiScope, StaffRole, StaffAccount } from '@quickloan/ui-core/services/apiCore';
 
 export const apiService = {

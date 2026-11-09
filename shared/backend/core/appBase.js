@@ -8,8 +8,8 @@ const { sendSms } = require('../services/smsService');
 const { sendEmail } = require('../services/emailService');
 const { resolveMessageLanguage } = require('../services/messages');
 const createFlowRoutes = require('../routes/flow');
-const { IS_PRODUCTION, DEMO_MODE, JWT_SECRET, BCRYPT_ROUNDS } = require('./config');
-const { normalizePhone, sanitizeUser, signUserToken, isStaff, requireStaff, checkOtp } = require('./auth');
+const { IS_PRODUCTION, DEMO_MODE, BCRYPT_ROUNDS, assertJwtSecrets } = require('./config');
+const { normalizePhone, sanitizeUser, signUserToken, signStaffSession, isStaff, requireStaff, checkOtp } = require('./auth');
 const { parseApp, nextRequestNumber } = require('./applications');
 const { broadcastAppEvent } = require('./sse');
 const { notifyStatusChange } = require('./notifications');
@@ -39,25 +39,42 @@ function warnMissingProductionSettings() {
   }
 }
 
+// Browser origins allowed to call each API from another site. Production runs each site and its API on
+// one origin (nginx), so none are needed there; locally the Vite dev servers run on 3000 and 3001.
+// CORS_ORIGIN (comma-separated) overrides both.
+const DEV_ORIGINS = {
+  borrower: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  admin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
+};
+function corsOrigins(service) {
+  if (process.env.CORS_ORIGIN) return process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+  if (IS_PRODUCTION) return [];
+  return service ? DEV_ORIGINS[service] : [...DEV_ORIGINS.borrower, ...DEV_ORIGINS.admin];
+}
+
+// Token kinds each API signs or accepts (the combined test harness: both).
+const TOKEN_KINDS = { borrower: ['borrower'], admin: ['staff'] };
+
 /**
  * Creates the app with the common middleware, then `authMiddleware` (optionalAuth, or the admin backend's
  * staffOnlyAuth), then GET /api/health. Returns the app and this app's flow routes.
  */
 function createBaseApp({ authMiddleware, service }) {
+  assertJwtSecrets(TOKEN_KINDS[service] || ['borrower', 'staff']);
   if (IS_PRODUCTION) warnMissingProductionSettings();
   const app = express();
   if (process.env.TRUST_PROXY) app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
-  app.use(cors());
+  app.use(cors({ origin: corsOrigins(service) }));
   app.use(express.json({ limit: '5mb' }));
   app.use(authMiddleware);
 
   const flowRoutes = createFlowRoutes({
     DEMO_MODE,
     BCRYPT_ROUNDS,
-    JWT_SECRET,
     normalizePhone,
     sanitizeUser,
     signUserToken,
+    signStaffSession,
     isStaff,
     requireStaff,
     checkOtp,

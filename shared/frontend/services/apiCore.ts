@@ -110,6 +110,13 @@ export const authTokens = {
   },
 };
 
+/**
+ * Fired on window when the backend rejects a saved token (expired, signed with an old secret, account
+ * gone). The token is already cleared; each app listens and returns to its sign-in screen.
+ * detail: { scope: 'borrower' | 'staff' }.
+ */
+export const SESSION_EXPIRED_EVENT = 'quickloan:session-expired';
+
 // ---------------------------------------------------------------------------
 // Core request helper — attaches Authorization: Bearer <token>
 // ---------------------------------------------------------------------------
@@ -120,10 +127,9 @@ export async function request<T = any>(
   const { method = 'GET', body, formData, scope = 'borrower', auth = true } = opts;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (auth) {
-    const token = scope === 'staff' ? authTokens.getStaff() : authTokens.get();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
+  const currentToken = () => (scope === 'staff' ? authTokens.getStaff() : authTokens.get());
+  const sentToken = auth ? currentToken() : null;
+  if (sentToken) headers.Authorization = `Bearer ${sentToken}`;
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
@@ -131,6 +137,13 @@ export async function request<T = any>(
     body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
   });
   const data = await res.json().catch(() => ({}));
+  // 401 to a request that carried a token: the session is no longer valid. Unless the user has signed in
+  // again meanwhile, drop the token and tell the app.
+  if (res.status === 401 && sentToken && currentToken() === sentToken) {
+    if (scope === 'staff') authTokens.clearStaff();
+    else authTokens.clear();
+    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { scope } }));
+  }
   if (!res.ok || data.success === false) {
     throw new ApiError(data.error || `Request failed (${res.status})`, res.status, { code: data.code, fieldErrors: data.fieldErrors });
   }

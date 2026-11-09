@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Language, UserRole } from '@quickloan/ui-core/types';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { BackOffice } from './components/BackOffice';
 import { StaffLoginGate } from './components/StaffLoginGate';
-import { authTokens, StaffAccount, StaffRole } from './services/api';
+import { authTokens, SESSION_EXPIRED_EVENT, StaffAccount, StaffRole } from './services/api';
 import { BORROWER_APP_URL } from './config';
 
 /**
@@ -24,6 +24,15 @@ export default function App() {
     authTokens.clearStaff();
     setStaffSession(null);
   };
+
+  // The admin API rejected the saved staff token (expired, or signed with an old secret): back to sign-in.
+  useEffect(() => {
+    const onExpired = (e: Event) => {
+      if ((e as CustomEvent<{ scope?: string }>).detail?.scope === 'staff') setStaffSession(null);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   const handleReturnToPublicSite = () => {
     window.location.assign(BORROWER_APP_URL);

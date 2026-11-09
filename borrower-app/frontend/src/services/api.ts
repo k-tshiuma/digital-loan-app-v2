@@ -7,7 +7,7 @@ import {
 } from '@quickloan/ui-core/services/apiCore';
 
 // The shared request core lives in apiCore.ts; re-exported so existing imports from this file keep working.
-export { API_BASE_URL, ApiError, isNetworkError, authTokens } from '@quickloan/ui-core/services/apiCore';
+export { API_BASE_URL, ApiError, isNetworkError, authTokens, SESSION_EXPIRED_EVENT } from '@quickloan/ui-core/services/apiCore';
 export type { ApiScope, StaffRole, StaffAccount } from '@quickloan/ui-core/services/apiCore';
 
 export const apiService = {
