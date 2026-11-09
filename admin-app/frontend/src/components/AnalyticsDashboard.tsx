@@ -32,7 +32,7 @@ import { t } from '@quickloan/ui-core/i18n/translations';
 import { optionLabel, riskLevelLabel, statusLabel } from '@quickloan/ui-core/i18n/options';
 import { formatCurrency } from '@quickloan/ui-core/i18n/format';
 import { apiService, isNetworkError } from '../services/api';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 
 interface AnalyticsDashboardProps {
   applications: LoanApplication[];

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '@quickloan/ui-core/i18n/LanguageContext';
 import { t } from '@quickloan/ui-core/i18n/translations';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { authTokens } from '../services/api';
 import { Step2Auth } from '../components/Step2Auth';
 import { Step10SubmissionSuccess } from '../components/Step10SubmissionSuccess';

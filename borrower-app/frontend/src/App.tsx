@@ -37,7 +37,7 @@ import { FlowStatusHub } from './components/FlowStatusHub';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { MyApplications } from './components/MyApplications';
 import { ErrorBoundary } from '@quickloan/ui-core/components/ErrorBoundary';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from './services/storage';
 import { apiService, authTokens, SESSION_EXPIRED_EVENT } from './services/api';
 import { useFlowLiveUpdates } from './utils/useFlowLiveUpdates';
 import { goToAdminPortal } from './utils/portalRedirect';
