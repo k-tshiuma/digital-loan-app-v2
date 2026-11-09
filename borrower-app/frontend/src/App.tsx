@@ -39,6 +39,7 @@ import { MyApplications } from './components/MyApplications';
 import { ErrorBoundary } from '@quickloan/ui-core/components/ErrorBoundary';
 import { storageService } from '@quickloan/ui-core/services/storage';
 import { apiService, authTokens, SESSION_EXPIRED_EVENT } from './services/api';
+import { useFlowLiveUpdates } from './utils/useFlowLiveUpdates';
 import { goToAdminPortal } from './utils/portalRedirect';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from '@quickloan/ui-core/i18n/translations';
@@ -105,6 +106,23 @@ export default function App() {
       setCurrentFlowStep('hub');
     }
   };
+
+  // Live updates for the 3-step flow: a staff decision moves the applicant on (or to the hub); other
+  // changes (a staff message) refresh the data without leaving the screen they are on.
+  const reloadFlowApplication = (moveToCurrentStep: boolean) => {
+    apiService
+      .getFlowApplication()
+      .then((app) => {
+        if (!app) return;
+        if (moveToCurrentStep) applyFlowApplication(app);
+        else setFlowApplication(app);
+      })
+      .catch(() => {});
+  };
+  useFlowLiveUpdates(!isBackOfficeRoute && flowMode === 'intermediary' ? flowApplication?.id : null, {
+    onStatus: () => reloadFlowApplication(true),
+    onUpdated: () => reloadFlowApplication(false),
+  });
 
   // Keep Back Office route detection synchronized with URL navigation
   useEffect(() => {
