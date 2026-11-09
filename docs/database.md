@@ -8,7 +8,7 @@
 | Upload directory | Server file storage | `data/uploads/` (`server.js:41-42`) | Uploaded document bytes |
 | `otpStore` | Server in-process `Map` | `server.js:160` | Pending login OTPs. **Lost on restart, not shared across processes** |
 | `sseClients` | Server in-process `Map` | `server.js:312` | Open SSE connections |
-| Browser localStorage | Client key/value | `shared/frontend/services/storage.ts:18-28`, `api.ts:15-16` | JWTs. Also a **full shadow copy** of users, applications, audit log, notifications, config (see [data-models.md](data-models.md#client-side-stores)) |
+| Browser localStorage | Client key/value | `STORAGE_KEYS` in `shared/frontend/services/storageCore.ts`, `api.ts:15-16` | JWTs. Also a **full shadow copy** of users, applications, audit log, notifications, config (see [data-models.md](data-models.md#client-side-stores)) |
 | Twilio / SMTP | Third-party | Optional | Delivery only. Nothing is read back |
 
 No caches (Redis etc.), no object storage (S3), and no third-party data stores exist. The `storageKey: "s3://quickloan-docs/..."` in `Step11StatusTimeline.tsx:130` is a **cosmetic string**. There is no S3 integration.

@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { LanguageProvider, LANGUAGE_STORAGE_KEY } from '@quickloan/ui-core/i18n/LanguageContext';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { authTokens } from '../services/api';
 import { t } from '@quickloan/ui-core/i18n/translations';
 

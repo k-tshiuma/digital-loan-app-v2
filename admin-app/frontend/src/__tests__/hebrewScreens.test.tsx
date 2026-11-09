@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { t } from '@quickloan/ui-core/i18n/translations';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { englishIn } from '@quickloan/ui-core/test-utils/hebrewText';
 import { BackOffice } from '../components/BackOffice';
 import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
@@ -26,7 +26,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  storageService.logout();
 });
 
 describe('Back office in Hebrew (T3.5)', () => {

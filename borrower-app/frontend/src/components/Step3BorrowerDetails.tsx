@@ -4,7 +4,7 @@ import { Language, BorrowerDetails } from '@quickloan/ui-core/types';
 import { ORIGIN_COUNTRIES, STEP1_ORIGIN_COUNTRIES, MARITAL_STATUSES, calculateAge } from '@quickloan/ui-core/config/appConfig';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { optionLabel } from '@quickloan/ui-core/i18n/options';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { DateInput } from '@quickloan/ui-core/components/DateInput';
 
 const ALL_ORIGIN_COUNTRIES = Array.from(new Set<string>([...STEP1_ORIGIN_COUNTRIES, ...ORIGIN_COUNTRIES]));
