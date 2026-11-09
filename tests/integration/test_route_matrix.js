@@ -211,6 +211,7 @@ function routes(ctx) {
     ['POST', '/api/flow/register', {}],
     ['POST', '/api/flow/google', {}],
     ['POST', '/api/auth/staff-login', {}],
+    ['POST', '/api/auth/logout', {}],
     // Accounts and uploads
     ['GET', '/api/users/me'],
     ['PUT', '/api/users/me/language', { language: 'xx' }],

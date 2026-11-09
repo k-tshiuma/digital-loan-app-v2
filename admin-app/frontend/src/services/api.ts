@@ -2,8 +2,8 @@
 // both build on the shared request core in @quickloan/ui-core/services/apiCore. Every call uses the staff session.
 import { normalizeFlowDetail } from './flowDetail';
 import { LoanApplication, Language, AnalyticsSummary, CreditRules } from '@quickloan/ui-core/types';
-import { request, resolveFileUrl, downloadApplicationPdf, setSessionStore } from '@quickloan/ui-core/services/apiCore';
-import { staffSession, type StaffRole, type StaffAccount } from './staffSession';
+import { request, resolveFileUrl, downloadApplicationPdf, setSessionStore, endServerSession } from '@quickloan/ui-core/services/apiCore';
+import { staffSession, type StaffRole, type StaffAccount, type StaffSessionData } from './staffSession';
 
 setSessionStore(staffSession);
 
@@ -14,13 +14,17 @@ export type { StaffRole, StaffAccount, StaffSessionData } from './staffSession';
 
 export const apiService = {
 
-  /** Back-office demo auth: obtains (and caches) a staff JWT for the selected role. */
-  async ensureStaffToken(role: StaffRole): Promise<string> {
-    const cached = staffSession.getToken(role);
-    if (cached) return cached;
+  /** Back-office demo auth: signs in as the selected role (the API sets the session cookie) unless already. */
+  async ensureStaffSession(role: StaffRole): Promise<void> {
+    if (staffSession.hasRole(role)) return;
     const res = await request<{ token: string }>('/auth/staff-token', { method: 'POST', body: { role }, auth: false });
     staffSession.save(role, res.token, staffSession.getSession()?.staff);
-    return res.token;
+  },
+
+  /** Signs out: forgets the session here and has the API delete its cookie. */
+  async logout(): Promise<void> {
+    staffSession.clear();
+    await endServerSession();
   },
 
   // --- Applications --------------------------------------------------------
@@ -34,7 +38,7 @@ export const apiService = {
     return res.applications;
   },
 
-  /** Absolute, token-bearing URL for <img src> / <a href> to a server-stored file. */
+  /** Absolute URL for <img src> / <a href> to a server-stored file (the session cookie goes with it). */
   resolveFileUrl(url: string | undefined): string | undefined {
     return resolveFileUrl(url);
   },
@@ -63,13 +67,13 @@ export const apiService = {
     return request('/config/credit-rules', { method: 'PUT', body: { rules } });
   },
 
-  async flowStaffLogin(email: string, password: string): Promise<{ token: string; staff: StaffAccount }> {
+  /** Staff sign-in. The API sets the session cookie; only the role, account and expiry are kept here. */
+  async flowStaffLogin(email: string, password: string): Promise<StaffSessionData> {
     const res = await request<{ token: string; staff: StaffAccount }>(
       '/auth/staff-login',
       { method: 'POST', body: { email, password }, auth: false }
     );
-    staffSession.save(res.staff.role, res.token, res.staff);
-    return res;
+    return staffSession.save(res.staff.role, res.token, res.staff);
   },
 
   // Staff Back Office Flow

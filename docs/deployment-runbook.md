@@ -213,7 +213,7 @@ node /opt/quickloan/app/deploy/smoke.js https://app.example.com https://admin.ex
 
 - `pm2 ls`, `pm2 logs quickloan-borrower`, or the files in `/var/log/quickloan/` (`*.error.log` holds warnings and errors). `pm2-logrotate` keeps them from filling the disk.
 - Health: `https://app.example.com/api/health` and `https://admin.example.com/api/health` (`service`, `demoMode: false`). Point an uptime monitor at both.
-- The nginx access logs leave out query strings, because document and status-stream URLs carry the login token.
+- The nginx access logs leave out query strings. The apps now sign in with HttpOnly cookies and never put the login token in a URL, but the APIs still accept `?token=` from older clients.
 - If one API stops, the other keeps working; its site shows the page but its API calls get 502 until pm2 restarts it.
 
 ## 8. Troubleshooting
