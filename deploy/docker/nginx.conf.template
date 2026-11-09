@@ -1,0 +1,69 @@
+# nginx sites for the Docker deployment (docs/docker-deployment.md). The same two sites as
+# deploy/nginx/quickloan.conf; keep the two in step. ${BORROWER_HOST} and ${ADMIN_HOST} are filled in when the
+# container starts. The location rules are shared: /etc/nginx/snippets/quickloan-locations.conf.
+
+# Access log without query strings: document and live-status URLs carry the login token in ?token=.
+log_format quickloan '$remote_addr - [$time_local] $host "$request_method $uri $server_protocol" '
+                     '$status $body_bytes_sent $request_time "$http_user_agent"';
+
+# Docker's DNS: the API containers get a new address when they are recreated (every deploy).
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+upstream quickloan_borrower_api {
+    zone quickloan_borrower_api 64k;
+    server borrower-api:5000 resolve;
+    keepalive 16;
+}
+
+upstream quickloan_admin_api {
+    zone quickloan_admin_api 64k;
+    server admin-api:5100 resolve;
+    keepalive 8;
+}
+
+# HTTP: everything to HTTPS.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${BORROWER_HOST} ${ADMIN_HOST};
+    access_log /dev/stdout quickloan;
+
+    return 301 https://$host$request_uri;
+}
+
+# Borrower app (public).
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${BORROWER_HOST};
+
+    ssl_certificate     /etc/letsencrypt/live/${BORROWER_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${BORROWER_HOST}/privkey.pem;
+
+    root /var/www/quickloan/borrower;
+    access_log /dev/stdout quickloan;
+
+    set $quickloan_api quickloan_borrower_api;
+    include /etc/nginx/snippets/quickloan-locations.conf;
+}
+
+# Admin dashboard (staff).
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${ADMIN_HOST};
+
+    ssl_certificate     /etc/letsencrypt/live/${ADMIN_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${ADMIN_HOST}/privkey.pem;
+
+    root /var/www/quickloan/admin;
+    access_log /dev/stdout quickloan;
+
+    # Which addresses may open the staff site (office/VPN limit): the server's admin-access.conf.
+    include /etc/nginx/snippets/quickloan-admin-access.conf;
+
+    set $quickloan_api quickloan_admin_api;
+    include /etc/nginx/snippets/quickloan-locations.conf;
+}

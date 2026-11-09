@@ -1,0 +1,112 @@
+# QuickLoan on one Docker host (docs/docker-deployment.md). Always run with the server's settings:
+#   docker compose -f deploy/docker/compose.yml --env-file /etc/quickloan/docker.env <command>
+# deploy/docker/deploy.sh does that for you.
+#
+# Three containers: the two APIs (one process each, never scaled: login codes, rate limits and live-status
+# streams are kept in memory) and nginx. The APIs are not published; only nginx is (80, 443).
+# One named volume holds the database and the uploads. It is local to this host, as SQLite requires.
+name: quickloan
+
+x-api: &api
+  image: quickloan-api:${QUICKLOAN_TAG:-latest}
+  init: true # passes stop signals to node and reaps child processes
+  restart: unless-stopped
+  volumes:
+    - data:/var/lib/quickloan
+    - ${BACKUP_DIR:-/var/backups/quickloan}:/var/backups/quickloan
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: "5" }
+
+services:
+  borrower-api:
+    <<: *api
+    # Built once here; admin-api runs the same image.
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: api
+      args:
+        PUBLIC_BORROWER_URL: ${PUBLIC_BORROWER_URL:?set PUBLIC_BORROWER_URL in docker.env}
+        PUBLIC_ADMIN_URL: ${PUBLIC_ADMIN_URL:?set PUBLIC_ADMIN_URL in docker.env}
+    command: ["node", "borrower-app/backend/server.js"]
+    # Same files as the pm2 setup (deploy/env/*.env.example). `environment` below wins over them.
+    env_file:
+      - ${QUICKLOAN_ENV_DIR:-/etc/quickloan}/shared.env
+      - ${QUICKLOAN_ENV_DIR:-/etc/quickloan}/borrower.env
+    environment: &container-env
+      # Inside the container network: listen on all interfaces of the container (it is not published), and
+      # trust nginx's X-Forwarded-For from private addresses (the containers' network).
+      LISTEN_HOST: 0.0.0.0
+      TRUST_PROXY: uniquelocal
+      DB_PATH: /var/lib/quickloan/database.sqlite
+      UPLOAD_DIR: /var/lib/quickloan/uploads
+      BACKUP_DIR: /var/backups/quickloan
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BORROWER_PORT: "5000"
+      ADMIN_PORT: "5100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/health').then(r=>r.json()).then(b=>process.exit(b.service==='borrower'?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  admin-api:
+    <<: *api
+    command: ["node", "admin-app/backend/server.js"]
+    env_file:
+      - ${QUICKLOAN_ENV_DIR:-/etc/quickloan}/shared.env
+      - ${QUICKLOAN_ENV_DIR:-/etc/quickloan}/admin.env
+    environment:
+      <<: *container-env
+      DB_INIT: "false" # the borrower API owns the schema
+    depends_on:
+      borrower-api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5100/api/health').then(r=>r.json()).then(b=>process.exit(b.service==='admin'?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  web:
+    image: quickloan-web:${QUICKLOAN_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: web
+      args:
+        PUBLIC_BORROWER_URL: ${PUBLIC_BORROWER_URL}
+        PUBLIC_ADMIN_URL: ${PUBLIC_ADMIN_URL}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      BORROWER_HOST: ${BORROWER_HOST:?set BORROWER_HOST in docker.env}
+      ADMIN_HOST: ${ADMIN_HOST:?set ADMIN_HOST in docker.env}
+      # Only these two are filled into the template; nginx's own $variables stay as they are.
+      NGINX_ENVSUBST_FILTER: "^(BORROWER|ADMIN)_HOST$$"
+    volumes:
+      # certbot's folder on the host (live/<name>/ links into archive/, so the whole folder).
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - ${QUICKLOAN_ENV_DIR:-/etc/quickloan}/admin-access.conf:/etc/nginx/snippets/quickloan-admin-access.conf:ro
+    depends_on:
+      borrower-api: { condition: service_healthy }
+      admin-api: { condition: service_healthy }
+    networks:
+      default:
+        # Lets the smoke check run inside the network with the public names (deploy.sh, SMOKE_NETWORK).
+        aliases: ["${BORROWER_HOST}", "${ADMIN_HOST}"]
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -fsS -o /dev/null http://127.0.0.1/ -H 'Host: ${BORROWER_HOST}' -w '%{http_code}' | grep -q 301"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "5" }
+
+volumes:
+  data:

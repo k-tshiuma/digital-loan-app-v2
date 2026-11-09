@@ -319,6 +319,7 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
   - Rehearsed end to end in a fresh Ubuntu 24.04 container, results in the runbook's rehearsal record. Found: the prebuilt SQLite module needs Ubuntu 24.04 or newer (glibc 2.38), Node 20 is end of life so the server runs Node 22 LTS, and a backup name clash (fixed).
   - "Old and new side by side" doesn't apply: there was no production deployment before, so the first deploy is the cut-over. Production starts with an empty database; `data/database.sqlite` is test data. Rollback is redeploying the previous release tag (`pre-split-baseline` predates the new layout and the scripts).
   - Still to do on the real server: DNS and certificates, Twilio/SMTP credentials, staff passwords, a staging run, and the go-live checklist (runbook section 3). The old `backend/` and `frontend/` folders are already gone from git (Phase 7).
+- **Docker deployment added (2026-11-09).** The same deployment as containers, so the host needs only Docker: `deploy/docker/` (one `api` image run as two containers, a `web` nginx image with both builds, one data volume, `deploy.sh`/`backup.sh`), procedures in `docs/docker-deployment.md`. Same env files as the pm2 setup. Rehearsed on Docker Desktop (first deploy, 30 smoke checks, 20 end-to-end checks through nginx, backup/restore, release/rollback, crash recovery). Open for the real host: check that the visitor address reaches the APIs (Docker Desktop showed the gateway address).
 
 ### Phase 9: Optional improvements, after cut-over
 
