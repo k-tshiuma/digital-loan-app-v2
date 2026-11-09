@@ -1,6 +1,8 @@
 /**
  * Seed initial staff users for testing and Back Office administration.
- * Usage: node backend/scripts/seed_staff.js
+ * Usage: npm run seed:staff (repo root), or node admin-app/backend/scripts/seed_staff.js
+ * In production (NODE_ENV=production) all four *_INITIAL_PASSWORD variables must be set; the defaults
+ * below are public and only meant for local development and the tests.
  */
 const bcrypt = require('bcryptjs');
 const db = require('@quickloan/backend-core/database');
@@ -33,7 +35,13 @@ const DEFAULT_STAFF = [
   },
 ];
 
+const PASSWORD_VARS = ['ADMIN_INITIAL_PASSWORD', 'REVIEWER_INITIAL_PASSWORD', 'SERVICE_INITIAL_PASSWORD', 'FUNDING_INITIAL_PASSWORD'];
+
 async function seedStaff() {
+  const missing = PASSWORD_VARS.filter((v) => !process.env[v]);
+  if (process.env.NODE_ENV === 'production' && missing.length) {
+    throw new Error(`Refusing to create staff accounts with default passwords in production. Set: ${missing.join(', ')}`);
+  }
   const now = new Date().toISOString();
   console.log('Seeding initial staff users...');
   for (const s of DEFAULT_STAFF) {

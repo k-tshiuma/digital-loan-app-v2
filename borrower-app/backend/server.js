@@ -42,8 +42,10 @@ if (require.main === module) {
   prefixConsole('borrower');
   // Staff decisions happen in the admin process; this picks them up for open status streams.
   startStatusPoller({ intervalMs: parseInt(process.env.SSE_POLL_MS || '5000', 10) });
-  app.listen(PORT, () => {
-    console.log(`API on port ${PORT}${DEMO_MODE ? ' (demo mode)' : ''}`);
+  // LISTEN_HOST=127.0.0.1 in production, so the API is reachable only through the proxy. Unset: all interfaces.
+  const host = process.env.LISTEN_HOST || undefined;
+  app.listen(PORT, host, () => {
+    console.log(`API on ${host ? `${host}:` : 'port '}${PORT}${DEMO_MODE ? ' (demo mode)' : ''}`);
   });
 }
 

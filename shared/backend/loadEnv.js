@@ -7,8 +7,9 @@ const dotenv = require('dotenv');
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
 function loadEnv(appDir) {
-  if (appDir) dotenv.config({ path: path.join(appDir, '.env') });
-  dotenv.config({ path: path.join(REPO_ROOT, '.env') });
+  // quiet: dotenv 17 otherwise prints a line (with an advert) for every file on every start.
+  if (appDir) dotenv.config({ path: path.join(appDir, '.env'), quiet: true });
+  dotenv.config({ path: path.join(REPO_ROOT, '.env'), quiet: true });
 }
 
 module.exports = { loadEnv, REPO_ROOT };

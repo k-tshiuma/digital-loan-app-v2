@@ -1,6 +1,6 @@
 # QuickLoan: Borrower App / Admin Dashboard Separation Plan
 
-Status: proposal, not implemented. Based on the codebase as of 2026-11-08 (branch `feature/step1-employee-info-fields` at `eedc0ca`, plus uncommitted work).
+Status: Phases 0–7 done; Phase 8 deployment kit built and rehearsed, production cut-over waiting on a server (see the Phase 8 note). Originally based on the codebase as of 2026-11-08 (branch `feature/step1-employee-info-fields` at `eedc0ca`, plus uncommitted work).
 
 This plan merges two earlier drafts. It keeps the phase order and the "no behaviour change while moving code" rule from the first, and adds the table-access matrix, the cross-folder test couplings, the per-app dependencies, the environment files and the more detailed checklist from the second. Claims from both drafts were checked against the code; corrections are noted where they matter.
 
@@ -312,6 +312,13 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
 
 - **Do:** see section 7. Run the old app and the new apps side by side on staging against a copy of the database, then switch. Remove the old `backend/` and `frontend/` folders only after the new apps have run in production for an agreed period.
 - **Rollback:** redeploy the `pre-split-baseline` tag. The database is untouched, so rollback is instant.
+
+- **Deployment kit done (2026-11-09); cut-over waits on a server.** Notes against the steps above:
+  - Hosting chosen: one Ubuntu 24.04 VPS, nginx plus pm2, one origin per app (`app.` / `admin.`, placeholders `example.com` for now). Files in `deploy/`; procedures in `docs/deployment-runbook.md`.
+  - Code changes, all opt-in by setting and unchanged without them: `TRUST_PROXY` (visitor IPs behind nginx; without it every visitor shares one rate-limit bucket and the audit log records 127.0.0.1), `LISTEN_HOST` (APIs on localhost only), a start-up warning in production when Twilio or SMTP are missing, and the staff seed refusing its public default passwords in production.
+  - Rehearsed end to end in a fresh Ubuntu 24.04 container, results in the runbook's rehearsal record. Found: the prebuilt SQLite module needs Ubuntu 24.04 or newer (glibc 2.38), Node 20 is end of life so the server runs Node 22 LTS, and a backup name clash (fixed).
+  - "Old and new side by side" doesn't apply: there was no production deployment before, so the first deploy is the cut-over. Production starts with an empty database; `data/database.sqlite` is test data. Rollback is redeploying the previous release tag (`pre-split-baseline` predates the new layout and the scripts).
+  - Still to do on the real server: DNS and certificates, Twilio/SMTP credentials, staff passwords, a staging run, and the go-live checklist (runbook section 3). The old `backend/` and `frontend/` folders are already gone from git (Phase 7).
 
 ### Phase 9: Optional improvements, after cut-over
 

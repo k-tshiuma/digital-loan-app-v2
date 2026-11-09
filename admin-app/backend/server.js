@@ -42,8 +42,10 @@ finishApp(app);
 
 if (require.main === module) {
   prefixConsole('admin');
-  app.listen(PORT, () => {
-    console.log(`API on port ${PORT}${DEMO_MODE ? ' (demo mode)' : ''}`);
+  // LISTEN_HOST=127.0.0.1 in production, so the API is reachable only through the proxy. Unset: all interfaces.
+  const host = process.env.LISTEN_HOST || undefined;
+  app.listen(PORT, host, () => {
+    console.log(`API on ${host ? `${host}:` : 'port '}${PORT}${DEMO_MODE ? ' (demo mode)' : ''}`);
   });
 }
 

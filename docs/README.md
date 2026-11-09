@@ -69,6 +69,7 @@ Reverse-engineered documentation of the existing codebase, produced on **2026-10
 - [development-setup.md](development-setup.md)
 - [environment-configuration.md](environment-configuration.md): every environment variable found in code
 - [build-and-release.md](build-and-release.md)
+- [deployment-runbook.md](deployment-runbook.md): production setup, releases, rollback, backups (Phase 8)
 - [operations-and-recovery.md](operations-and-recovery.md)
 
 ### Maintenance

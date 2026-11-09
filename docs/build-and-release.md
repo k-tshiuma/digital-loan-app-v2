@@ -1,6 +1,8 @@
 # Build and Release
 
-> **Important:** the repository contains **no CI/CD, no deployment scripts, no Dockerfile, no hosting configuration and no release process** (Verified absent). Sections marked **[Needs team confirmation]** are recommendations, not existing procedures.
+> **Update (2026-11-09):** deployment scripts and hosting configuration now exist in `deploy/` (one Ubuntu server, nginx, pm2, two APIs). See [deployment-runbook.md](deployment-runbook.md), which replaces sections 3 and 4 below. There is still no CI/CD.
+>
+> **Original note:** the repository contains **no CI/CD, no deployment scripts, no Dockerfile, no hosting configuration and no release process** (Verified absent). Sections marked **[Needs team confirmation]** are recommendations, not existing procedures.
 
 ## 1. What exists
 

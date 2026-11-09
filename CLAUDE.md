@@ -42,6 +42,10 @@ Frontend: the borrower app (`borrower-app/frontend/`, port 3000) and the admin d
 - `npm test`: Vitest + React Testing Library (jsdom). `npm run test:watch` for watch mode, `npx vitest run <path>` for one file. Tests live in `__tests__/` folders next to the code; setup is `src/test/setup.ts` (the app's message groups, then `@quickloan/ui-core/test-utils/setup`).
 - Shared code has its own suite: `npm test` in `shared/frontend/` (runs with only the shared message groups). Contract tests: `npm run test:contracts` at the repo root. `npm run test:frontend` at the root runs the three frontend suites. Run them and the contract tests before committing frontend changes.
 
+## Deployment
+
+Production is one Ubuntu 24.04 server: nginx serves both built frontends and forwards each site's `/api` to its own API, pm2 runs the two APIs (one process each, never cluster mode), and both use one SQLite file. Files in `deploy/` (`deploy.sh <tag>`, `backup.sh`, `smoke.js`, pm2 and nginx config, env templates); procedures in `docs/deployment-runbook.md`. Production-only settings: `LISTEN_HOST=127.0.0.1`, `TRUST_PROXY=loopback` (visitor IPs for rate limits and audit), and the staff seed refuses default passwords when `NODE_ENV=production`.
+
 ## Backend architecture
 
 - Layout: `shared/backend/` (package `@quickloan/backend-core`) holds everything both APIs use: `core/`, `database.js`, `creditEngine.js`, `services/`, `routes/flow.js`, `routes/shared/`, `assets/fonts/`, `fixtures/`, `loadEnv.js`. App code requires it as `@quickloan/backend-core/<path>`; files inside it require each other relatively and never require an app. Paths like `services/x.js` and `core/x.js` below mean `shared/backend/...`.
