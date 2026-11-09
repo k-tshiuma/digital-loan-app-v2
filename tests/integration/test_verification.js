@@ -3,7 +3,7 @@ const path = require('path');
 const http = require('http');
 
 // Import express app
-const app = require('./combinedServer');
+const app = require('./lib/splitApis');
 
 const PORT = 5002; // Use distinct test port
 let server;

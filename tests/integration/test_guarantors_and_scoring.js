@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const assert = require('assert');
-const app = require('./combinedServer');
+const app = require('./lib/splitApis');
 const {
   calculateEligibilityScore,
   calculateVisaMonthsRemaining,

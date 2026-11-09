@@ -2,25 +2,23 @@
  * Route access matrix: the safety net for the borrower/admin separation (docs/app-separation-plan.md, Phase 1).
  *
  * Calls every API route as each identity (no token, a bad token, a borrower, and each staff role)
- * and compares the HTTP status codes with the snapshot in fixtures/route-matrix.json. It runs two
- * servers: one in demo mode (port 5013) and one with DEMO_MODE=false (port 5014), because access
- * rules differ between them. It does the same for the split backends (Phase 6): borrower-server.js and
- * admin-server.js, each in demo mode (5015/5016) and with DEMO_MODE=false (5017/5018), the admin ones
- * with DB_INIT=false as in production.
+ * and compares the HTTP status codes with the snapshot in fixtures/route-matrix.json. It runs the borrower
+ * and admin APIs, each in demo mode (5015/5016) and with DEMO_MODE=false (5017/5018), because access rules
+ * differ between them; the admin ones with DB_INIT=false as in production.
  *
  * Requests are built so nothing real is changed: bodies fail validation, mutating routes use IDs
  * that don't exist, and routes that would write only touch the test borrower's own records.
  *
  * Also checks:
- * - SSE: a staff status change reaches the borrower's open event stream, in one process and across the
- *   two backends (the borrower backend's status poller)
+ * - SSE: a staff status change on the admin API reaches the borrower's open event stream on the borrower
+ *   API (the status poller)
  * - Split boundaries: each backend answers 404 for the other one's routes, even with the right token
- * - PDF: borrower and staff copies are generated in English and Hebrew
+ * - PDF: borrower (borrower API) and staff (admin API) copies are generated in English and Hebrew
  *
  * Usage:
- *   node scripts/seed_staff.js           (once; staff accounts must exist)
- *   node test_route_matrix.js            compare with the snapshot
- *   node test_route_matrix.js --update   rewrite the snapshot (only when an access change is intended)
+ *   npm run seed:staff                                       (once; staff accounts must exist)
+ *   node tests/integration/test_route_matrix.js              compare with the snapshot
+ *   node tests/integration/test_route_matrix.js --update     rewrite the snapshot (only for intended access changes)
  */
 const http = require('http');
 const fs = require('fs');
@@ -29,10 +27,8 @@ const { spawn } = require('child_process');
 
 const SNAPSHOT_PATH = path.join(__dirname, 'fixtures', 'route-matrix.json');
 const UPDATE = process.argv.includes('--update');
-const DEMO_PORT = 5013;
-const STRICT_PORT = 5014;
-// Split backends: [snapshot key, port, entry file, demo mode].
-const SPLIT = [
+// [snapshot key, port, entry file, demo mode]. The demo-mode pair is also used for setup, SSE and PDF.
+const APIS = [
   ['borrowerDemo', 5015, 'borrower-server', true],
   ['adminDemo', 5016, 'admin-server', true],
   ['borrowerStrict', 5017, 'borrower-server', false],
@@ -127,8 +123,8 @@ function openEventStream(port, urlPath, token) {
 
 // --- Servers ----------------------------------------------------------------
 
-// `code` is the start-up script for the child: by default the combined server.js.
-function startServer(port, extraEnv, code = `require('./combinedServer').listen(${port})`) {
+// `code` is the start-up script for the child.
+function startServer(port, extraEnv, code) {
   const child = spawn(process.execPath, ['-e', code], {
     cwd: __dirname,
     env: { ...process.env, NODE_ENV: '', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ...extraEnv },
@@ -155,7 +151,11 @@ function startServer(port, extraEnv, code = `require('./combinedServer').listen(
 
 // --- Setup: test borrower, staff tokens, sample IDs -------------------------
 
-async function setup(port) {
+const BORROWER_PORT = 5015; // borrowerDemo
+const ADMIN_PORT = 5016; // adminDemo
+
+async function setup() {
+  const port = BORROWER_PORT;
   let login = await request(port, 'POST', '/api/users/login', { body: { identifier: MATRIX_USER.email, password: MATRIX_USER.password } });
   if (login.status === 404) {
     await request(port, 'POST', '/api/users/request-otp', { body: { phoneNumber: MATRIX_USER.phoneNumber } });
@@ -171,7 +171,7 @@ async function setup(port) {
 
   const staffTokens = {};
   for (const [role, [email, password]] of Object.entries(STAFF_ACCOUNTS)) {
-    const r = await request(port, 'POST', '/api/auth/staff-login', { body: { email, password } });
+    const r = await request(ADMIN_PORT, 'POST', '/api/auth/staff-login', { body: { email, password } });
     if (r.status !== 200) throw new Error(`staff login failed for ${email} (${r.status}). Run "node scripts/seed_staff.js" first.`);
     staffTokens[role] = r.body.token;
   }
@@ -182,7 +182,7 @@ async function setup(port) {
 
   // Another applicant's flow application, so ownership checks can be exercised.
   // Must be flowVersion 2 so the legacy PUT in the matrix refuses it instead of overwriting it.
-  const list = await request(port, 'GET', '/api/applications', { token: staffTokens.system_admin });
+  const list = await request(ADMIN_PORT, 'GET', '/api/applications', { token: staffTokens.system_admin });
   const rows = (list.body && list.body.applications) || [];
   const foreign = rows
     .filter((a) => a.flowVersion === 2 && a.id !== ownAppId && a.userId && a.userId !== userId && a.userId !== 'demo_user')
@@ -301,8 +301,8 @@ async function ensureClassicApp(port, ctx) {
   return r.body.application;
 }
 
-async function checkSse(port, ctx, { staffPort = port, label = 'one process' } = {}) {
-  console.log(`\n--- SSE: staff status change reaches the borrower stream (${label})`);
+async function checkSse(port, ctx, staffPort) {
+  console.log('\n--- SSE: a staff status change on the admin API reaches the borrower stream');
   const app = await ensureClassicApp(port, ctx);
   const stream = openEventStream(port, `/api/applications/${app.id}/events`, ctx.borrowerToken);
   try {
@@ -326,10 +326,10 @@ async function checkSse(port, ctx, { staffPort = port, label = 'one process' } =
   return app;
 }
 
-async function checkPdf(port, ctx, app) {
+async function checkPdf(ctx, app) {
   console.log('\n--- PDF: borrower and staff copies in English and Hebrew');
-  const who = { borrower: ctx.borrowerToken, staff: ctx.staffTokens.credit_reviewer };
-  for (const [name, token] of Object.entries(who)) {
+  const who = { borrower: [BORROWER_PORT, ctx.borrowerToken], staff: [ADMIN_PORT, ctx.staffTokens.credit_reviewer] };
+  for (const [name, [port, token]] of Object.entries(who)) {
     for (const lang of ['en', 'he']) {
       const r = await request(port, 'GET', `/api/applications/${app.id}/pdf?lang=${lang}`, { token, raw: true });
       const isPdf = r.status === 200 && String(r.headers['content-type']).includes('application/pdf')
@@ -403,10 +403,8 @@ function compare(mode, actual, expected) {
   console.log('================================================================');
   console.log('ROUTE ACCESS MATRIX (separation safety net)');
   console.log('================================================================');
-  const demo = startServer(DEMO_PORT, { DEMO_MODE: 'true' });
-  const strict = startServer(STRICT_PORT, { DEMO_MODE: 'false' });
-  // The borrower backends poll fast here so the cross-process SSE check doesn't wait 5 s.
-  const split = SPLIT.map(([key, port, entry, demoMode]) => [key, port, startServer(
+  // The borrower APIs poll fast here so the SSE check doesn't wait 5 s.
+  const split = APIS.map(([key, port, entry, demoMode]) => [key, port, startServer(
     port,
     { DEMO_MODE: demoMode ? 'true' : 'false', ...(entry === 'admin-server' ? { DB_INIT: 'false' } : {}) },
     entry === 'borrower-server'
@@ -415,10 +413,10 @@ function compare(mode, actual, expected) {
   )]);
   let exitCode = 0;
   try {
-    await Promise.all([demo.waitUp(), strict.waitUp(), ...split.map(([, , srv]) => srv.waitUp())]);
-    const ctx = await setup(DEMO_PORT);
+    await Promise.all(split.map(([, , srv]) => srv.waitUp()));
+    const ctx = await setup();
 
-    const actual = { demo: await runMatrix(DEMO_PORT, ctx), strict: await runMatrix(STRICT_PORT, ctx) };
+    const actual = {};
     for (const [key, port] of split) actual[key] = await runMatrix(port, ctx);
 
     if (UPDATE) {
@@ -426,20 +424,15 @@ function compare(mode, actual, expected) {
       console.log(`\nSnapshot written to ${path.relative(__dirname, SNAPSHOT_PATH)}`);
     } else {
       const expected = fs.existsSync(SNAPSHOT_PATH) ? JSON.parse(fs.readFileSync(SNAPSHOT_PATH, 'utf8')) : {};
-      compare('demo mode', actual.demo, expected.demo);
-      compare('DEMO_MODE=false', actual.strict, expected.strict);
-      for (const [key] of split) compare(`split: ${key}`, actual[key], expected[key]);
+      for (const [key] of split) compare(key, actual[key], expected[key]);
     }
     checkSplitBoundaries(actual);
 
-    const app = await checkSse(DEMO_PORT, ctx);
-    await checkSse(5015, ctx, { staffPort: 5016, label: 'borrower backend stream, staff change on the admin backend' });
-    await checkPdf(DEMO_PORT, ctx, app);
+    const app = await checkSse(BORROWER_PORT, ctx, ADMIN_PORT);
+    await checkPdf(ctx, app);
   } catch (err) {
     fail(err.message);
   } finally {
-    demo.child.kill();
-    strict.child.kill();
     for (const [, , srv] of split) srv.child.kill();
   }
   console.log('\n================================================================');
