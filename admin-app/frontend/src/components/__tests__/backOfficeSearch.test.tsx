@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BackOffice } from '../BackOffice';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../../services/storage';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { LoanApplication } from '@quickloan/ui-core/types';
 

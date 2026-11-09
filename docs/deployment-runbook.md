@@ -11,6 +11,7 @@ The files are in `deploy/`:
 | `deploy/smoke.js <app URL> <admin URL>` | Read-only checks of a running deployment |
 | `deploy/ecosystem.config.js` | pm2 definition of the two APIs |
 | `deploy/nginx/quickloan.conf`, `quickloan-locations.conf` | The two sites |
+| `deploy/nginx/quickloan-admin-access.conf` | Who may open the admin site (office/VPN limit) |
 | `deploy/env/*.env.example` | Templates for the settings in `/etc/quickloan/` |
 
 ## 1. What runs where
@@ -109,11 +110,16 @@ Settings are read by `deploy/ecosystem.config.js` when pm2 starts the APIs. Don'
    cd /opt/quickloan/app
    sudo cp deploy/nginx/quickloan.conf /etc/nginx/sites-available/
    sudo cp deploy/nginx/quickloan-locations.conf /etc/nginx/snippets/
+   sudo cp -n deploy/nginx/quickloan-admin-access.conf /etc/nginx/snippets/   # -n: never overwrite your list
    sudo ln -sf /etc/nginx/sites-available/quickloan.conf /etc/nginx/sites-enabled/
    sudo rm -f /etc/nginx/sites-enabled/default
    sudo nginx -t && sudo systemctl reload nginx
    ```
-4. Optional: limit the admin site to the office or VPN (the `allow`/`deny` lines in `quickloan.conf`).
+4. Optional, recommended: limit the admin site to the office or VPN. Two places, same list:
+   - nginx: in `/etc/nginx/snippets/quickloan-admin-access.conf`, replace `allow all;` with one `allow` line per network, then `deny all;` (examples in the file). Include this server's own public address, or `deploy/smoke.js` (run by `deploy.sh`) fails on the admin site. Then `sudo nginx -t && sudo systemctl reload nginx`.
+   - Admin API: `ADMIN_ALLOWED_IPS` in `/etc/quickloan/admin.env`, comma-separated (`203.0.113.0/24,198.51.100.7`), then `pm2 restart quickloan-admin --update-env`. It keeps the staff API closed if the nginx lines are ever lost. It needs `TRUST_PROXY=loopback` (already in `shared.env`). Requests from the server itself always pass, so the deploy health checks work. A typo stops the API at start-up (`Invalid address or network in the allow list`).
+
+   Outside addresses get 403 on the whole admin site; the borrower site is not affected. Staff working from home then need the VPN. The API logs each refusal as `[NETWORK] admin refused a request from <address>`.
 
 ### 2.8 First deploy
 
@@ -222,6 +228,8 @@ node /opt/quickloan/app/deploy/smoke.js https://app.example.com https://admin.ex
 | Everyone gets "Too many attempts" together, audit log shows 127.0.0.1 | `TRUST_PROXY=loopback` missing in `shared.env` |
 | Borrowers get no login code | Twilio settings missing (`WARNING` in `borrower.error.log`) |
 | Staff seed: "Refusing to create staff accounts with default passwords" | Expected in production; give the four passwords (2.9) |
+| Staff get 403 on the admin site | Their address isn't in the office/VPN list (2.7 step 4): check `quickloan-admin-access.conf` and `ADMIN_ALLOWED_IPS`; `admin.error.log` shows refused addresses |
+| Smoke check fails on the admin site with 403 | Add the server's own public address to the admin allow list (2.7 step 4) |
 | Upload over 10 MB fails | By design (`MAX_UPLOAD_BYTES`); nginx allows 12 MB |
 
 ## 9. Rehearsal record

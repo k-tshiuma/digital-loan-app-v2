@@ -18,7 +18,7 @@ import {
 import { Language, User } from '@quickloan/ui-core/types';
 import { COUNTRY_PHONE_CODES } from '@quickloan/ui-core/config/appConfig';
 import { t } from '@quickloan/ui-core/i18n/translations';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { apiService, isNetworkError } from '../services/api';
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 

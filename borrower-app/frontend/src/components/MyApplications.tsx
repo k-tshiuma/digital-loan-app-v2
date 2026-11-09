@@ -18,7 +18,7 @@ import { statusLabel } from '@quickloan/ui-core/i18n/options';
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import { formatCurrency, formatDate } from '@quickloan/ui-core/i18n/format';
 import { apiService } from '../services/api';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 
 interface MyApplicationsProps {
   isOpen: boolean;

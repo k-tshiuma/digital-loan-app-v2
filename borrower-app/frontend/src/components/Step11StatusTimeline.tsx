@@ -23,7 +23,7 @@ import { optionLabel, statusLabel, statusReasonLabel } from '@quickloan/ui-core/
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import { formatCurrency, formatDate, formatTime } from '@quickloan/ui-core/i18n/format';
 import { LtrText } from '@quickloan/ui-core/i18n/LtrText';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { apiService } from '../services/api';
 import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
 import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';

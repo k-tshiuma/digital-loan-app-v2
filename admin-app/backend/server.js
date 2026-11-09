@@ -22,7 +22,12 @@ const adminAccount = require('./routes/account');
 const adminApplicationDetail = require('./routes/applicationDetail');
 
 const PORT = process.env.ADMIN_PORT || 5100;
-const { app, flowRoutes } = createBaseApp({ authMiddleware: staffOnlyAuth, service: 'admin' });
+// ADMIN_ALLOWED_IPS: optional office/VPN networks; other addresses get 403 (core/ipAllowlist.js).
+const { app, flowRoutes } = createBaseApp({
+  authMiddleware: staffOnlyAuth,
+  service: 'admin',
+  allowedNetworks: process.env.ADMIN_ALLOWED_IPS,
+});
 
 // Public routes, before `authenticateStaff`. The demo role-picker answers 404 outside demo mode.
 adminStaffAuth.register(app);

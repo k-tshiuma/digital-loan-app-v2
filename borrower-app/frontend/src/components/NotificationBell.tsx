@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { apiService } from '../services/api';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { Language } from '@quickloan/ui-core/types';
 import { t } from '@quickloan/ui-core/i18n/translations';
 

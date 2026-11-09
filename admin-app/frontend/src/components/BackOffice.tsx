@@ -34,7 +34,7 @@ import {
   CreditRules,
 } from '@quickloan/ui-core/types';
 import { STATUS_BADGE_CONFIG } from '@quickloan/ui-core/config/appConfig';
-import { storageService } from '@quickloan/ui-core/services/storage';
+import { storageService } from '../services/storage';
 import { apiService } from '../services/api';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { t } from '@quickloan/ui-core/i18n/translations';
