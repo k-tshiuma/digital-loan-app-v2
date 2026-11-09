@@ -3,7 +3,7 @@ import { Language, UserRole } from '@quickloan/ui-core/types';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { BackOffice } from './components/BackOffice';
 import { StaffLoginGate } from './components/StaffLoginGate';
-import { authTokens, SESSION_EXPIRED_EVENT, StaffAccount, StaffRole } from './services/api';
+import { SESSION_EXPIRED_EVENT, staffSession, StaffSessionData } from './services/api';
 import { BORROWER_APP_URL } from './config';
 
 /**
@@ -12,23 +12,21 @@ import { BORROWER_APP_URL } from './config';
  */
 export default function App() {
   const { language: currentLanguage, setLanguage } = useI18n();
-  const [staffSession, setStaffSession] = useState<{ role: StaffRole; token: string; staff?: StaffAccount } | null>(() =>
-    authTokens.getStaffSession()
-  );
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => authTokens.getStaffSession()?.role || 'credit_reviewer');
+  const [session, setSession] = useState<StaffSessionData | null>(() => staffSession.getSession());
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => staffSession.getSession()?.role || 'credit_reviewer');
 
   // Staff have no saved language preference on the backend; the choice is kept in this browser only.
   const handleLanguageSelect = (lang: Language) => setLanguage(lang);
 
   const handleStaffSignOut = () => {
-    authTokens.clearStaff();
-    setStaffSession(null);
+    staffSession.clear();
+    setSession(null);
   };
 
   // The admin API rejected the saved staff token (expired, or signed with an old secret): back to sign-in.
   useEffect(() => {
     const onExpired = (e: Event) => {
-      if ((e as CustomEvent<{ scope?: string }>).detail?.scope === 'staff') setStaffSession(null);
+      if ((e as CustomEvent<{ scope?: string }>).detail?.scope === 'staff') setSession(null);
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
@@ -38,7 +36,7 @@ export default function App() {
     window.location.assign(BORROWER_APP_URL);
   };
 
-  if (!staffSession) {
+  if (!session) {
     return (
       <StaffLoginGate
         language={currentLanguage}
@@ -46,7 +44,7 @@ export default function App() {
         // The borrower app runs on another origin, so a borrower session can't be seen from here.
         isClientBlocked={false}
         onAuthenticated={(staff, token) => {
-          setStaffSession({ role: staff.role, token, staff });
+          setSession({ role: staff.role, token, staff });
           setCurrentRole(staff.role);
         }}
         onReturnToPublic={handleReturnToPublicSite}
@@ -57,12 +55,12 @@ export default function App() {
   return (
     <BackOffice
       language={currentLanguage}
-      currentRole={currentRole === 'borrower' ? staffSession.role : currentRole}
+      currentRole={currentRole === 'borrower' ? session.role : currentRole}
       onRoleChange={(nextRole) => {
         if (nextRole === 'borrower') return;
         setCurrentRole(nextRole);
       }}
-      staffName={staffSession.staff?.fullName}
+      staffName={session.staff?.fullName}
       onCloseBackOffice={handleStaffSignOut}
     />
   );

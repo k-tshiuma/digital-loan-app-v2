@@ -1,20 +1,18 @@
-// The signed-in account (borrower profile, or the staff role) and the borrower's language choice.
-const { dbGet, dbRun } = require('../../services/dbHelpers');
-const { sanitizeUser, isStaff } = require('../../core/auth');
+// The signed-in borrower's account and language choice.
+const { dbGet, dbRun } = require('@quickloan/backend-core/services/dbHelpers');
+const { sanitizeUser } = require('@quickloan/backend-core/core/auth');
 
 // Languages a user can currently pick. th/zh/tl are on hold (see hebrew-localization-plan.md).
 const ENABLED_LANGUAGES = ['en', 'he'];
 
 function register(app) {
   app.get('/api/users/me', async (req, res) => {
-    if (isStaff(req)) return res.json({ success: true, staff: { role: req.auth.role } });
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.auth.sub]);
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
     res.json({ success: true, user: sanitizeUser(user) });
   });
 
   app.put('/api/users/me/language', async (req, res) => {
-    if (isStaff(req)) return res.status(403).json({ success: false, error: 'Staff accounts have no language preference' });
     const { language } = req.body || {};
     if (!ENABLED_LANGUAGES.includes(language)) {
       return res.status(400).json({ success: false, error: `language must be one of: ${ENABLED_LANGUAGES.join(', ')}` });

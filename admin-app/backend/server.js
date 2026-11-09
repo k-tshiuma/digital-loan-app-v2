@@ -18,8 +18,8 @@ const adminApplications = require('./routes/applications');
 const adminNotifications = require('./routes/notifications');
 const adminAnalytics = require('./routes/analytics');
 const adminConfig = require('./routes/config');
-const sharedAccounts = require('@quickloan/backend-core/routes/shared/accounts');
-const sharedApplications = require('@quickloan/backend-core/routes/shared/applications');
+const adminAccount = require('./routes/account');
+const adminApplicationDetail = require('./routes/applicationDetail');
 
 const PORT = process.env.ADMIN_PORT || 5100;
 const { app, flowRoutes } = createBaseApp({ authMiddleware: staffOnlyAuth, service: 'admin' });
@@ -31,8 +31,8 @@ flowRoutes.registerStaffPublic(app);
 app.use('/api', authenticateStaff);
 
 flowRoutes.registerStaff(app);
-sharedAccounts.register(app);
-sharedApplications.register(app);
+adminAccount.register(app);
+adminApplicationDetail.register(app);
 adminApplications.register(app, { flowRoutes });
 adminNotifications.register(app);
 adminAnalytics.register(app);

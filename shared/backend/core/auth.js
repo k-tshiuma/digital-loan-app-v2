@@ -174,7 +174,8 @@ function authenticateStaff(req, res, next) {
   return next();
 }
 
-const canAccessUser = (req, userId) => isStaff(req) || (req.auth && req.auth.sub === userId) || (DEMO_MODE && (!req.headers.authorization || req.auth?.sub === 'demo_user') && userId === 'demo_user');
+/** Borrower API: the caller is this user (or, in demo mode, the shared demo user). Staff never reach borrower routes. */
+const canAccessUser = (req, userId) => (req.auth && req.auth.sub === userId) || (DEMO_MODE && (!req.headers.authorization || req.auth?.sub === 'demo_user') && userId === 'demo_user');
 
 // In-memory OTP store: phone -> { codeHash, expiresAt, attempts }
 const otpStore = new Map();

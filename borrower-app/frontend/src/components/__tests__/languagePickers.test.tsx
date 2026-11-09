@@ -17,8 +17,6 @@ function HeaderHarness({ initial = 'en' as Language }) {
       onSignOut={() => {}}
       currentRole="borrower"
       onRoleChange={() => {}}
-      isBackOfficeOpen={false}
-      onToggleBackOffice={() => {}}
       onOpenHelp={() => {}}
       isOnline
       draftSaved={false}
@@ -35,8 +33,6 @@ function renderHeader(currentLanguage: Language, onLanguageChange = vi.fn()) {
       onSignOut={() => {}}
       currentRole="borrower"
       onRoleChange={() => {}}
-      isBackOfficeOpen={false}
-      onToggleBackOffice={() => {}}
       onOpenHelp={() => {}}
       isOnline
       draftSaved={false}

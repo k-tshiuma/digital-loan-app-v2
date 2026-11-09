@@ -627,10 +627,10 @@
       "none": 401,
       "badToken": 401,
       "borrower": 401,
-      "customer_service": 403,
-      "credit_reviewer": 403,
-      "system_admin": 403,
-      "funding_entity": 403
+      "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
     },
     "POST /api/upload": {
       "none": 401,
@@ -1621,10 +1621,10 @@
       "none": 401,
       "badToken": 401,
       "borrower": 401,
-      "customer_service": 403,
-      "credit_reviewer": 403,
-      "system_admin": 403,
-      "funding_entity": 403
+      "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
     },
     "POST /api/upload": {
       "none": 401,

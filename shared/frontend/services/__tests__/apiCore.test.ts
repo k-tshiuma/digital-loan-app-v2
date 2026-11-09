@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { authTokens, request, SESSION_EXPIRED_EVENT } from '../apiCore';
+import { authTokens, request, setSessionStore, SESSION_EXPIRED_EVENT } from '../apiCore';
 
 // A syntactically valid, unexpired token (the client only reads its payload).
 const token = (payload: Record<string, unknown>) =>
@@ -31,14 +31,25 @@ describe('request(): a rejected session signs the user out', () => {
     expect(events).toEqual(['borrower']);
   });
 
-  it('clears only the staff token for a staff request', async () => {
+  it('uses the session store the app installed (the admin app: its staff session)', async () => {
     authTokens.set(token({ sub: 'u1', type: 'borrower' }));
-    authTokens.setStaff('credit_reviewer', token({ sub: 's1', type: 'staff', role: 'credit_reviewer' }));
-    vi.stubGlobal('fetch', respond(401, { success: false }));
-    await expect(request('/flow/applications', { scope: 'staff' })).rejects.toMatchObject({ status: 401 });
-    expect(authTokens.getStaff()).toBeNull();
-    expect(authTokens.get()).not.toBeNull();
-    expect(events).toEqual(['staff']);
+    const issued = token({ sub: 's1', type: 'staff', role: 'credit_reviewer' });
+    let staffToken: string | null = issued;
+    const seen: (string | undefined)[] = [];
+    setSessionStore({ scope: 'staff', get: () => staffToken, clear: () => { staffToken = null; } });
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(async (_url: string, init: { headers: Record<string, string> }) => {
+        seen.push(init.headers.Authorization);
+        return { status: 401, ok: false, json: () => Promise.resolve({ success: false }) };
+      }));
+      await expect(request('/flow/applications')).rejects.toMatchObject({ status: 401 });
+      expect(seen[0]).toBe(`Bearer ${issued}`);
+      expect(staffToken).toBeNull();
+      expect(authTokens.get()).not.toBeNull();
+      expect(events).toEqual(['staff']);
+    } finally {
+      setSessionStore(authTokens);
+    }
   });
 
   it('leaves everything alone for a 401 to a request without a token (e.g. a wrong password)', async () => {

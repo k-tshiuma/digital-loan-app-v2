@@ -337,9 +337,9 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
 
     const docId = docObj.docId || docObj.id;
     const resolvedUrl = docId
-      ? apiService.resolveFileUrl(`/documents/${docId}`, 'staff')
+      ? apiService.resolveFileUrl(`/documents/${docId}`)
       : docObj.fileUrl
-      ? apiService.resolveFileUrl(docObj.fileUrl, 'staff')
+      ? apiService.resolveFileUrl(docObj.fileUrl)
       : docObj.dataUrl;
     const isImg = docObj.mimeType?.startsWith('image/') || resolvedUrl?.startsWith('data:image/');
 
