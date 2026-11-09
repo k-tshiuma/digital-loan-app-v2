@@ -91,14 +91,15 @@ function register(app) {
   });
 
   // Phase 7: PDF export (GET, or POST with the application as an offline fallback). The borrower's own copy:
-  // no risk data, full bank account.
+  // no risk data, full bank account. A stored application needs access; an unsaved draft sent in the body is
+  // only rendered (it is the caller's own data, and nothing is stored).
   app.all('/api/applications/:id/pdf', async (req, res) => {
-    const a = await applicationForPdf(req);
-    if (!a) return res.status(404).json({ success: false, error: 'Application not found' });
-    if (!canAccessUser(req, a.userId)) return res.status(403).json({ success: false, error: 'Forbidden' });
+    const found = await applicationForPdf(req);
+    if (!found) return res.status(404).json({ success: false, error: 'Application not found' });
+    if (found.stored && !canAccessUser(req, found.app.userId)) return res.status(403).json({ success: false, error: 'Forbidden' });
     try {
       // ?lang=he|en picks the PDF language (the language on screen); default: the application's language.
-      streamApplicationPdf(a, res, { includeRisk: false, maskBankAccount: false, lang: req.query.lang });
+      streamApplicationPdf(found.app, res, { includeRisk: false, maskBankAccount: false, lang: req.query.lang });
     } catch (err) {
       console.error('Error generating PDF:', err);
       if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to generate PDF summary' });

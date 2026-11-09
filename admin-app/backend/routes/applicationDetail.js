@@ -37,13 +37,14 @@ function register(app) {
     res.json({ success: true, application: saved });
   });
 
-  // Phase 7: PDF export. The staff copy includes the risk data and masks the bank account number.
+  // Phase 7: PDF export. The staff copy includes the risk data and masks the bank account number. An
+  // application that isn't stored (sent in the body) is only rendered, never saved.
   app.all('/api/applications/:id/pdf', async (req, res) => {
-    const a = await applicationForPdf(req);
-    if (!a) return res.status(404).json({ success: false, error: 'Application not found' });
+    const found = await applicationForPdf(req);
+    if (!found) return res.status(404).json({ success: false, error: 'Application not found' });
     try {
       // ?lang=he|en picks the PDF language (staff send their UI language); default: the application's language.
-      streamApplicationPdf(a, res, { includeRisk: true, maskBankAccount: true, lang: req.query.lang });
+      streamApplicationPdf(found.app, res, { includeRisk: true, maskBankAccount: true, lang: req.query.lang });
     } catch (err) {
       console.error('Error generating PDF:', err);
       if (!res.headersSent) res.status(500).json({ success: false, error: 'Failed to generate PDF summary' });
