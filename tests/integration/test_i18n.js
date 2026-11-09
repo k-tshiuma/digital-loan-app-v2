@@ -3,7 +3,7 @@ const http = require('http');
 const assert = require('assert');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const app = require('./combinedServer');
+const app = require('./lib/splitApis');
 
 const TEST_PORT = 5005;
 
@@ -91,18 +91,19 @@ async function runTests() {
     assert.strictEqual(res.status, 400);
   });
 
-  await test('staff token is rejected with 403', async () => {
+  await test('staff token is refused by the borrower API (401)', async () => {
     const staff = await makeRequest('POST', '/api/auth/staff-token', { role: 'credit_reviewer' });
     assert.strictEqual(staff.status, 200, 'staff-token endpoint should work in demo mode');
-    const res = await makeRequest('PUT', '/api/users/me/language', { language: 'he' }, { Authorization: `Bearer ${staff.data.token}` });
-    assert.strictEqual(res.status, 403);
+    // Sent to the borrower API on purpose (the router would send a staff token to the admin API).
+    const res = await makeRequest('PUT', '/api/users/me/language', { language: 'he' }, { Authorization: `Bearer ${staff.data.token}`, 'X-Test-Target': 'borrower' });
+    assert.strictEqual(res.status, 401);
   });
 
   await test('without a token in production-style mode (DEMO_MODE=false) returns 401', async () => {
-    // DEMO_MODE is read when server.js loads, so check it in a separate process.
+    // DEMO_MODE is read when the API loads, so check it in a separate process.
     const script = `
       const http = require('http');
-      const app = require(${JSON.stringify(path.join(__dirname, 'combinedServer.js'))});
+      const app = require(${JSON.stringify(path.join(__dirname, '../../borrower-app/backend/server.js'))});
       const s = app.listen(5006, () => {
         const req = http.request({ hostname: '127.0.0.1', port: 5006, path: '/api/users/me/language', method: 'PUT',
           headers: { 'Content-Type': 'application/json' } }, (res) => { console.log('STATUS=' + res.statusCode); s.close(); process.exit(0); });
@@ -172,16 +173,11 @@ async function runTests() {
   });
 
   /** Capture console.log output while fn runs (the SMS/email mocks log there). */
+  // The borrower API runs in its own process: read what it logged while fn ran.
   async function captureLogs(fn) {
-    const lines = [];
-    const original = console.log;
-    console.log = (...args) => lines.push(args.join(' '));
-    try {
-      await fn();
-    } finally {
-      console.log = original;
-    }
-    return lines;
+    const mark = server.logMark('borrower');
+    await fn();
+    return server.logsSince(mark, 'borrower');
   }
 
   await test('OTP SMS is sent in the language on screen', async () => {

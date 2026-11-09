@@ -8,23 +8,19 @@
  * - Notifications generation (SMS, Email, In-App)
  * - Loan calculation parity verification
  *
- * WORKFLOW_SPLIT=1 runs the same flow against the split backends instead of combinedServer.js: the borrower
- * backend (port 5022) and the admin backend (port 5023, DB_INIT=false) as two processes on the same database.
- * Staff requests go to the admin backend, everything else to the borrower backend.
+ * Runs against the two real APIs as separate processes on the same database: the borrower API (port 5022)
+ * and the admin API (port 5023, DB_INIT=false). Staff requests go to the admin API, everything else to the
+ * borrower API.
  */
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
-const app = require('./combinedServer');
 const fixtures = require('@quickloan/backend-core/fixtures/loan-calc-fixtures.json');
 const { calculateLoanRepayment } = require('@quickloan/backend-core/services/loanCalculator');
 
-const TEST_PORT = 5012;
-const SPLIT = process.env.WORKFLOW_SPLIT === '1';
 const BORROWER_PORT = 5022;
 const ADMIN_PORT = 5023;
-let server;
 const children = [];
 const SERVER_ENTRY = {
   'borrower-server': require('path').resolve(__dirname, '../../borrower-app/backend/server.js'),
@@ -38,16 +34,15 @@ const tokenType = (token) => {
     return null;
   }
 };
-/** Which server a request goes to. In split mode: staff sign-in and staff tokens -> admin, the rest -> borrower. */
+/** Which API a request goes to: staff sign-in and staff tokens -> admin, the rest -> borrower. */
 function portFor(path, token, to) {
-  if (!SPLIT) return TEST_PORT;
   if (to === 'admin') return ADMIN_PORT;
   if (to === 'borrower') return BORROWER_PORT;
   if (/^\/api\/auth\/staff-/.test(path) || (token && tokenType(token) === 'staff')) return ADMIN_PORT;
   return BORROWER_PORT;
 }
 
-/** Split mode: starts both backends as child processes and waits until they answer. */
+/** Starts both APIs as child processes and waits until they answer. */
 async function startSplitServers() {
   const { spawn } = require('child_process');
   const start = (entry, port, env) => {
@@ -119,7 +114,7 @@ function uploadDummyFile(filename, mimeType, magicBuffer, token) {
     const req = http.request(
       {
         hostname: '127.0.0.1',
-        port: SPLIT ? BORROWER_PORT : TEST_PORT,
+        port: BORROWER_PORT,
         path: '/api/upload',
         method: 'POST',
         headers: {
@@ -164,15 +159,9 @@ async function runTests() {
   }
   console.log('  ✓ PASS: Server loan calculator matches all fixture standards accurately\n');
 
-  // Start HTTP server(s) for API tests
-  if (SPLIT) {
-    console.log('(split mode: borrower backend on 5022, admin backend on 5023)\n');
-    await startSplitServers();
-  } else {
-    await new Promise((resolve) => {
-      server = app.listen(TEST_PORT, resolve);
-    });
-  }
+  // Start both APIs for the HTTP tests
+  console.log('(borrower API on 5022, admin API on 5023)\n');
+  await startSplitServers();
 
   try {
     // 2. Staff Authentication
@@ -667,9 +656,9 @@ async function runTests() {
     for (const d of Object.values(guestDocs)) assert.strictEqual(await ownerOf(d.filename), adopter.userId, 'Guest upload should move to the new account');
     assert.strictEqual(await ownerOf(ownedByFirstApplicant), regRes.body.user.id, 'Another account\'s file must not be adopted');
 
-    // Verify clients cannot access Back Office endpoints or mint staff tokens. Split mode sends them to the
-    // admin backend (where those routes live), which refuses any non-staff token outright: 401, not 403.
-    const denied = SPLIT ? 401 : 403;
+    // Verify clients cannot access Back Office endpoints or mint staff tokens. These are sent to the admin
+    // API (where those routes live), which refuses any non-staff token outright: 401.
+    const denied = 401;
     const toAdmin = { to: 'admin' };
     const clientFlowBoAttempt = await request('GET', '/api/flow/applications', null, adopter.token, toAdmin);
     assert.strictEqual(clientFlowBoAttempt.status, denied, 'Client token must be denied Back Office flow list');
@@ -707,9 +696,6 @@ async function runTests() {
     console.log('🎉 ALL 3-STEP WORKFLOW TESTS PASSED ACCURATELY!');
     console.log('====================================================\n');
   } finally {
-    if (server) {
-      server.close();
-    }
     for (const child of children) child.kill();
   }
 }
@@ -719,7 +705,6 @@ if (require.main === module) {
     process.exit(0);
   }).catch((err) => {
     console.error('\n❌ TEST FAILED:', err);
-    if (server) server.close();
     for (const child of children) child.kill();
     process.exit(1);
   });
