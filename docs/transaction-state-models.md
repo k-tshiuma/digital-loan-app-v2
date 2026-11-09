@@ -4,7 +4,7 @@ The only stateful business entity is the **loan application**. There are no paym
 
 ## 1. Canonical statuses (Verified)
 
-Defined in `frontend/src/types.ts:3-9`. The server uses the same strings in `OPEN_STATUSES` and `DECIDED_STATUSES` (`server.js:38-39`) and in `STATUS_MESSAGES` (`server.js:346-353`).
+Defined in `shared/frontend/types.ts:3-9`. The server uses the same strings in `OPEN_STATUSES` and `DECIDED_STATUSES` (`server.js:38-39`) and in `STATUS_MESSAGES` (`server.js:346-353`).
 
 | Status | Open? | Decided? | Borrower SMS text (server) |
 |---|---|---|---|

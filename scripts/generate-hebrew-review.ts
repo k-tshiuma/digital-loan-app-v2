@@ -15,13 +15,13 @@ import { fileURLToPath } from 'node:url';
 import { BASE_TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
 import { MESSAGE_MODULES } from '@quickloan/ui-core/i18n/messages';
 // Each app adds its own groups to MESSAGE_MODULES; the sheet covers both apps.
-import '../frontend/src/i18n/appMessages';
+import '../borrower-app/frontend/src/i18n/appMessages';
 import '../admin-app/frontend/src/i18n/appMessages';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const out = path.join(root, 'docs/hebrew-review.csv');
-const backend = (p: string) => path.join(root, 'backend', p);
+const backend = (p: string) => path.join(root, 'shared', 'backend', p);
 const require = createRequire(import.meta.url);
 const BOM = String.fromCharCode(0xfeff);
 const BOM_RE = new RegExp(`^${BOM}`);

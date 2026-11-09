@@ -72,7 +72,7 @@ sequenceDiagram
 
 ## W3: Repayment quote (Step 6)
 
-Formula: `calculateLoanRepayment` (`frontend/src/config/appConfig.ts:200-241`), **client only**.
+Formula: `calculateLoanRepayment` (`shared/frontend/config/appConfig.ts:200-241`), **client only**.
 
 ```
 r        = 8.5 / 100 / 12                     (nominal monthly rate)

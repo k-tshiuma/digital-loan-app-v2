@@ -11,7 +11,7 @@ Priority: **P0** fix before any real data or exposed deployment · **P1** next �
 |---|---|---|---|---|---|---|
 | SEC-01 | Critical | Verified | DEMO_MODE is on unless disabled and bypasses auth (any OTP, unverified JWTs, staff tokens) | `server.js:25,101-138,461,609` | Auth | P0 |
 | SEC-02 | Critical | Verified | PDF route persists the client body before authorization | `server.js:1111-1129` | PDF | P0 |
-| SEC-14 | High | Verified/Unverified | `database.sqlite` with 23 users and bank data committed to git | `backend/database.sqlite` | Data | P0 |
+| SEC-14 | High | Verified/Unverified | `database.sqlite` with 23 users and bank data committed to git | `data/database.sqlite` | Data | P0 |
 | SEC-05 | High | Verified | Client authenticates locally on API rejection | `Step2Auth.tsx:401-411`, `storage.ts:690` | Auth | P0 |
 | SEC-06 | High | Verified | Plaintext passwords and PII in localStorage | `storage.ts:519-590` | Client data | P0 |
 | SEC-03 | High | Verified | Any staff role can set any status. Client-supplied history | `server.js:975-977` | Back office | P1 |
@@ -74,8 +74,8 @@ Priority: **P0** fix before any real data or exposed deployment · **P1** next �
 | MNT-04 | Medium | Verified | No migration tool. Additive ALTERs only | `database.js` | Adopt a migration runner with a version table | P2 |
 | MNT-05 | Medium | Verified | No CI, linting or test framework | repo | See [improvement-roadmap.md](improvement-roadmap.md) | P1 |
 | MNT-06 | Low | Verified | Documentation drift: README is the AI Studio template; `implementation-plan.md` claims tsc passes; CLAUDE.md lists 4 languages (5 exist); names differ (QuickLoan / LendGlobal / "react-example") | — | Update the docs and names | P2 |
-| MNT-07 | Low | Verified | Unused dependencies: `@google/genai`, `express` (frontend). `.env.example` lists unused `GEMINI_API_KEY`/`APP_URL`, but not `VITE_API_URL` | `frontend/package.json` | Remove them. Fix `.env.example` | P3 |
-| MNT-08 | Low | Verified | Stale `bun.lock` alongside `package-lock.json` | `frontend/` | Delete `bun.lock` | P3 |
+| MNT-07 | Low | Verified | Unused dependencies: `@google/genai`, `express` (frontend). `.env.example` lists unused `GEMINI_API_KEY`/`APP_URL`, but not `VITE_API_URL` | `borrower-app/frontend/package.json` | Remove them. Fix `.env.example` | P3 |
+| MNT-08 | Low | Verified | Stale `bun.lock` alongside `package-lock.json` | `borrower-app/frontend/` | Delete `bun.lock` | P3 |
 | MNT-09 | Low | Verified | Hard-coded English strings in components | `Step2Auth.tsx:155`, `Step7Guarantor.tsx:288-294`, `Step8DocumentUpload.tsx:93-104` | Move them to `translations.ts` | P2 |
 | MNT-10 | Low | Verified | Large components (`Step2Auth` 1608 lines, `BackOffice` 1099) | — | Extract subcomponents and hooks | P3 |
 | MNT-11 | Low | Verified | Single JS bundle > 500 kB, including staff UI and seed data | vite build output | Code-split the back office. Strip seeds from production builds | P3 |

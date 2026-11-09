@@ -4,9 +4,9 @@
 
 | Suite | File | Kind | Port | Assertions |
 |---|---|---|---|---|
-| Verification | `backend/test_verification.js` | HTTP integration script (requires `./server`, real SQLite) | 5002 | 32 |
-| Guarantors and scoring | `backend/test_guarantors_and_scoring.js` | Unit (scoring functions with `referenceDate`) + HTTP | 5003 | 45 |
-| Returning-user prefill | `backend/test_returning_user_prefill.js` | HTTP integration | 5004 | 8 |
+| Verification | `tests/integration/test_verification.js` | HTTP integration script (requires `./server`, real SQLite) | 5002 | 32 |
+| Guarantors and scoring | `tests/integration/test_guarantors_and_scoring.js` | Unit (scoring functions with `referenceDate`) + HTTP | 5003 | 45 |
+| Returning-user prefill | `tests/integration/test_returning_user_prefill.js` | HTTP integration | 5004 | 8 |
 
 Not present (Verified absent): any test framework (Jest, Mocha, Vitest), frontend unit or component tests, end-to-end tests (Playwright, Cypress), contract tests, load tests, CI execution, coverage tooling, ESLint. `npm test` in `backend/` is a placeholder that exits 1.
 
@@ -18,7 +18,7 @@ Not present (Verified absent): any test framework (Jest, Mocha, Vitest), fronten
 ### Mechanics
 - Each script uses Node's `http` to call its own `app.listen(port)`, prints `✓ PASS` / `✗ FAIL`, and exits non-zero on failure.
 - They depend on **DEMO_MODE** behaviour (fixed OTP, staff-token).
-- They **write to `backend/database.sqlite`**, the same file the dev server uses and the one committed to git.
+- They **write to `data/database.sqlite`**, the same file the dev server uses and the one committed to git.
 
 ## 2. Execution results (2026-10-11)
 
@@ -46,13 +46,13 @@ src/components/Step7Guarantor.tsx(85,3): error TS2304: Cannot find name 'useEffe
 src/components/Step8DocumentUpload.tsx(50,3): error TS2304: Cannot find name 'useEffect'.
 src/components/Step8DocumentUpload.tsx(56,3): error TS2304: Cannot find name 'useEffect'.
 ```
-The build succeeds because Vite and esbuild strip types without checking them. **The two missing `useEffect` imports are runtime errors, not just type errors.** Rendering Step 7 or Step 8 should throw `ReferenceError: useEffect is not defined` (DEF-01). Verified in source by `tsc`, and in the built bundle, where `frontend/dist/assets/index-*.js` contains exactly 3 unbound `useEffect(` calls. A real React import would have been renamed and qualified. The crash itself was not observed in a browser during this review. `implementation-plan.md` states that `tsc --noEmit` passes. That is no longer true.
+The build succeeds because Vite and esbuild strip types without checking them. **The two missing `useEffect` imports are runtime errors, not just type errors.** Rendering Step 7 or Step 8 should throw `ReferenceError: useEffect is not defined` (DEF-01). Verified in source by `tsc`, and in the built bundle, where `borrower-app/frontend/dist/assets/index-*.js` contains exactly 3 unbound `useEffect(` calls. A real React import would have been renamed and qualified. The crash itself was not observed in a browser during this review. `implementation-plan.md` states that `tsc --noEmit` passes. That is no longer true.
 
 ## 4. How to run the tests safely
 
 Option A, a copied directory (what this review did):
 ```bash
-mkdir -p /tmp/ql && cp -r backend/*.js backend/services backend/package.json backend/database.sqlite backend/node_modules /tmp/ql/
+mkdir -p /tmp/ql && cp -r backend/*.js shared/backend/services backend/package.json data/database.sqlite node_modules /tmp/ql/
 mkdir -p /tmp/ql/uploads && cd /tmp/ql
 node test_verification.js && node test_guarantors_and_scoring.js && node test_returning_user_prefill.js
 ```

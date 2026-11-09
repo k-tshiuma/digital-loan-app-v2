@@ -1,0 +1,19 @@
+{
+  "name": "@quickloan/backend-core",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Backend code shared by the borrower and admin backends: config, auth, database, application model, notifications, SSE, the 3-step workflow routes, scoring, PDF. CommonJS.",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "bidi-js": "^1.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.14",
+    "pdfkit": "^0.20.2",
+    "sqlite3": "^6.0.1",
+    "twilio": "^6.1.2"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@quickloan/borrower-backend",
+  "private": true,
+  "version": "0.0.0",
+  "description": "QuickLoan borrower API (port 5000): sign-in, uploads, the application steps, notifications, live status events. Owns the database schema.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@quickloan/backend-core": "*",
+    "bcryptjs": "^3.0.3",
+    "multer": "^2.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

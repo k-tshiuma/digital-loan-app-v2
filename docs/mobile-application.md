@@ -4,7 +4,7 @@
 
 ## 1. Startup and initialization
 
-1. `frontend/index.html` loads `src/main.tsx`, which renders `<App />` inside `React.StrictMode` (10 lines).
+1. `borrower-app/frontend/index.html` loads `src/main.tsx`, which renders `<App />` inside `React.StrictMode` (10 lines).
 2. Importing `services/storage.ts` constructs the `storageService` singleton (`storage.ts:1340`). `init()` loads every `quickloan_*` key, or **seeds 3 demo applications and 2 demo users** if the keys are absent (`storage.ts:407-471`).
 3. `App` state is initialised (`App.tsx:39-50`). `currentUser` comes from `storageService.getCurrentUser()`, i.e. the local session key, **not** from JWT validity. `currentStep` is 3 when a local user exists, otherwise 2. Step 1 (Language) is reachable only through Back.
 4. Effects:
@@ -57,7 +57,7 @@
 | Capability | Status | Evidence |
 |---|---|---|
 | Camera | `<input type="file" capture="environment">` | `Step8DocumentUpload.tsx:250` |
-| Permissions | Browser-mediated only. `metadata.json` requests `camera` for the AI Studio frame | `frontend/metadata.json` |
+| Permissions | Browser-mediated only. `metadata.json` requests `camera` for the AI Studio frame | `borrower-app/frontend/metadata.json` |
 | Push notifications | **Not Implemented.** "push" is only a channel label. In-app polling every 30 s | `NotificationBell.tsx:46` |
 | Real-time | Server-Sent Events (`EventSource`) | `Step11StatusTimeline.tsx:53-104` |
 | Biometrics / WebAuthn | Not Implemented | — |

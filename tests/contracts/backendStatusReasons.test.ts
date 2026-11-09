@@ -7,14 +7,11 @@ import { DEFAULT_STATUS_REASONS } from '@quickloan/ui-core/i18n/options';
 
 describe('statusReasonLabel', () => {
   it('knows every fixed reason the backend writes into the status history', () => {
-    // server.js and the route modules split out of it (routes/borrower, routes/admin, routes/shared).
-    const backend = path.resolve(__dirname, '../../backend');
-    const files = [
-      path.join(backend, 'server.js'),
-      ...['borrower', 'admin', 'shared'].flatMap((dir) =>
-        fs.readdirSync(path.join(backend, 'routes', dir)).filter((f) => f.endsWith('.js')).map((f) => path.join(backend, 'routes', dir, f))
-      ),
-    ];
+    // Every backend route module: the shared ones and each app's own.
+    const root = path.resolve(__dirname, '../..');
+    const files = ['shared/backend/routes/shared', 'borrower-app/backend/routes', 'admin-app/backend/routes'].flatMap((dir) =>
+      fs.readdirSync(path.join(root, dir)).filter((f) => f.endsWith('.js')).map((f) => path.join(root, dir, f))
+    );
     const server = files.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
     const known = Object.values(DEFAULT_STATUS_REASONS) as string[];
     // `reason: 'text'` or `reason: (...) || 'fallback text'`

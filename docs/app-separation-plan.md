@@ -301,6 +301,13 @@ Ten phases; each ends with every test green and the app runnable, so the work ca
 - **Do:** `git mv` into the final tree (section 4) so history follows, with no edits beyond require and import paths. Move `generate-hebrew-review.ts` to the root `scripts/` and update its paths. Update `CLAUDE.md`, the `docs/` files that name paths, and the backend test ports. `database.sqlite` can stay where it is, referenced through `DB_PATH`; moving it to `data/` is optional.
 - **Verify:** fresh clone, `npm install` at the root, all tests green, and `generate-hebrew-review.ts` produces the same `docs/hebrew-review.csv`.
 
+- **Done (2026-11-09).** Notes against the steps above:
+  - Final tree as in section 4, with one simplification: `shared/backend` keeps the existing folders (`core/`, `services/`, `routes/`, `database.js`, `creditEngine.js`) instead of the finer `db/`, `auth/`, `pdf/`… split, so the shared files needed no edits at all. App code requires it as `@quickloan/backend-core/...`.
+  - The old single `server.js` became `tests/integration/combinedServer.js`, a test harness that mounts both apps' routes; the older backend tests (now in `tests/integration/`) still run against it. Rollback is the `pre-split-baseline` tag, not this file. Splitting those tests per app is still open.
+  - Data moved to `data/` (`database.sqlite` with git history, `uploads/`), and the backend `.env` to the repo root; `shared/backend/loadEnv.js` reads an app's own `.env`, then the root one. Backup taken first; WAL checkpointed before the move.
+  - The backend joined the npm workspaces. Every direct backend dependency was pinned to its exact old version (package.json ranges unchanged); 12 indirect packages resolved to newer patch/minor versions within their ranges (e.g. `body-parser` 2.3.0 → 2.4.0). All tests pass with them.
+  - Two copies of `multer` ended up installed (one per workspace), which broke the `instanceof MulterError` check in the error handler (uploads errors became 500s). The handler now also matches by error name.
+  - Living docs had 98 paths updated; their line numbers and mentions of the old `backend/server.js` still describe the single backend (noted at the top of `docs/README.md`). Historical documents were left as written.
 ### Phase 8: Deployment and cut-over (required)
 
 - **Do:** see section 7. Run the old app and the new apps side by side on staging against a copy of the database, then switch. Remove the old `backend/` and `frontend/` folders only after the new apps have run in production for an agreed period.

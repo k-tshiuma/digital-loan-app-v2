@@ -8,7 +8,7 @@ import { statusLabel } from '@quickloan/ui-core/i18n/options';
 import { DOCUMENT_TYPE_CONFIG, VISA_TYPES } from '@quickloan/ui-core/config/appConfig';
 import { CanonicalStatus } from '@quickloan/ui-core/types';
 
-const requireBackend = createRequire(path.resolve(__dirname, '../../backend/package.json'));
+const requireBackend = createRequire(path.resolve(__dirname, '../../shared/backend/package.json'));
 const { VALUES, DOC_TITLE_KEYS, LEGACY_VALUES } = requireBackend('./services/pdfLabels.js');
 const { STATUS_NAMES } = requireBackend('./services/messages.js');
 

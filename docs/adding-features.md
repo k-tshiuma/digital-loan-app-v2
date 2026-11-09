@@ -5,15 +5,15 @@ These recipes match the current structure. They do not fix existing debt, but th
 ## 1. Add a field to the application (e.g. `employmentDetails.contractType`)
 
 Nested inside an existing JSON section, this needs **no DB change**:
-1. `frontend/src/types.ts`: add `contractType?: string` to `EmploymentDetails`.
-2. `frontend/src/components/Step5EmploymentDetails.tsx`: add the input to the form state and pass it out in `onSaveAndNext`.
-3. `frontend/src/i18n/translations.ts`: add a label key to **en, he, th, zh and tl**.
-4. If it affects scoring: update **both** `backend/services/eligibilityScoring.js` and `frontend/src/services/eligibilityScoring.ts`, plus `test_guarantors_and_scoring.js`.
+1. `shared/frontend/types.ts`: add `contractType?: string` to `EmploymentDetails`.
+2. `borrower-app/frontend/src/components/Step5EmploymentDetails.tsx`: add the input to the form state and pass it out in `onSaveAndNext`.
+3. `shared/frontend/i18n/translations.ts`: add a label key to **en, he, th, zh and tl**.
+4. If it affects scoring: update **both** `shared/backend/services/eligibilityScoring.js` and `shared/frontend/services/eligibilityScoring.ts`, plus `test_guarantors_and_scoring.js`.
 5. If it must be validated: add the check on the **server** in `PUT /applications/:id` (submission branch), not only in the step component.
-6. Optionally show it in the PDF (`backend/services/pdfService.js`) and the back-office inspector.
+6. Optionally show it in the PDF (`shared/backend/services/pdfService.js`) and the back-office inspector.
 
 A **new top-level** field (e.g. `application.referralCode`) also needs:
-- `backend/database.js`: append `'ALTER TABLE applications ADD COLUMN referralCode TEXT'` to `addedCols`. Never edit existing entries.
+- `shared/backend/database.js`: append `'ALTER TABLE applications ADD COLUMN referralCode TEXT'` to `addedCols`. Never edit existing entries.
 - `backend/server.js` `writeApp`: add it to **both** `cols` and `values` (`:261-277`). Otherwise it is silently dropped.
 - If it is JSON-shaped: add it to `APP_JSON_FIELDS` or `APP_JSON_ARRAY_FIELDS` (`:167-168`).
 - If borrowers must not change it after submission: add it to the frozen list (`:983-984`).
@@ -32,7 +32,7 @@ app.get('/api/applications/:id/summary', async (req, res) => {
 ```
 For staff-only routes add `requireStaff('credit_reviewer', 'system_admin')` as middleware.
 
-Client side, in `frontend/src/services/api.ts` inside `apiService`:
+Client side, in `borrower-app/frontend/src/services/api.ts` inside `apiService`:
 ```ts
 async getApplicationSummary(id: string, scope: ApiScope = 'borrower') {
   const res = await request<{ summary: { status: CanonicalStatus; requestNumber: string } }>(`/applications/${id}/summary`, { scope });
@@ -44,7 +44,7 @@ Do not add a `storageService` fallback for server data. Handle `ApiError` in the
 Public endpoints (no token) must be declared **before** line 619 and must be safe to call anonymously, with rate limiting.
 
 ## 3. Add a wizard screen
-1. Create `frontend/src/components/StepXNewThing.tsx` with props `{ language, initialData, onSaveAndNext, onBack }`, following `Step5EmploymentDetails` as the pattern.
+1. Create `borrower-app/frontend/src/components/StepXNewThing.tsx` with props `{ language, initialData, onSaveAndNext, onBack }`, following `Step5EmploymentDetails` as the pattern.
 2. In `App.tsx`: add `handleSaveNewThing` (merge, `autoSaveDraft(updated, next)`, `setCurrentStep(next)`) and a render block `{currentStep === N && (...)}`.
 3. Renumber: the step numbers are literals throughout `App.tsx` (including `onBack` targets, the returning-user jump to 6, and the `>= 3 && <= 9` progress range) and `WizardProgress.tsx`. Search for `setCurrentStep(` and `currentStep ===`.
 4. Server: `currentStep` defaults (`server.js:269, 902`) assume the current numbering.

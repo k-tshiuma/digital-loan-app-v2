@@ -1,16 +1,28 @@
 {
   "name": "quickloan",
   "private": true,
-  "description": "QuickLoan monorepo root. Only declares npm workspaces; each app keeps its own scripts. See docs/app-separation-plan.md.",
+  "description": "QuickLoan monorepo root: npm workspaces and convenience scripts. See docs/app-separation-plan.md.",
   "workspaces": [
-    "frontend",
+    "shared/frontend",
+    "shared/backend",
+    "borrower-app/frontend",
+    "borrower-app/backend",
     "admin-app/frontend",
-    "shared/frontend"
+    "admin-app/backend"
   ],
   "scripts": {
-    "test:contracts": "vitest run --config tests/contracts/vitest.config.ts"
+    "start:borrower": "npm start -w @quickloan/borrower-backend",
+    "start:admin": "npm start -w @quickloan/admin-backend",
+    "dev:borrower-api": "npm run dev -w @quickloan/borrower-backend",
+    "dev:admin-api": "npm run dev -w @quickloan/admin-backend",
+    "dev:borrower": "npm run dev -w @quickloan/borrower-frontend",
+    "dev:admin": "npm run dev -w @quickloan/admin-frontend",
+    "test:frontend": "npm test -w @quickloan/ui-core -w @quickloan/borrower-frontend -w @quickloan/admin-frontend",
+    "test:contracts": "vitest run --config tests/contracts/vitest.config.ts",
+    "seed:staff": "npm run seed:staff -w @quickloan/admin-backend"
   },
   "devDependencies": {
+    "docx": "^9.10.0",
     "vitest": "^3.2.4"
   }
 }

@@ -136,9 +136,9 @@ Severity: Critical / High / Medium / Low. These findings are also listed in [tec
 - **Recommendation:** Require `JWT_SECRET` in every non-local environment. Rotate it.
 
 ### SEC-14: SQLite database committed to version control · **High** · Verified (presence) / Unverified (whether the data is real)
-- **Where:** `backend/database.sqlite` is tracked by git (introduced in `1a45e40` and modified in `7491a8f` and `397b7d9`). It contains 23 users, 34 applications (21 with bank-account fields) and 26 notifications. Row contents were **not** inspected.
+- **Where:** `data/database.sqlite` is tracked by git (introduced in `1a45e40` and modified in `7491a8f` and `397b7d9`). It contains 23 users, 34 applications (21 with bank-account fields) and 26 notifications. Row contents were **not** inspected.
 - **Impact:** If any row is real, PII has been published to everyone with repository access, and it stays in git history even if the file is deleted.
-- **Recommendation:** Confirm the data is synthetic. Add `backend/database.sqlite` to `.gitignore`, remove the file from tracking, and if the data is real, purge it from history and treat it as a data incident. Ship a seed script instead.
+- **Recommendation:** Confirm the data is synthetic. Add `data/database.sqlite` to `.gitignore`, remove the file from tracking, and if the data is real, purge it from history and treat it as a data incident. Ship a seed script instead.
 
 ### SEC-15: OTP kept in plaintext next to its hash · **Low** · Verified
 - **Where:** `server.js:435, 456`. The plaintext `code` is stored and compared, which makes the hash pointless. The OTP is also written to the console log when SMS is mocked (`smsService.js:7`).
@@ -164,7 +164,7 @@ Severity: Critical / High / Medium / Low. These findings are also listed in [tec
 - **Where:** The mock SMS log prints the destination number and the message, including OTP and reset codes (`smsService.js:7`). The email mock prints the recipient (`emailService.js:16`).
 
 ### SEC-21: Security and data claims shown to borrowers are contradicted by the code · **Medium** (legal/consumer-protection risk) · Verified
-- **Where:** The Help/FAQ modal (`frontend/src/components/HelpModal.tsx`, `faqs` array starting at line 15) tells borrowers in five languages that the app "uses bank-grade encryption in transit (TLS 1.3) **and at rest**. Credit card numbers are masked, and **immutable audit logs record every access**." The back office labels its tab "Immutable Audit Logs" (`BackOffice.tsx`, the `audit` tab). The footer claims "Encrypted via TLS 1.3" (`App.tsx:458`).
+- **Where:** The Help/FAQ modal (`borrower-app/frontend/src/components/HelpModal.tsx`, `faqs` array starting at line 15) tells borrowers in five languages that the app "uses bank-grade encryption in transit (TLS 1.3) **and at rest**. Credit card numbers are masked, and **immutable audit logs record every access**." The back office labels its tab "Immutable Audit Logs" (`BackOffice.tsx`, the `audit` tab). The footer claims "Encrypted via TLS 1.3" (`App.tsx:458`).
 - **Contradicting evidence:** no encryption at rest (SEC-16); TLS is not configured in the repo (SEC-12); the audit log is a mutable localStorage array in the browser that records no reads (`storage.ts:1169-1184`, FIN-08).
 - **Related inaccuracy:** the FAQ's document checklist (passport, visa sticker, 3 pay slips, employment letter, 3 months of bank statements) does not match the documents Step 8 actually requires (`DOCUMENT_TYPE_CONFIG`: passport, pay slip, bank account document, and guarantor ID when applicable).
 - **Recommendation:** Remove or correct these statements until they are true. Have legal or compliance review all borrower-facing security and privacy statements.
@@ -184,8 +184,8 @@ Severity: Critical / High / Medium / Low. These findings are also listed in [tec
 | TLS / pinning | Not configured or implemented. Pinning does not apply to browsers |
 | Rooted / jailbroken devices | Not applicable |
 | Debug vs release | No build-time flag separates demo behaviour in the **frontend**. Local OTP fallbacks and the seeded demo data ship in the production bundle (Verified: `vite build` includes `storage.ts`) |
-| Secrets in bundle | No secrets found in `frontend/src` (grep for keys and tokens). `.env.example` holds placeholders only |
-| XSS sinks | No `dangerouslySetInnerHTML`, `innerHTML` or `eval` in `frontend/src` (Verified by grep). React escaping applies |
+| Secrets in bundle | No secrets found in `borrower-app/frontend/src` (grep for keys and tokens). `.env.example` holds placeholders only |
+| XSS sinks | No `dangerouslySetInnerHTML`, `innerHTML` or `eval` in `borrower-app/frontend/src` (Verified by grep). React escaping applies |
 | Camera | Uses `<input capture="environment">` (`Step8DocumentUpload.tsx:250`). No `getUserMedia` |
 
 ## 5. API and data security summary

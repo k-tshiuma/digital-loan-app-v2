@@ -6,10 +6,10 @@ Status labels: see [README.md](README.md#verification-status-legend). Every diag
 
 QuickLoan is a **two-tier web application**:
 
-1. A **React SPA** (`frontend/`) that runs entirely in the browser. It holds **two data layers**:
+1. A **React SPA** (`borrower-app/frontend/`) that runs entirely in the browser. It holds **two data layers**:
    - `apiService` (`src/services/api.ts`): a thin `fetch` client for the Express API.
    - `storageService` (`src/services/storage.ts`): a full **local "shadow backend"** in `localStorage`. It holds users (including passwords), applications, audit events, notifications, config, seeded demo data, local OTP generation and verification, a simulated funding hand-off, and exports.
-2. An **Express 5 API** (`backend/server.js`) backed by **SQLite** (`backend/database.sqlite`), with local disk file storage (`backend/uploads/`) and optional Twilio and SMTP.
+2. An **Express 5 API** (`backend/server.js`) backed by **SQLite** (`data/database.sqlite`), with local disk file storage (`data/uploads/`) and optional Twilio and SMTP.
 
 The most important architectural fact is that **the client is offline-first and optimistic, and in several flows it is authoritative.** The UI writes to `localStorage` first and syncs to the API in the background, usually swallowing errors. When the API rejects a request, several flows fall back to the local store. For a lending system this blurs the "system of record" (see [financial-integrity-risks.md](financial-integrity-risks.md)).
 
@@ -37,8 +37,8 @@ flowchart LR
     OTP["In-memory OTP Map"]
   end
 
-  DB[("SQLite<br/>backend/database.sqlite")]
-  FS[("Local disk<br/>backend/uploads/")]
+  DB[("SQLite<br/>data/database.sqlite")]
+  FS[("Local disk<br/>data/uploads/")]
   TW["Twilio SMS<br/>(only if TWILIO_SID/TOKEN)"]
   SMTP["SMTP email<br/>(only if SMTP_USER)"]
   FUND["Funding partner<br/>(simulated in browser only)"]

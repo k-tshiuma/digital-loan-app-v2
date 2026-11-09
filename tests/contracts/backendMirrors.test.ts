@@ -6,7 +6,7 @@ import { TRANSLATIONS } from '@quickloan/ui-core/i18n/translations';
 import { RISK_FLAG_CODES } from '@quickloan/ui-core/i18n/options';
 
 const SHARED = path.resolve(__dirname, '../../shared/frontend');
-const BACKEND = path.resolve(__dirname, '../../backend');
+const BACKEND = path.resolve(__dirname, '../../shared/backend');
 
 const has = (key: string) => !!TRANSLATIONS.en[key] && !!TRANSLATIONS.he[key];
 

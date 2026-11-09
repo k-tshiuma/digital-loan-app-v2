@@ -1,8 +1,8 @@
 # Data Models
 
-Canonical TypeScript types live in `frontend/src/types.ts`. The backend has no type definitions. It persists whatever JSON the client sends into the TEXT columns described in [database.md](database.md), and the only validation is described in [api-reference.md](api-reference.md).
+Canonical TypeScript types live in `shared/frontend/types.ts`. The backend has no type definitions. It persists whatever JSON the client sends into the TEXT columns described in [database.md](database.md), and the only validation is described in [api-reference.md](api-reference.md).
 
-## 1. Core domain types (`frontend/src/types.ts`)
+## 1. Core domain types (`shared/frontend/types.ts`)
 
 | Type | Line | Purpose |
 |---|---|---|
@@ -82,7 +82,7 @@ The newer `guarantors[]` array and the legacy `guarantor` object are kept in syn
 | `documents[].dataUrl` is removed when `fileUrl` exists | `stripInlineFiles`, `server.js:216-224` |
 | `users.password` is removed from responses, `hasPassword` is added. **`profileData` is returned as a raw JSON string** | `sanitizeUser`, `server.js:68-77` |
 
-## 3. Business configuration (`frontend/src/config/appConfig.ts`): client only
+## 3. Business configuration (`shared/frontend/config/appConfig.ts`): client only
 
 | Key | Value | Enforced on server? |
 |---|---|---|

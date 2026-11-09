@@ -7,8 +7,8 @@ coverage/
 .env*
 !.env.example
 scratch/
-backend/uploads/*
-!backend/uploads/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
 # SQLite WAL side files (database.js turns on WAL mode)
-backend/database.sqlite-wal
-backend/database.sqlite-shm
+data/database.sqlite-wal
+data/database.sqlite-shm
