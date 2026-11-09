@@ -57,6 +57,7 @@ const RISK_COLORS: Record<RiskLevel, string> = {
 const PIE_PALETTE = ['#3b82f6', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6'];
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ applications, language = 'en' }) => {
+  const isRtl = language === 'he';
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -315,16 +316,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ applicat
             <span className="text-[10px] text-slate-400 font-mono">{t(language, 'an.activeQueue')}</span>
           </div>
 
-          <div className="h-56 w-full">
+          {/* Laid out left-to-right so SVG text anchors aren't flipped by the page direction; in Hebrew the labels
+              sit on the right and the bars grow leftwards. */}
+          <div className="h-56 w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statusChartData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
+                <XAxis type="number" allowDecimals={false} reversed={isRtl} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" width={110} orientation={isRtl ? 'right' : 'left'} tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px' }}
                 />
-                <Bar dataKey="count" name={t(language, 'an.seriesApplications')} radius={[0, 8, 8, 0]}>
+                <Bar dataKey="count" name={t(language, 'an.seriesApplications')} radius={isRtl ? [8, 0, 0, 8] : [0, 8, 8, 0]}>
                   {statusChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
