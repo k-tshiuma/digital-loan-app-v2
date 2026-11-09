@@ -13,6 +13,7 @@ const { normalizePhone, sanitizeUser, signUserToken, signStaffSession, isStaff, 
 const { parseApp, nextRequestNumber } = require('./applications');
 const { broadcastAppEvent } = require('./sse');
 const { notifyStatusChange } = require('./notifications');
+const { ipAllowlist } = require('./ipAllowlist');
 
 /**
  * TRUST_PROXY: set it when the API runs behind a reverse proxy (nginx), so req.ip is the visitor's address
@@ -59,11 +60,19 @@ const TOKEN_KINDS = { borrower: ['borrower'], admin: ['staff'] };
  * Creates the app with the common middleware, then `authMiddleware` (optionalAuth, or the admin backend's
  * staffOnlyAuth), then GET /api/health. Returns the app and this app's flow routes.
  */
-function createBaseApp({ authMiddleware, service }) {
+function createBaseApp({ authMiddleware, service, allowedNetworks }) {
   assertJwtSecrets(TOKEN_KINDS[service] || ['borrower', 'staff']);
   if (IS_PRODUCTION) warnMissingProductionSettings();
   const app = express();
   if (process.env.TRUST_PROXY) app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
+  // Before everything else, health included: outside the allowed networks the API answers nothing but 403.
+  const networkGuard = ipAllowlist(allowedNetworks, { label: service || 'API' });
+  if (networkGuard) {
+    if (!process.env.TRUST_PROXY) {
+      console.warn('WARNING: an allow list is set without TRUST_PROXY: behind a proxy every request has the proxy\'s address.');
+    }
+    app.use(networkGuard);
+  }
   app.use(cors({ origin: corsOrigins(service) }));
   app.use(express.json({ limit: '5mb' }));
   app.use(authMiddleware);
