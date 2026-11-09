@@ -112,6 +112,37 @@ describe('FlowEntry', () => {
     );
   });
 
+  // Found in the browser check: an error stayed on screen after the applicant had fixed what it was about.
+  it('clears an error once the applicant changes what it was about', async () => {
+    const u = userEvent.setup();
+    mockGeolocation('granted');
+    renderEntry();
+
+    await u.click(screen.getByRole('button', { name: 'Create your account' }));
+    await u.click(screen.getByRole('button', { name: 'Grant location access' }));
+    await u.click(await screen.findByRole('button', { name: 'Continue to Registration' }));
+    const disclaimerError = 'Please check the box to accept regulatory disclosures.';
+    expect(screen.getByText(disclaimerError)).toBeInTheDocument();
+    await u.click(screen.getByRole('checkbox'));
+    expect(screen.queryByText(disclaimerError)).not.toBeInTheDocument();
+    await u.click(screen.getByRole('button', { name: 'Continue to Registration' }));
+
+    // Asking for a code without a phone number, then typing one
+    await screen.findByText('Registration · step 3 of 3');
+    await u.click(screen.getByRole('button', { name: 'Send SMS code' }));
+    const phoneError = 'Please enter a valid mobile number.';
+    expect(screen.getAllByText(phoneError).length).toBeGreaterThan(0);
+    await u.type(screen.getByLabelText(/Mobile number/), '0');
+    expect(screen.queryByText(phoneError)).not.toBeInTheDocument();
+
+    // Submitting the empty form, then starting to fill it in
+    await u.click(screen.getByRole('button', { name: 'Create account' }));
+    const nameError = 'Please enter your full name as it appears on your passport.';
+    expect(screen.getByText(nameError)).toBeInTheDocument();
+    await u.type(screen.getByLabelText(/Full name/), 'S');
+    expect(screen.queryByText(nameError)).not.toBeInTheDocument();
+  });
+
   it('moves an unregistered Google account to registration and reuses it after the consent', async () => {
     const u = userEvent.setup();
     mockGeolocation('unavailable'); // permission granted, no fix: allowed without a position

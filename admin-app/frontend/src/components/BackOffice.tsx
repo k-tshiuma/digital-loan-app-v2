@@ -86,8 +86,22 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   );
   const [selectedApp, setSelectedApp] = useState<LoanApplication | null>(null);
   const [selectedFlowDetail, setSelectedFlowDetail] = useState<any | null>(null);
-  const [flowCounts, setFlowCounts] = useState<{ total: number; byGroup: Record<string, number>; byStatus: Record<string, number> } | null>(null);
   const [flowGroupFilter, setFlowGroupFilter] = useState<string>('ALL');
+
+  // Escape closes the application detail window, unless the user is typing in a field (a note or reason
+  // they are writing would be lost).
+  useEffect(() => {
+    if (!selectedApp) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      setSelectedApp(null);
+      setSelectedFlowDetail(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedApp]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'applications' | 'analytics' | 'audit' | 'config'>('applications');
@@ -120,16 +134,12 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     if (currentRole === 'borrower') return;
     try {
       await apiService.ensureStaffToken(currentRole);
-      const [backendApps, flowRes, rulesData] = await Promise.all([
+      const [backendApps, rulesData] = await Promise.all([
         apiService.listAllApplications().catch(() => null),
-        apiService.listFlowApplications().catch(() => null),
         apiService.getCreditRules().catch(() => null),
       ]);
       if (backendApps && backendApps.length > 0) {
         setApplications(backendApps);
-      }
-      if (flowRes?.counts) {
-        setFlowCounts(flowRes.counts);
       }
       if (rulesData && rulesData.rules) {
         setCreditRules(rulesData.rules);
@@ -235,20 +245,24 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   };
 
   // Filtered applications list
+  // Whether an application belongs to a filter chip's group. 3-step applications carry their group; classic
+  // ones are placed by status (they have no in-progress, stage-approved or completed groups).
+  const inFlowGroup = (app: LoanApplication, group: string): boolean => {
+    if (group === 'ALL') return true;
+    const flowGroup = (app as any).group || (app as any).flowGroup;
+    if (flowGroup) return flowGroup === group;
+    if (group === 'pending') return ['Received', 'Under Review'].includes(app.status);
+    if (group === 'approved_final') return app.status === 'Approved';
+    if (group === 'rejected') return app.status === 'Rejected';
+    return false;
+  };
+  // Each chip shows how many rows the table lists when it is selected (before search and status filters).
+  const groupCount = (group: string) => applications.filter((app) => inFlowGroup(app, group)).length;
+
   const filteredApps = applications.filter((app) => {
     const flowStatus = (app as any).flowStatus;
-    const flowGroup = (app as any).group || (app as any).flowGroup;
 
-    if (flowGroupFilter !== 'ALL') {
-      if (flowGroup) {
-        if (flowGroup !== flowGroupFilter) return false;
-      } else {
-        if (flowGroupFilter === 'pending' && !['Received', 'Under Review'].includes(app.status)) return false;
-        if (flowGroupFilter === 'approved_final' && app.status !== 'Approved') return false;
-        if (flowGroupFilter === 'rejected' && app.status !== 'Rejected') return false;
-        if (['in_progress', 'approved_stage', 'completed'].includes(flowGroupFilter)) return false;
-      }
-    }
+    if (!inFlowGroup(app, flowGroupFilter)) return false;
 
     const matchesStatus =
       statusFilter === 'ALL' ||
@@ -527,13 +541,11 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             {/* Workflow Group Filter Pills */}
             <div className="flex flex-wrap items-center gap-1.5 pb-1">
               {[
-                { id: 'ALL', label: t(language, 'bo.allStatuses', { n: flowCounts?.total ?? applications.length }) },
-                { id: 'pending', label: `${flowGroupLabel(language, 'pending')}${flowCounts?.byGroup?.pending !== undefined ? ` (${flowCounts.byGroup.pending})` : ''}` },
-                { id: 'in_progress', label: `${flowGroupLabel(language, 'in_progress')}${flowCounts?.byGroup?.in_progress !== undefined ? ` (${flowCounts.byGroup.in_progress})` : ''}` },
-                { id: 'approved_stage', label: `${flowGroupLabel(language, 'approved_stage')}${flowCounts?.byGroup?.approved_stage !== undefined ? ` (${flowCounts.byGroup.approved_stage})` : ''}` },
-                { id: 'completed', label: `${flowGroupLabel(language, 'completed')}${flowCounts?.byGroup?.completed !== undefined ? ` (${flowCounts.byGroup.completed})` : ''}` },
-                { id: 'approved_final', label: `${flowGroupLabel(language, 'approved_final')}${flowCounts?.byGroup?.approved_final !== undefined ? ` (${flowCounts.byGroup.approved_final})` : ''}` },
-                { id: 'rejected', label: `${flowGroupLabel(language, 'rejected')}${flowCounts?.byGroup?.rejected !== undefined ? ` (${flowCounts.byGroup.rejected})` : ''}` },
+                { id: 'ALL', label: t(language, 'bo.allStatuses', { n: applications.length }) },
+                ...(['pending', 'in_progress', 'approved_stage', 'completed', 'approved_final', 'rejected'] as const).map((group) => ({
+                  id: group,
+                  label: `${flowGroupLabel(language, group)} (${groupCount(group)})`,
+                })),
               ].map((pill) => (
                 <button
                   key={pill.id}

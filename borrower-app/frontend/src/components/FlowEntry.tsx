@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, Mail, MapPin, Phone, Shield, User as UserIcon } from 'lucide-react';
 import { FlowApplicationView, Language, RegistrationConsent, User } from '@quickloan/ui-core/types';
 import { t } from '@quickloan/ui-core/i18n/translations';
@@ -317,7 +317,10 @@ const ConsentScreens: React.FC<{
           type="checkbox"
           id="disclaimer-checkbox"
           checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
+          onChange={(e) => {
+            setAgreed(e.target.checked);
+            if (e.target.checked) setAgreeError(null);
+          }}
           className="mt-0.5 w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
         />
         <span className="text-xs text-slate-700 leading-normal font-medium">{t(language, 'lead.disclaimerConsent')}</span>
@@ -364,6 +367,12 @@ export const FlowEntry: React.FC<FlowEntryProps> = ({ language, mode, account, o
     setError(null);
     setErrors({});
   };
+
+  // An error describes what was on screen when it appeared; once the applicant changes a field it goes.
+  useEffect(() => {
+    setError(null);
+    setErrors({});
+  }, [identifier, password, code, newPassword, fullName, phone, email, confirmPassword]);
 
   const run = async (fn: () => Promise<void>, fallbackKey = 'err.generic') => {
     setBusy(true);
