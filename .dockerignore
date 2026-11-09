@@ -1,0 +1,12 @@
+# Docker build context (deploy/docker/Dockerfile). Packages are installed inside the image, for Linux.
+**/node_modules
+**/dist
+.git
+.env
+**/.env
+data
+scratch
+coverage
+*.log
+*.docx
+*.pdf

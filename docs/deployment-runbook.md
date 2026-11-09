@@ -2,6 +2,8 @@
 
 How to run QuickLoan in production: one Ubuntu server, nginx in front, pm2 running the two APIs, one SQLite database. Phase 8 of [app-separation-plan.md](app-separation-plan.md). Everything here was rehearsed on 2026-11-09 (see [Rehearsal record](#9-rehearsal-record)).
 
+**With Docker instead** (only Docker on the host; nginx and the APIs in containers): [docker-deployment.md](docker-deployment.md). It uses the same settings files, and the checklist and troubleshooting below still apply.
+
 The files are in `deploy/`:
 
 | File | Purpose |
