@@ -446,10 +446,21 @@ export interface UploadedDocRef {
   uploadedAt?: string;
 }
 
+/** Consent given before an account is created (or before Step 1 for an account that signed in elsewhere). */
+export interface RegistrationConsent {
+  disclaimerAccepted: boolean;
+  locationGranted: boolean;
+  location?: { latitude: number; longitude: number; accuracy?: number } | null;
+}
+
 export interface Step1FormData {
   personal: {
     fullName: string;
+    /** Set by the applicant to confirm a name different from the account name is their legal (passport) name. */
+    legalNameConfirmed?: boolean;
+    /** Phone and email are always taken from the account by the server. */
     phoneNumber: string;
+    email?: string;
     dateOfBirth: string;
     address: string;
     passportNumber?: string;
@@ -458,6 +469,7 @@ export interface Step1FormData {
     visaExpiryDate?: string;
     monthlySalaryNis?: number;
     salaryCurrency?: string;
+    nameCorrection?: { previousName: string; correctedName: string; confirmedAt: string } | null;
   };
   documents: {
     passport: UploadedDocRef | null;
@@ -479,6 +491,7 @@ export interface Step1FormData {
     disclaimerVersion?: string;
     locationRequested?: boolean;
     locationGranted?: boolean;
+    location?: { latitude: number; longitude: number; accuracyM: number | null } | null;
   };
 }
 

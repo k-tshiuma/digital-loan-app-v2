@@ -542,7 +542,15 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                     <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">{t(language, 'fi.stepBadge', { step: 1 })}</span>
                   </h4>
                   <div><span className="text-slate-400">{t(language, 'fi.fullName')}</span> <span className="font-bold text-slate-900">{empInfo.fullName || '—'}</span></div>
+                  {step1.data?.personal?.nameCorrection?.previousName && (
+                    <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                      {t(language, 'fi.nameCorrected', { name: step1.data.personal.nameCorrection.previousName })}
+                    </div>
+                  )}
                   <div><span className="text-slate-400">{t(language, 'fi.phone')}</span> <bdi dir="ltr" className="font-bold">{empInfo.phoneNumber || '—'}</bdi></div>
+                  {step1.data?.personal?.email && (
+                    <div><span className="text-slate-400">{t(language, 'fi.email')}</span> <bdi dir="ltr" className="font-bold">{step1.data.personal.email}</bdi></div>
+                  )}
                   <div><span className="text-slate-400">{t(language, 'fi.dob')}</span> {empInfo.dateOfBirth ? formatDate(empInfo.dateOfBirth, language) : '—'}</div>
                   <div><span className="text-slate-400">{t(language, 'fi.address')}</span> {empInfo.address || '—'}</div>
                   <div><span className="text-slate-400">{t(language, 'fi.passportNumber')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-900">{empInfo.passportNumber || '—'}</bdi></div>
@@ -567,8 +575,22 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                   </h4>
                   <div><span className="text-slate-400">{t(language, 'fi.email')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-800">{detail.account?.email || '—'}</bdi></div>
                   <div><span className="text-slate-400">{t(language, 'fi.authMethod')}</span> <span className="font-semibold">{t(language, (step1.data?.account?.authMethod || detail.account?.authProvider) === 'google' ? 'fi.auth.google' : 'fi.auth.manual')}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.location')}</span> <span className="text-emerald-700 font-bold">{t(language, 'fi.granted')}</span></div>
-                  <div><span className="text-slate-400">{t(language, 'fi.disclaimer')}</span> <span className="text-emerald-700 font-bold">{t(language, 'fi.accepted')}</span></div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'fi.location')}</span>{' '}
+                    {step1.data?.registration?.locationGranted ? (
+                      <span className="text-emerald-700 font-bold">{t(language, 'fi.granted')}</span>
+                    ) : (
+                      <span className="text-amber-700 font-bold">{t(language, 'fi.notGiven')}</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'fi.disclaimer')}</span>{' '}
+                    {step1.data?.registration?.disclaimerAcceptedAt ? (
+                      <span className="text-emerald-700 font-bold">{t(language, 'fi.accepted')}</span>
+                    ) : (
+                      <span className="text-amber-700 font-bold">{t(language, 'fi.notGiven')}</span>
+                    )}
+                  </div>
                 </div>
               </div>
 

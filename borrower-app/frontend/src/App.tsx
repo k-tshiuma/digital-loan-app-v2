@@ -30,6 +30,7 @@ import { Step9ReviewConfirm } from './components/Step9ReviewConfirm';
 import { Step10SubmissionSuccess } from './components/Step10SubmissionSuccess';
 import { Step11StatusTimeline } from './components/Step11StatusTimeline';
 import { Step1LeadGeneration } from './components/Step1LeadGeneration';
+import { FlowEntry, FlowEntryMode } from './components/FlowEntry';
 import { Step2ApplicationCompletion } from './components/Step2ApplicationCompletion';
 import { Step3FinalSubmission } from './components/Step3FinalSubmission';
 import { FlowStatusHub } from './components/FlowStatusHub';
@@ -87,6 +88,23 @@ export default function App() {
   const [currentFlowStep, setCurrentFlowStep] = useState<1 | 2 | 3 | 'hub'>(1);
   const [flowApplication, setFlowApplication] = useState<FlowApplicationView | null>(null);
   const [flowTerms, setFlowTerms] = useState<Record<string, TermsVersionRecord> | null>(null);
+  const [flowLoadFailed, setFlowLoadFailed] = useState(false);
+  const [flowReloadKey, setFlowReloadKey] = useState(0);
+
+  // Shows the flow application and opens the step the applicant should be on.
+  const applyFlowApplication = (app: FlowApplicationView) => {
+    setFlowApplication(app);
+    setFlowLoadFailed(false);
+    if (app.flowStatus === 'LEAD_REGISTERED') {
+      setCurrentFlowStep(1);
+    } else if (app.unlockedStep === 2 && app.stepStates[2] === 'available') {
+      setCurrentFlowStep(2);
+    } else if (app.unlockedStep === 3 && app.stepStates[3] === 'available') {
+      setCurrentFlowStep(3);
+    } else {
+      setCurrentFlowStep('hub');
+    }
+  };
 
   // Keep Back Office route detection synchronized with URL navigation
   useEffect(() => {
@@ -102,23 +120,13 @@ export default function App() {
   // Load flow application & terms for authenticated borrower users (never on Back Office route)
   useEffect(() => {
     if (!isBackOfficeRoute && apiService.isAuthenticated()) {
+      setFlowLoadFailed(false);
       apiService
         .getFlowApplication()
         .then((app) => {
-          if (app) {
-            setFlowApplication(app);
-            if (app.flowStatus !== 'LEAD_REGISTERED') {
-              if (app.unlockedStep === 2 && app.stepStates[2] === 'available') {
-                setCurrentFlowStep(2);
-              } else if (app.unlockedStep === 3 && app.stepStates[3] === 'available') {
-                setCurrentFlowStep(3);
-              } else {
-                setCurrentFlowStep('hub');
-              }
-            }
-          }
+          if (app) applyFlowApplication(app);
         })
-        .catch(() => {});
+        .catch(() => setFlowLoadFailed(true));
 
       apiService
         .getCurrentTerms()
@@ -129,7 +137,33 @@ export default function App() {
         })
         .catch(() => {});
     }
-  }, [currentUser, isBackOfficeRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, isBackOfficeRoute, flowReloadKey]);
+
+  // The 3-step flow starts with sign-in. Registration (location + conditions + account) and, for accounts that
+  // signed in elsewhere, the consent and missing contact details all come before Step 1.
+  const flowGate: FlowEntryMode | 'loading' | null = !apiService.isAuthenticated()
+    ? 'auth'
+    : !flowApplication
+    ? 'loading'
+    : flowApplication.needsRegistrationConsent
+    ? 'consent'
+    : !flowApplication.account?.phoneNumber || !flowApplication.account?.email
+    ? 'contact'
+    : null;
+
+  const handleFlowAuthenticated = (authUser: User, app?: FlowApplicationView | null) => {
+    // Same session rule as handleAuthenticated: keep the backend id.
+    setCurrentUser(storageService.adoptUser(authUser));
+    if (app) applyFlowApplication(app);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleFlowEntryUpdated = (app: FlowApplicationView, authUser?: User) => {
+    if (authUser) setCurrentUser(storageService.adoptUser(authUser));
+    applyFlowApplication(app);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Network online/offline listener
   useEffect(() => {
@@ -442,6 +476,7 @@ export default function App() {
         /* 3-Step Loan Flow Container */
         <main className="flex-1 flex flex-col items-center justify-start p-3 sm:p-5 w-full relative z-10">
           <div className="w-full max-w-xl mx-auto mb-3 flex items-center justify-between px-1">
+            {flowGate ? <span /> : (
             <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-xs p-1 rounded-2xl border border-slate-200/80 shadow-2xs">
               <button
                 type="button"
@@ -524,6 +559,7 @@ export default function App() {
                 </button>
               )}
             </div>
+            )}
 
             <button
               type="button"
@@ -536,7 +572,40 @@ export default function App() {
 
           <div className="w-full max-w-xl">
             <ErrorBoundary language={currentLanguage} fallbackTitle={t(currentLanguage, 'errorBoundary.loanAppTitle')}>
-              {currentFlowStep === 'hub' && flowApplication ? (
+              {flowGate === 'loading' ? (
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-8 max-w-xl mx-auto text-center space-y-4">
+                  <p className="text-sm text-slate-600">
+                    {flowLoadFailed ? t(currentLanguage, 'entry.loadFailed') : t(currentLanguage, 'entry.loadingAccount')}
+                  </p>
+                  {flowLoadFailed && (
+                    <div className="flex justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFlowReloadKey((k) => k + 1)}
+                        className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
+                      >
+                        {t(currentLanguage, 'entry.tryAgain')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold"
+                      >
+                        {t(currentLanguage, 'entry.signOut')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : flowGate ? (
+                <FlowEntry
+                  key={flowGate}
+                  language={currentLanguage}
+                  mode={flowGate}
+                  account={flowApplication?.account}
+                  onAuthenticated={handleFlowAuthenticated}
+                  onApplicationUpdated={handleFlowEntryUpdated}
+                />
+              ) : currentFlowStep === 'hub' && flowApplication ? (
                 <FlowStatusHub
                   application={flowApplication}
                   language={currentLanguage}
@@ -602,37 +671,11 @@ export default function App() {
                 <Step1LeadGeneration
                   language={currentLanguage}
                   initialData={flowApplication?.steps[1]?.data}
-                  userPhone={currentUser?.phoneNumber}
-                  userEmail={currentUser?.email}
-                  userName={currentUser?.fullName}
-                  hasCompletedDisclaimer={!!flowApplication}
+                  account={flowApplication?.account}
                   isReadOnly={
                     flowApplication?.stepStates[1] === 'pending' ||
                     flowApplication?.stepStates[1] === 'approved'
                   }
-                  // Once the account exists (registered, or signed in with a flow application) the form
-                  // only submits Step 1; a retry after a failed submit must not register again.
-                  onRegisterAccount={flowApplication ? undefined : async (creds) => {
-                    const res = await apiService.flowRegister({
-                      fullName: creds.fullName,
-                      email: creds.email,
-                      phoneNumber: creds.phoneNumber,
-                      password: creds.password,
-                      code: creds.code,
-                      language: currentLanguage,
-                      registration: {
-                        disclaimerAccepted: true,
-                        locationGranted: true,
-                      },
-                      uploadedFiles: creds.uploadedFiles,
-                    });
-                    if (res?.user) {
-                      setCurrentUser(storageService.adoptUser(res.user));
-                    }
-                    if (res?.application) {
-                      setFlowApplication(res.application);
-                    }
-                  }}
                   onSubmit={async (step1Data) => {
                     const updated = await apiService.submitFlowStep(1, step1Data);
                     if (updated) {

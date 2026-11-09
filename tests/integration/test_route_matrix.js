@@ -246,6 +246,7 @@ function routes(ctx) {
     ['GET', '/api/flow/terms/current'],
     ['GET', '/api/flow/application'],
     ['POST', '/api/flow/application/registration-consent', {}],
+    ['POST', '/api/flow/account/contact', {}],
     ['PUT', '/api/flow/application/steps/9/draft', {}, '/api/flow/application/steps/:bad/draft'],
     ['POST', '/api/flow/application/steps/9/submit', {}, '/api/flow/application/steps/:bad/submit'],
     ['POST', '/api/flow/application/final-documents', {}],

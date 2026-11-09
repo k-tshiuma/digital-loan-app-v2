@@ -66,6 +66,72 @@ async function adoptGuestUploads(filenames, userId) {
   return adopted;
 }
 
+// Letters of any script, spaces, apostrophes, hyphens and dots ("Nguyen Van A.", "O'Neil", "סומצ'אי").
+const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
+const tidyName = (v) => String(v || '').replace(/\s+/g, ' ').trim();
+const sameName = (a, b) => tidyName(a).toLowerCase() === tidyName(b).toLowerCase();
+const accountPhone = (u) => (u && u.phoneNumber && !String(u.phoneNumber).startsWith('google:') ? u.phoneNumber : '');
+
+/** Before an account is created the applicant must grant location access and accept the disclaimer. */
+function registrationProblem(registration) {
+  if (!registration) return { code: 'REGISTRATION_REQUIRED', error: 'No account was found. Please register first.' };
+  if (registration.locationGranted !== true) return { code: 'LOCATION_REQUIRED', error: 'Location access is required to create an account.' };
+  if (registration.disclaimerAccepted !== true) return { code: 'DISCLAIMER_REQUIRED', error: 'The regulatory disclaimer must be accepted.' };
+  return null;
+}
+
+/** Coarse position (about 1 km) kept with the consent; anything malformed is dropped. */
+function cleanLocation(loc) {
+  if (!loc || typeof loc !== 'object') return null;
+  const lat = Number(loc.latitude);
+  const lng = Number(loc.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const acc = Number(loc.accuracy);
+  return { latitude: Math.round(lat * 100) / 100, longitude: Math.round(lng * 100) / 100, accuracyM: Number.isFinite(acc) && acc >= 0 ? Math.round(acc) : null };
+}
+
+const consentRecord = (registration, now) => ({
+  disclaimerAcceptedAt: now,
+  disclaimerVersion: REGISTRATION_VERSION,
+  locationRequested: true,
+  locationGranted: true,
+  location: cleanLocation(registration.location),
+});
+const hasConsent = (a) => !!(a && a.step1Data && a.step1Data.registration && a.step1Data.registration.disclaimerAcceptedAt);
+
+/**
+ * Step 1 identity. Phone and email always come from the account. The name starts as the account name and can only
+ * be changed as a legal-name correction the applicant confirms matches the passport. Mutates `data.personal`.
+ * Returns { errors, correction } where `correction` is { previousName, correctedName } when the name changes now.
+ */
+function applyAccountIdentity(data, raw, user, prevStep1, now) {
+  const p = data.personal;
+  const rawPersonal = (raw && raw.personal) || {};
+  const accountName = tidyName(user.fullName);
+  const typed = tidyName(p.fullName);
+  const errors = {};
+  let correction = null;
+
+  p.phoneNumber = accountPhone(user);
+  p.email = user.email || '';
+  p.fullName = typed || accountName;
+  delete p.nameCorrection;
+
+  if (p.fullName && (!NAME_RE.test(p.fullName) || p.fullName.length < 2)) errors.fullName = 'invalid';
+  else if (accountName && !sameName(p.fullName, accountName)) {
+    if (rawPersonal.legalNameConfirmed !== true) errors.fullName = 'legal_name_unconfirmed';
+    else correction = { previousName: accountName, correctedName: p.fullName };
+  }
+
+  const prev = prevStep1 && prevStep1.personal && prevStep1.personal.nameCorrection;
+  if (correction) p.nameCorrection = { ...correction, confirmedAt: now };
+  else if (!errors.fullName && prev && sameName(prev.correctedName, p.fullName)) p.nameCorrection = prev;
+
+  if (!p.phoneNumber) errors.phoneNumber = 'account_incomplete';
+  if (!p.email) errors.email = 'account_incomplete';
+  return { errors, correction };
+}
+
 function createRateLimiter(max, windowMs) {
   const hits = new Map();
   return (key) => {
@@ -289,7 +355,7 @@ module.exports = function createFlowRoutes(ctx) {
       unlockedStep: 1,
       leadSource,
       phoneVerified: !!phoneVerified,
-      step1Data: registration ? { registration: { disclaimerAcceptedAt: now, disclaimerVersion: REGISTRATION_VERSION, locationRequested: true, locationGranted: !!registration.locationGranted } } : {},
+      step1Data: registration ? { registration: consentRecord(registration, now) } : {},
       step2Data: null,
       step3Data: null,
       documents: [], consents: [], statusHistory: [], guarantors: [],
@@ -300,12 +366,22 @@ module.exports = function createFlowRoutes(ctx) {
     await insertFlowApp(a);
     await audit(req, { applicationId: a.id, action: 'LEAD_REGISTERED', toStatus: a.flowStatus, metadata: { leadSource, phoneVerified: !!phoneVerified }, actor: { type: 'borrower', id: user.id, role: 'borrower' } });
     if (registration) {
-      await audit(req, { applicationId: a.id, action: 'REGISTRATION_CONSENT', metadata: { disclaimerVersion: REGISTRATION_VERSION, locationGranted: !!registration.locationGranted }, actor: { type: 'borrower', id: user.id, role: 'borrower' } });
+      await audit(req, { applicationId: a.id, action: 'REGISTRATION_CONSENT', metadata: { disclaimerVersion: REGISTRATION_VERSION, locationGranted: true, position: !!a.step1Data.registration.location }, actor: { type: 'borrower', id: user.id, role: 'borrower' } });
     }
     return getFlowAppById(a.id);
   }
 
   const ensureFlowApp = async (user, opts) => (await getFlowAppByUser(user.id)) || createFlowApp(user, opts);
+
+  /** Records the location + disclaimer consent on an application that does not have it yet. */
+  async function recordConsent(a, registration, req, actor) {
+    if (hasConsent(a)) return a;
+    a.step1Data = { ...(a.step1Data || {}), registration: consentRecord(registration, new Date().toISOString()) };
+    a.updatedAt = new Date().toISOString();
+    await updateFlowApp(a);
+    await audit(req, { applicationId: a.id, action: 'REGISTRATION_CONSENT', metadata: { disclaimerVersion: REGISTRATION_VERSION, locationGranted: true, position: !!a.step1Data.registration.location }, ...(actor ? { actor } : {}) });
+    return getFlowAppById(a.id);
+  }
 
   function requireApplicant(req, res, next) {
     if (isStaff(req)) return res.status(403).json({ success: false, error: 'Applicant account required' });
@@ -331,7 +407,9 @@ module.exports = function createFlowRoutes(ctx) {
       if (!registerLimiter(`reg:${req.ip}`)) return res.status(429).json({ success: false, error: 'Too many attempts. Please try again later.' });
       const { fullName, email, password, code, language, registration } = req.body || {};
       const phone = normalizePhone(req.body && req.body.phoneNumber);
-      if (!registration || registration.disclaimerAccepted !== true) return res.status(400).json({ success: false, code: 'DISCLAIMER_REQUIRED', error: 'The regulatory disclaimer must be accepted.' });
+      const consentProblem = registrationProblem(registration);
+      if (consentProblem) return res.status(400).json({ success: false, ...consentProblem });
+      if (!tidyName(fullName) || !NAME_RE.test(tidyName(fullName))) return res.status(400).json({ success: false, code: 'VALIDATION', fieldErrors: { fullName: 'invalid' }, error: 'Please enter your full name as it appears on your passport.' });
       if (!email || !EMAIL_RE.test(String(email).trim())) return res.status(400).json({ success: false, code: 'VALIDATION', fieldErrors: { email: 'invalid' }, error: 'A valid email address is required.' });
       if (!password || String(password).length < 8) return res.status(400).json({ success: false, code: 'VALIDATION', fieldErrors: { password: 'invalid' }, error: 'Password must be at least 8 characters.' });
       if (!phone || phone.replace(/\D/g, '').length < 7) return res.status(400).json({ success: false, code: 'VALIDATION', fieldErrors: { phoneNumber: 'invalid' }, error: 'Please enter a valid mobile phone number.' });
@@ -350,22 +428,24 @@ module.exports = function createFlowRoutes(ctx) {
       const lang = resolveMessageLanguage(language);
       if (user) {
         await dbRun(`UPDATE users SET fullName = ?, email = ?, password = ?, authProvider = 'password', phoneVerifiedAt = ?, updatedAt = ? WHERE id = ?`,
-          [fullName || user.fullName || null, emailClean, hash, now, now, user.id]);
+          [tidyName(fullName), emailClean, hash, now, now, user.id]);
       } else {
         const id = newId('user');
         await dbRun(
           `INSERT INTO users (id, phoneNumber, email, fullName, password, authProvider, phoneVerifiedAt, preferredLanguage, roles, isActive, createdAt, updatedAt)
            VALUES (?, ?, ?, ?, ?, 'password', ?, ?, ?, 1, ?, ?)`,
-          [id, phone, emailClean, fullName || null, hash, now, lang, JSON.stringify(['borrower']), now, now]
+          [id, phone, emailClean, tidyName(fullName), hash, now, lang, JSON.stringify(['borrower']), now, now]
         );
         user = { id };
       }
       user = await dbGet('SELECT * FROM users WHERE id = ?', [user.id]);
-      const application = await ensureFlowApp(user, { leadSource: 'manual', language: lang, phoneNumber: phone, phoneVerified: true, registration, req });
+      const actor = { type: 'borrower', id: user.id, role: 'borrower' };
+      let application = await ensureFlowApp(user, { leadSource: 'manual', language: lang, phoneNumber: phone, phoneVerified: true, registration, req });
+      application = await recordConsent(application, registration, req, actor);
       const adopted = await adoptGuestUploads(req.body.uploadedFiles, user.id);
       if (adopted.length > 0) {
         await audit(req, { applicationId: application.id, action: 'UPLOADS_ADOPTED', metadata: { count: adopted.length },
-          actor: { type: 'borrower', id: user.id, role: 'borrower', name: null } });
+          actor: { ...actor, name: null } });
       }
       res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: await applicantView(application, user) });
     });
@@ -402,8 +482,11 @@ module.exports = function createFlowRoutes(ctx) {
         return res.status(400).json({ success: false, code: 'ACCOUNT_EXISTS', error: 'This email is registered with a password. Please sign in with your email and password.' });
       }
       const lang = resolveMessageLanguage(language);
+      // An existing Google account just signs in; a new one is only created through registration.
+      const consentProblem = registration ? registrationProblem(registration) : null;
       if (!user) {
-        if (!registration || registration.disclaimerAccepted !== true) return res.status(400).json({ success: false, code: 'DISCLAIMER_REQUIRED', error: 'The regulatory disclaimer must be accepted.' });
+        const problem = registrationProblem(registration);
+        if (problem) return res.status(400).json({ success: false, ...problem });
         const id = newId('user_google');
         await dbRun(
           `INSERT INTO users (id, phoneNumber, email, fullName, authProvider, phoneVerifiedAt, preferredLanguage, roles, isActive, createdAt, updatedAt)
@@ -412,7 +495,9 @@ module.exports = function createFlowRoutes(ctx) {
         );
         user = await dbGet('SELECT * FROM users WHERE id = ?', [id]);
       }
-      const application = await ensureFlowApp(user, { leadSource: 'google', language: lang, phoneVerified: false, registration: registration && registration.disclaimerAccepted === true ? registration : null, req });
+      const validRegistration = registration && !consentProblem ? registration : null;
+      let application = await ensureFlowApp(user, { leadSource: 'google', language: lang, phoneVerified: false, registration: validRegistration, req });
+      if (validRegistration) application = await recordConsent(application, validRegistration, req, { type: 'borrower', id: user.id, role: 'borrower' });
       res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: await applicantView(application, user) });
     });
   }
@@ -460,17 +545,61 @@ module.exports = function createFlowRoutes(ctx) {
     });
 
     // Records the location request + regulatory disclaimer for accounts that signed in (not registered) here.
+    // Location is mandatory here too: Step 1 cannot be submitted without this consent.
     app.post('/api/flow/application/registration-consent', requireApplicant, async (req, res) => {
-      const { disclaimerAccepted, locationGranted } = req.body || {};
-      if (disclaimerAccepted !== true) return res.status(400).json({ success: false, code: 'DISCLAIMER_REQUIRED', error: 'The regulatory disclaimer must be accepted.' });
+      const problem = registrationProblem(req.body || {});
+      if (problem) return res.status(400).json({ success: false, ...problem });
       const a = await ensureFlowApp(req.user, { leadSource: 'manual', language: req.user.preferredLanguage, registration: null, req });
-      if (!(a.step1Data && a.step1Data.registration && a.step1Data.registration.disclaimerAcceptedAt)) {
-        a.step1Data = { ...(a.step1Data || {}), registration: { disclaimerAcceptedAt: new Date().toISOString(), disclaimerVersion: REGISTRATION_VERSION, locationRequested: true, locationGranted: !!locationGranted } };
-        a.updatedAt = new Date().toISOString();
-        await updateFlowApp(a);
-        await audit(req, { applicationId: a.id, action: 'REGISTRATION_CONSENT', metadata: { disclaimerVersion: REGISTRATION_VERSION, locationGranted: !!locationGranted } });
+      const saved = await recordConsent(a, req.body, req);
+      res.json({ success: true, application: await applicantView(saved, req.user) });
+    });
+
+    // Fills in contact details the account is missing: a Google account has no phone number (verified here by SMS
+    // code), an account opened with an SMS code may have no email. Details already on the account never change here.
+    app.post('/api/flow/account/contact', requireApplicant, async (req, res) => {
+      const u = req.user;
+      const body = req.body || {};
+      const now = new Date().toISOString();
+      const sets = {};
+      if (body.phoneNumber !== undefined) {
+        if (accountPhone(u)) return res.status(409).json({ success: false, code: 'CONTACT_LOCKED', error: 'Your phone number and email address cannot be changed.' });
+        const phone = normalizePhone(body.phoneNumber);
+        if (!phone || phone.replace(/\D/g, '').length < 7) return res.status(400).json({ success: false, code: 'VALIDATION', fieldErrors: { phoneNumber: 'invalid' }, error: 'Please enter a valid mobile phone number.' });
+        if (await dbGet('SELECT id FROM users WHERE phoneNumber = ? AND id != ?', [phone, u.id])) {
+          return res.status(409).json({ success: false, code: 'ACCOUNT_EXISTS', error: 'An account with this phone number already exists. Please sign in.' });
+        }
+        sets.phoneNumber = phone;
+        sets.phoneVerifiedAt = now;
       }
-      res.json({ success: true, application: await applicantView(await getFlowAppById(a.id), req.user) });
+      if (body.email !== undefined) {
+        if (u.email) return res.status(409).json({ success: false, code: 'CONTACT_LOCKED', error: 'Your phone number and email address cannot be changed.' });
+        const email = String(body.email || '').trim();
+        if (!EMAIL_RE.test(email)) return res.status(400).json({ success: false, code: 'VALIDATION', fieldErrors: { email: 'invalid' }, error: 'A valid email address is required.' });
+        if (await dbGet('SELECT id FROM users WHERE lower(email) = lower(?) AND id != ?', [email, u.id])) {
+          return res.status(409).json({ success: false, code: 'ACCOUNT_EXISTS', error: 'An account with this email address already exists. Please sign in.' });
+        }
+        sets.email = email;
+      }
+      if (Object.keys(sets).length === 0) return res.status(400).json({ success: false, code: 'VALIDATION', error: 'Nothing to update.' });
+      if (sets.phoneNumber) {
+        const otp = checkOtp(sets.phoneNumber, String(body.code || '').trim());
+        if (!otp.ok) return res.status(otp.status).json({ success: false, code: 'OTP_INVALID', error: otp.error });
+      }
+
+      const cols = Object.keys(sets);
+      await dbRun(`UPDATE users SET ${cols.map((c) => `${c} = ?`).join(', ')}, updatedAt = ? WHERE id = ?`, [...cols.map((c) => sets[c]), now, u.id]);
+      const user = await dbGet('SELECT * FROM users WHERE id = ?', [u.id]);
+      const a = await getFlowAppByUser(u.id);
+      if (a) {
+        if (sets.phoneNumber) {
+          a.phoneVerified = true;
+          a.borrowerDetails = { ...(a.borrowerDetails || {}), mobilePhoneNumber: sets.phoneNumber };
+          a.updatedAt = now;
+          await updateFlowApp(a);
+        }
+        await audit(req, { applicationId: a.id, action: 'ACCOUNT_CONTACT_COMPLETED', metadata: { fields: cols.filter((c) => c !== 'phoneVerifiedAt') } });
+      }
+      res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: a ? await applicantView(await getFlowAppById(a.id), user) : null });
     });
 
     // Save a draft of the step the applicant may currently edit.
@@ -482,7 +611,16 @@ module.exports = function createFlowRoutes(ctx) {
       if (!W.isStepEditable(a.flowStatus, n)) return res.status(409).json({ success: false, code: 'STEP_NOT_EDITABLE', error: `Step ${n} cannot be edited in its current status.` });
 
       const body = (req.body && req.body.data) || {};
-      if (n === 1) a.step1Data = { ...(await V.cleanStep1(body, req.user.id)), registration: (a.step1Data || {}).registration };
+      if (n === 1) {
+        const data = await V.cleanStep1(body, req.user.id);
+        // A draft never stores an unconfirmed name change: it keeps the account name instead.
+        const { errors } = applyAccountIdentity(data, body, req.user, a.step1Data, new Date().toISOString());
+        if (errors.fullName) {
+          data.personal.fullName = tidyName(req.user.fullName);
+          delete data.personal.nameCorrection;
+        }
+        a.step1Data = { ...data, registration: (a.step1Data || {}).registration };
+      }
       if (n === 2) a.step2Data = V.cleanStep2(body);
       if (n === 3) {
         const { terms, ...c } = await V.cleanStep3(body, req.user.id); // terms are accepted only at submit
@@ -511,12 +649,17 @@ module.exports = function createFlowRoutes(ctx) {
       }
 
       const raw = req.body && req.body.data;
+      const now = new Date().toISOString();
       let data;
       let errors;
       let currentTerms = null;
+      let nameChange = null;
       if (n === 1) {
         data = await V.cleanStep1(raw || a.step1Data, req.user.id);
-        errors = V.validateStep1(data);
+        const identity = applyAccountIdentity(data, raw, req.user, a.step1Data, now);
+        errors = { ...V.validateStep1(data), ...identity.errors };
+        // The account name is set (first time) or corrected together with the submission.
+        if (identity.correction || !tidyName(req.user.fullName)) nameChange = identity.correction || { previousName: null, correctedName: data.personal.fullName };
       } else if (n === 2) {
         data = V.cleanStep2(raw || a.step2Data);
         errors = V.validateStep2(data);
@@ -533,7 +676,6 @@ module.exports = function createFlowRoutes(ctx) {
       }
       if (Object.keys(errors).length > 0) return res.status(422).json({ success: false, code: 'VALIDATION', error: 'Please complete all required fields.', fieldErrors: errors });
 
-      const now = new Date().toISOString();
       const next = { ...a, updatedAt: now };
       const registration = (a.step1Data || {}).registration;
       if (n === 1) {
@@ -594,6 +736,10 @@ module.exports = function createFlowRoutes(ctx) {
       }
 
       await audit(req, { applicationId: a.id, action: `STEP${n}_SUBMITTED`, fromStatus: prevStatus, toStatus: next.flowStatus, metadata: { revision } });
+      if (nameChange) {
+        await dbRun('UPDATE users SET fullName = ?, updatedAt = ? WHERE id = ?', [nameChange.correctedName, now, req.user.id]);
+        if (nameChange.previousName) await audit(req, { applicationId: a.id, action: 'LEGAL_NAME_CORRECTED', metadata: { from: nameChange.previousName, to: nameChange.correctedName } });
+      }
       if (n === 3) {
         await audit(req, { applicationId: a.id, action: 'TERMS_ACCEPTED', metadata: { general: next.step3Data.terms.general, serviceFee: next.step3Data.terms.serviceFee } });
         await audit(req, { applicationId: a.id, action: 'APPLICANT_JOURNEY_COMPLETED', fromStatus: prevStatus, toStatus: next.flowStatus });

@@ -4,5 +4,6 @@ import { registerMessages } from '@quickloan/ui-core/i18n/translations';
 import { auth } from './messages/auth';
 import { wizard } from './messages/wizard';
 import { leadFlow } from './messages/leadFlow';
+import { entry } from './messages/entry';
 
-registerMessages({ auth, wizard, leadFlow });
+registerMessages({ auth, wizard, leadFlow, entry });

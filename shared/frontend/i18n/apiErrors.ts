@@ -41,6 +41,13 @@ const KNOWN_ERRORS: Record<string, string> = {
   'Notification not found': 'err.notificationNotFound',
   'Could not connect to server. Please verify the backend is running.': 'err.network',
   'Failed to fetch': 'err.network',
+  'Location access is required to create an account.': 'entry.err.locationRequired',
+  'No account was found. Please register first.': 'entry.err.registerFirst',
+  'Your phone number and email address cannot be changed.': 'entry.err.contactLocked',
+  'The regulatory disclaimer must be accepted.': 'entry.err.disclaimerRequired',
+  'Please accept the regulatory disclaimer first.': 'entry.err.disclaimerRequired',
+  'A valid email address is required.': 'entry.err.validEmailRequired',
+  'Please enter your full name as it appears on your passport.': 'auth.err.enterFullName',
 };
 
 function messageOf(err: unknown): string {
