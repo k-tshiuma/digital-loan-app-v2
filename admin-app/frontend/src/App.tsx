@@ -3,7 +3,7 @@ import { Language, UserRole } from '@quickloan/ui-core/types';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { BackOffice } from './components/BackOffice';
 import { StaffLoginGate } from './components/StaffLoginGate';
-import { SESSION_EXPIRED_EVENT, staffSession, StaffSessionData } from './services/api';
+import { SESSION_EXPIRED_EVENT, apiService, staffSession, StaffSessionData } from './services/api';
 import { BORROWER_APP_URL } from './config';
 
 /**
@@ -19,7 +19,7 @@ export default function App() {
   const handleLanguageSelect = (lang: Language) => setLanguage(lang);
 
   const handleStaffSignOut = () => {
-    staffSession.clear();
+    void apiService.logout(); // also deletes the HttpOnly session cookie
     setSession(null);
   };
 
@@ -43,9 +43,9 @@ export default function App() {
         onLanguageChange={handleLanguageSelect}
         // The borrower app runs on another origin, so a borrower session can't be seen from here.
         isClientBlocked={false}
-        onAuthenticated={(staff, token) => {
-          setSession({ role: staff.role, token, staff });
-          setCurrentRole(staff.role);
+        onAuthenticated={(next) => {
+          setSession(next);
+          setCurrentRole(next.role);
         }}
         onReturnToPublic={handleReturnToPublicSite}
       />

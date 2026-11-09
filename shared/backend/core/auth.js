@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { safeJson } = require('../services/dbHelpers');
 const { DEMO_MODE, JWT_SECRETS, JWT_EXPIRES_IN } = require('./config');
+const { sessionCookieToken, dropBadCookie } = require('./sessionCookie');
 
 const normalizePhone = (p) => String(p || '').replace(/[\s()-]/g, '');
 const isBcryptHash = (value) => typeof value === 'string' && /^\$2[aby]\$/.test(value);
@@ -67,10 +68,16 @@ function verifyToken(token) {
   return payload;
 }
 
+/**
+ * The request's token: the Authorization header (API clients, tests), then this API's HttpOnly session
+ * cookie (the browser apps, core/sessionCookie.js), then ?token= on GETs (older clients; the apps no longer
+ * put tokens in URLs).
+ */
 function readToken(req) {
   const header = req.headers.authorization || '';
   if (header.startsWith('Bearer ')) return header.slice(7);
-  // EventSource and <img>/<a> requests cannot send headers, so GETs may pass ?token=
+  const cookie = sessionCookieToken(req);
+  if (cookie) return cookie;
   if (req.method === 'GET' && typeof req.query.token === 'string') return req.query.token;
   return null;
 }
@@ -100,6 +107,7 @@ function authenticate(req, res, next) {
       req.auth = { sub: 'demo_user', type: 'borrower', role: 'borrower' };
       return next();
     }
+    dropBadCookie(req, res);
     return res.status(401).json({ success: false, error: 'Invalid or expired session. Please sign in again.' });
   }
 }
@@ -165,6 +173,12 @@ function staffOnlyAuth(req, res, next) {
   } catch {
     /* fall through */
   }
+  // From the cookie (the browser sends it everywhere, sign-in included): delete it and carry on signed out;
+  // protected routes then answer 401. A bad Authorization header is refused at once.
+  if (!req.headers.authorization) {
+    dropBadCookie(req, res);
+    return next();
+  }
   return res.status(401).json({ success: false, error: 'Invalid or expired staff session. Please sign in again.' });
 }
 
@@ -175,7 +189,7 @@ function authenticateStaff(req, res, next) {
 }
 
 /** Borrower API: the caller is this user (or, in demo mode, the shared demo user). Staff never reach borrower routes. */
-const canAccessUser = (req, userId) => (req.auth && req.auth.sub === userId) || (DEMO_MODE && (!req.headers.authorization || req.auth?.sub === 'demo_user') && userId === 'demo_user');
+const canAccessUser = (req, userId) => (req.auth && req.auth.sub === userId) || (DEMO_MODE && (!readToken(req) || req.auth?.sub === 'demo_user') && userId === 'demo_user');
 
 // In-memory OTP store: phone -> { codeHash, expiresAt, attempts }
 const otpStore = new Map();

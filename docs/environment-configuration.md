@@ -11,6 +11,7 @@ All variables listed here were found in source code. Values shown are defaults o
 | `DEMO_MODE` | (unset = on outside production) | `server.js:25` | Set `false` to disable demo behaviour without `NODE_ENV=production`. ⚠ See SEC-01 |
 | `BORROWER_JWT_SECRET`, `ADMIN_JWT_SECRET` | `JWT_SECRET`, then a dev constant (outside production) | `shared/backend/core/config.js` | **Required in production, one per API and different from each other** (Phase 9; the API refuses to start otherwise). Borrower tokens use the first, staff tokens the second |
 | `CORS_ORIGIN` | borrower API: `localhost:3000`, admin API: `localhost:3001`; none in production | `shared/backend/core/appBase.js` | Comma-separated browser origins allowed to call the API from another address |
+| `COOKIE_SECURE` | (unset = `Secure` only when `NODE_ENV=production`) | `shared/backend/core/sessionCookie.js` | `true`/`false` forces the `Secure` flag on the HttpOnly session cookies (`ql_borrower`, `ql_staff`). Only for testing production mode over plain http |
 | `JWT_SECRET` (local fallback) | dev constant (outside production) | `server.js:27-33` | **Required in production** (the server throws on startup otherwise). Use ≥ 32 random bytes |
 | `JWT_EXPIRES_IN` | `7d` | `server.js:34` | Borrower token lifetime (`jsonwebtoken` format). Staff tokens are fixed at `12h` |
 | `MAX_UPLOAD_BYTES` | `10485760` | `server.js:638` | Upload size limit |

@@ -6,8 +6,19 @@ const { normalizePhone, isBcryptHash, hashCode, generateCode, sanitizeUser, sign
 const { sendSms } = require('@quickloan/backend-core/services/smsService');
 const { sendEmail } = require('@quickloan/backend-core/services/emailService');
 const { resolveMessageLanguage, msg } = require('@quickloan/backend-core/services/messages');
+const { setSessionCookie, clearSessionCookie } = require('@quickloan/backend-core/core/sessionCookie');
+
+// Signs the user's token and puts it in the HttpOnly session cookie; the token is also returned in the body
+// for API clients (the browser app doesn't keep it).
+const borrowerSession = (res, user) => setSessionCookie(res, 'borrower', signUserToken(user));
 
 function register(app) {
+  // Sign out: removes the session cookie (the app can't, it is HttpOnly). Public, so it works with an expired session.
+  app.post('/api/auth/logout', (_req, res) => {
+    clearSessionCookie(res, 'borrower');
+    res.json({ success: true });
+  });
+
   // Does an account exist for this phone, and does it use a password?
   app.post('/api/users/lookup', async (req, res) => {
     const phone = normalizePhone(req.body.phoneNumber);
@@ -45,7 +56,7 @@ function register(app) {
       return res.status(401).json({ success: false, error: 'Incorrect password. Please try again.' });
     }
 
-    res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user) });
+    res.json({ success: true, user: sanitizeUser(user), token: borrowerSession(res, user) });
   });
 
   app.post('/api/users/request-otp', async (req, res) => {
@@ -87,7 +98,7 @@ function register(app) {
       await dbRun('UPDATE users SET phoneVerifiedAt = ?, updatedAt = ? WHERE id = ?', [now, now, user.id]);
     }
 
-    res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user) });
+    res.json({ success: true, user: sanitizeUser(user), token: borrowerSession(res, user) });
   });
 
   // Registration completes a phone-verified account: requires the token issued by /verify-otp.
@@ -119,7 +130,7 @@ function register(app) {
       [fullName || null, email ? email.trim() : null, hash, preferredLanguage || user.preferredLanguage || 'en', now, user.id]
     );
     const updated = await dbGet('SELECT * FROM users WHERE id = ?', [user.id]);
-    res.json({ success: true, user: sanitizeUser(updated), token: signUserToken(updated) });
+    res.json({ success: true, user: sanitizeUser(updated), token: borrowerSession(res, updated) });
   });
 
   // Mock "Continue with Google" — demo only (there is no real OAuth handshake).
@@ -142,7 +153,7 @@ function register(app) {
       );
       user = await dbGet('SELECT * FROM users WHERE id = ?', [id]);
     }
-    res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user) });
+    res.json({ success: true, user: sanitizeUser(user), token: borrowerSession(res, user) });
   });
 
   // Forgot password: send a 6-digit reset code via SMS (and email if available).
@@ -206,7 +217,7 @@ function register(app) {
     await dbRun('UPDATE password_resets SET consumedAt = ? WHERE id = ?', [now, reset.id]);
     await dbRun('UPDATE users SET password = ?, updatedAt = ? WHERE id = ?', [await bcrypt.hash(newPassword, BCRYPT_ROUNDS), now, user.id]);
     const updated = await dbGet('SELECT * FROM users WHERE id = ?', [user.id]);
-    res.json({ success: true, user: sanitizeUser(updated), token: signUserToken(updated) });
+    res.json({ success: true, user: sanitizeUser(updated), token: borrowerSession(res, updated) });
   });
 }
 

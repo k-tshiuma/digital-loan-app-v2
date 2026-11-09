@@ -137,7 +137,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     // token, so asking would only get a 403; show the local data until a staff role is picked.
     if (currentRole === 'borrower') return;
     try {
-      await apiService.ensureStaffToken(currentRole);
+      await apiService.ensureStaffSession(currentRole);
       const [backendApps, rulesData] = await Promise.all([
         apiService.listAllApplications().catch(() => null),
         apiService.getCreditRules().catch(() => null),

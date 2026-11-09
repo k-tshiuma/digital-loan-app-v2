@@ -2,7 +2,7 @@
 // both build on the shared request core in @quickloan/ui-core/services/apiCore.
 import { User, LoanApplication, Language, NotificationItem } from '@quickloan/ui-core/types';
 import {
-  API_BASE_URL, authTokens, request, storeAuth, resolveFileUrl, downloadApplicationPdf,
+  API_BASE_URL, authTokens, request, storeAuth, resolveFileUrl, downloadApplicationPdf, endServerSession,
 } from '@quickloan/ui-core/services/apiCore';
 
 // The shared request core lives in apiCore.ts; re-exported so existing imports from this file keep working.
@@ -59,8 +59,10 @@ export const apiService = {
     return storeAuth(await request('/users/reset-password', { method: 'POST', body: { identifier, code, newPassword }, auth: false }));
   },
 
+  /** Signs out: forgets the session here and has the API delete its HttpOnly cookie (in the background). */
   logout() {
     authTokens.clear();
+    void endServerSession();
   },
 
   // --- Applications --------------------------------------------------------
@@ -97,11 +99,11 @@ export const apiService = {
   },
 
   // --- Real-time (Phase 4) -------------------------------------------------
-  /** Opens an SSE stream for an application. Returns null when not authenticated. */
+  /** Opens an SSE stream for an application (the session cookie signs it in). Returns null when signed out. */
   openApplicationEvents(applicationId: string): EventSource | null {
-    const token = authTokens.get();
-    if (!token || typeof EventSource === 'undefined') return null;
-    return new EventSource(`${API_BASE_URL}/applications/${applicationId}/events?token=${encodeURIComponent(token)}`);
+    if (!authTokens.get() || typeof EventSource === 'undefined') return null;
+    // withCredentials: locally the API is on another port; in production it is the same site.
+    return new EventSource(`${API_BASE_URL}/applications/${applicationId}/events`, { withCredentials: true });
   },
 
   // --- Notifications (Phase 5) ---------------------------------------------

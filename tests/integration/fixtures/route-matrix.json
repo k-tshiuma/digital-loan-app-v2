@@ -117,6 +117,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/auth/logout": {
+      "none": 200,
+      "badToken": 200,
+      "borrower": 200,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "GET /api/users/me": {
       "none": 404,
       "badToken": 404,
@@ -614,6 +623,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/auth/logout": {
+      "none": 200,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 200,
+      "credit_reviewer": 200,
+      "system_admin": 200,
+      "funding_entity": 200
+    },
     "GET /api/users/me": {
       "none": 401,
       "badToken": 401,
@@ -1106,6 +1124,15 @@
       "none": 401,
       "badToken": 401,
       "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/auth/logout": {
+      "none": 200,
+      "badToken": 200,
+      "borrower": 200,
       "customer_service": 401,
       "credit_reviewer": 401,
       "system_admin": 401,
@@ -1607,6 +1634,15 @@
       "credit_reviewer": 401,
       "system_admin": 401,
       "funding_entity": 401
+    },
+    "POST /api/auth/logout": {
+      "none": 200,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 200,
+      "credit_reviewer": 200,
+      "system_admin": 200,
+      "funding_entity": 200
     },
     "GET /api/users/me": {
       "none": 401,

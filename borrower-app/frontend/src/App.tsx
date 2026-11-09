@@ -453,7 +453,7 @@ export default function App() {
 
   const handleSignOut = () => {
     storageService.logout();
-    apiService.logout(); // drop the borrower token too, or a reload would sign the user back in
+    apiService.logout(); // forget the session and delete its cookie, or a reload would sign the user back in
     setCurrentUser(null);
     setApplication(null);
     setFlowApplication(null);

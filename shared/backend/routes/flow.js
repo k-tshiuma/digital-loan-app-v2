@@ -19,6 +19,8 @@ const W = require('../services/workflow');
 const V = require('../services/flowValidation');
 const { calculateLoanRepayment, buildLoanBreakdown } = require('../services/loanCalculator');
 const { getAllCurrentTerms } = require('../services/terms');
+// Sign-in responses also set the HttpOnly session cookie (the browser apps use it instead of the token).
+const { setSessionCookie } = require('../core/sessionCookie');
 const { createFlowNotifier } = require('../services/flowNotifications');
 const { calculateEligibilityScore } = require('../services/eligibilityScoring');
 
@@ -477,7 +479,7 @@ module.exports = function createFlowRoutes(ctx) {
         await audit(req, { applicationId: application.id, action: 'UPLOADS_ADOPTED', metadata: { count: adopted.length },
           actor: { ...actor, name: null } });
       }
-      res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: await applicantView(application, user) });
+      res.json({ success: true, user: sanitizeUser(user), token: setSessionCookie(res, 'borrower', signUserToken(user)), application: await applicantView(application, user) });
     });
 
     // Sign up / sign in with Google. A real Google ID token is verified when GOOGLE_CLIENT_ID is set;
@@ -528,7 +530,7 @@ module.exports = function createFlowRoutes(ctx) {
       const validRegistration = registration && !consentProblem ? registration : null;
       let application = await ensureFlowApp(user, { leadSource: 'google', language: lang, phoneVerified: false, registration: validRegistration, req });
       if (validRegistration) application = await recordConsent(application, validRegistration, req, { type: 'borrower', id: user.id, role: 'borrower' });
-      res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: await applicantView(application, user) });
+      res.json({ success: true, user: sanitizeUser(user), token: setSessionCookie(res, 'borrower', signUserToken(user)), application: await applicantView(application, user) });
     });
   }
 
@@ -554,7 +556,7 @@ module.exports = function createFlowRoutes(ctx) {
         return generic();
       }
       await dbRun('UPDATE staff_users SET failedAttempts = 0, lockedUntil = NULL, lastLoginAt = ?, updatedAt = ? WHERE id = ?', [now, now, staff.id]);
-      const token = signStaffSession(staff);
+      const token = setSessionCookie(res, 'staff', signStaffSession(staff));
       await audit(req, { action: 'STAFF_LOGIN', actor: { type: 'staff', id: staff.id, role: staff.role, name: staff.fullName } });
       res.json({ success: true, token, staff: { id: staff.id, email: staff.email, fullName: staff.fullName, role: staff.role } });
     });
@@ -631,7 +633,7 @@ module.exports = function createFlowRoutes(ctx) {
         }
         await audit(req, { applicationId: a.id, action: 'ACCOUNT_CONTACT_COMPLETED', metadata: { fields: cols.filter((c) => c !== 'phoneVerifiedAt') } });
       }
-      res.json({ success: true, user: sanitizeUser(user), token: signUserToken(user), application: a ? await applicantView(await getFlowAppById(a.id), user) : null });
+      res.json({ success: true, user: sanitizeUser(user), token: setSessionCookie(res, 'borrower', signUserToken(user)), application: a ? await applicantView(await getFlowAppById(a.id), user) : null });
     });
 
     // Save a draft of the step the applicant may currently edit.

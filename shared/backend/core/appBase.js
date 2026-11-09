@@ -13,6 +13,7 @@ const { normalizePhone, sanitizeUser, signUserToken, signStaffSession, isStaff, 
 const { parseApp, nextRequestNumber } = require('./applications');
 const { broadcastAppEvent } = require('./sse');
 const { notifyStatusChange } = require('./notifications');
+const { setCookieKind, csrfGuard } = require('./sessionCookie');
 
 /**
  * TRUST_PROXY: set it when the API runs behind a reverse proxy (nginx), so req.ip is the visitor's address
@@ -64,8 +65,12 @@ function createBaseApp({ authMiddleware, service }) {
   if (IS_PRODUCTION) warnMissingProductionSettings();
   const app = express();
   if (process.env.TRUST_PROXY) app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
-  app.use(cors({ origin: corsOrigins(service) }));
+  // credentials: the dev sites (another port) send the session cookie; production is same-origin.
+  app.use(cors({ origin: corsOrigins(service), credentials: true }));
   app.use(express.json({ limit: '5mb' }));
+  // Which HttpOnly cookie holds this API's session (core/sessionCookie.js), then the CSRF check for it.
+  setCookieKind(service === 'admin' ? 'staff' : 'borrower');
+  app.use(csrfGuard);
   app.use(authMiddleware);
 
   const flowRoutes = createFlowRoutes({

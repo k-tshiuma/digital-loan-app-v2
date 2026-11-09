@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Lock, AlertCircle } from 'lucide-react';
 import { Language } from '@quickloan/ui-core/types';
-import { apiService, StaffAccount } from '../services/api';
+import { apiService, StaffSessionData } from '../services/api';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { LanguageToggle } from './LanguageToggle';
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
@@ -10,7 +10,7 @@ interface StaffLoginGateProps {
   language: Language;
   onLanguageChange?: (lang: Language) => void;
   isClientBlocked: boolean;
-  onAuthenticated: (staff: StaffAccount, token: string) => void;
+  onAuthenticated: (session: StaffSessionData) => void;
   onReturnToPublic: () => void;
 }
 
@@ -36,8 +36,7 @@ export const StaffLoginGate: React.FC<StaffLoginGateProps> = ({
     }
     setSubmitting(true);
     try {
-      const res = await apiService.flowStaffLogin(trimmedEmail, password);
-      onAuthenticated(res.staff, res.token);
+      onAuthenticated(await apiService.flowStaffLogin(trimmedEmail, password));
     } catch (err) {
       setError(localizeError(language, err));
     } finally {

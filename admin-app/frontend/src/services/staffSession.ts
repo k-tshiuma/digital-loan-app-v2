@@ -1,9 +1,11 @@
-// The staff session (JWT in localStorage). Admin app only: the borrower app never contains this code.
-// api.ts installs it as the request core's session, so every API call uses the staff token.
-import { readTokenPayload, isTokenUsable, type SessionStore } from '@quickloan/ui-core/services/apiCore';
+// The staff session record. Admin app only: the borrower app never contains this code.
+// The token itself is in the admin API's HttpOnly cookie (ql_staff); this keeps only the role, the account and
+// the expiry, to restore the dashboard on start-up. api.ts installs it as the request core's session. The old
+// saved token (quickloan_staff_token_v1) is deleted by apiCore on start-up.
+import { readTokenPayload, isUnexpired, newSessionId, type SessionStore } from '@quickloan/ui-core/services/apiCore';
 import { UserRole } from '@quickloan/ui-core/types';
 
-const STAFF_TOKEN_KEY = 'quickloan_staff_token_v1';
+const STAFF_SESSION_KEY = 'quickloan_staff_session_v2';
 
 export type StaffRole = Exclude<UserRole, 'borrower'>;
 export interface StaffAccount {
@@ -13,19 +15,19 @@ export interface StaffAccount {
   role: StaffRole;
 }
 export interface StaffSessionData {
+  /** Changes with every sign-in. */
+  id: string;
   role: StaffRole;
-  token: string;
+  /** Token expiry (JWT seconds), or null if unknown. */
+  exp: number | null;
   staff?: StaffAccount;
 }
 
-/** The saved session, if its token is still usable and really a staff token. */
+/** The saved session, if it hasn't expired. */
 function load(): StaffSessionData | null {
   try {
-    const cached = JSON.parse(localStorage.getItem(STAFF_TOKEN_KEY) || 'null') as StaffSessionData | null;
-    if (cached && isTokenUsable(cached.token)) {
-      const payload = readTokenPayload(cached.token);
-      if (payload === null || payload.type === 'staff') return cached;
-    }
+    const s = JSON.parse(localStorage.getItem(STAFF_SESSION_KEY) || 'null') as StaffSessionData | null;
+    if (s && s.id && s.role && isUnexpired(s.exp)) return s;
   } catch {
     /* ignore */
   }
@@ -34,23 +36,33 @@ function load(): StaffSessionData | null {
 
 export const staffSession: SessionStore & {
   getSession(): StaffSessionData | null;
-  getToken(role?: StaffRole): string | null;
-  save(role: StaffRole, token: string, staff?: StaffAccount): void;
+  /** True when signed in, optionally only as `role` (the demo role picker signs in one role at a time). */
+  hasRole(role?: StaffRole): boolean;
+  /** Records a sign-in from the token in the response: only its expiry is kept, with the role and account. */
+  save(role: StaffRole, token: string, staff?: StaffAccount): StaffSessionData;
 } = {
   scope: 'staff',
   get() {
-    return load()?.token ?? null;
+    return load()?.id ?? null;
   },
   clear() {
-    localStorage.removeItem(STAFF_TOKEN_KEY);
+    localStorage.removeItem(STAFF_SESSION_KEY);
   },
   getSession: load,
-  /** The token, optionally only if it is for `role` (the demo role picker caches one role at a time). */
-  getToken(role) {
+  hasRole(role) {
     const s = load();
-    return s && (!role || s.role === role) ? s.token : null;
+    return !!s && (!role || s.role === role);
   },
   save(role, token, staff) {
-    localStorage.setItem(STAFF_TOKEN_KEY, JSON.stringify({ role, token, ...(staff ? { staff } : {}) }));
+    const payload = readTokenPayload(token);
+    if (payload && payload.type !== undefined && payload.type !== 'staff') throw new Error('Not a staff session');
+    const data: StaffSessionData = {
+      id: newSessionId(),
+      role,
+      exp: typeof payload?.exp === 'number' ? payload.exp : null,
+      ...(staff ? { staff } : {}),
+    };
+    localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify(data));
+    return data;
   },
 };
