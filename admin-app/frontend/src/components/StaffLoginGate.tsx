@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Shield, Lock, AlertCircle, Globe } from 'lucide-react';
+import { Shield, Lock, AlertCircle } from 'lucide-react';
 import { Language } from '@quickloan/ui-core/types';
 import { apiService, StaffAccount } from '../services/api';
-import { ENABLED_LANGUAGES, t } from '@quickloan/ui-core/i18n/translations';
+import { t } from '@quickloan/ui-core/i18n/translations';
+import { LanguageToggle } from './LanguageToggle';
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 
 interface StaffLoginGateProps {
@@ -62,25 +63,7 @@ export const StaffLoginGate: React.FC<StaffLoginGateProps> = ({
           </div>
         </div>
 
-        {onLanguageChange && (
-          <div className="flex items-center gap-1 bg-slate-800/80 border border-slate-700 rounded-xl p-1">
-            <Globe className="w-3.5 h-3.5 text-slate-400 ms-1.5" />
-            {ENABLED_LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                type="button"
-                onClick={() => onLanguageChange(lang.code)}
-                className={`px-2 py-1 rounded-lg text-xs font-bold transition-colors ${
-                  language === lang.code
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                {lang.nativeName}
-              </button>
-            ))}
-          </div>
-        )}
+        {onLanguageChange && <LanguageToggle language={language} onChange={onLanguageChange} />}
       </div>
 
       <div className="flex-1 flex items-center justify-center py-8">

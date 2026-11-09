@@ -62,6 +62,7 @@ export default function App() {
       }}
       staffName={session.staff?.fullName}
       onCloseBackOffice={handleStaffSignOut}
+      onLanguageChange={handleLanguageSelect}
     />
   );
 }

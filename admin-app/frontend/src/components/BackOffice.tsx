@@ -55,6 +55,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@quickloan/ui-core/i
 import { calculateIndicativeEligibility } from '@quickloan/ui-core/services/eligibilityScoring';
 import { EligibilityScoreBar } from '@quickloan/ui-core/components/EligibilityScoreBar';
 import { FlowApplicationInspector } from './FlowApplicationInspector';
+import { LanguageToggle } from './LanguageToggle';
 
 /** Shows only the last 4 digits of an account number. */
 export function maskAccountNumber(value: string | undefined | null): string {
@@ -72,6 +73,8 @@ interface BackOfficeProps {
   onRoleChange: (role: UserRole) => void;
   onCloseBackOffice: () => void;
   staffName?: string;
+  /** Switches the dashboard between English and Hebrew. */
+  onLanguageChange?: (lang: Language) => void;
 }
 
 export const BackOffice: React.FC<BackOfficeProps> = ({
@@ -80,6 +83,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   onRoleChange,
   onCloseBackOffice,
   staffName,
+  onLanguageChange,
 }) => {
   const [applications, setApplications] = useState<LoanApplication[]>(() =>
     storageService.getAllApplications()
@@ -428,6 +432,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {onLanguageChange && <LanguageToggle language={language} onChange={onLanguageChange} />}
             {staffName && (
               <span className="text-xs text-slate-300 font-semibold hidden sm:inline">
                 {staffName}
