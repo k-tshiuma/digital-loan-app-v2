@@ -85,7 +85,7 @@ async function borrowerToken() {
   let r = await request(BORROWER_PORT, 'POST', '/api/users/login', { body: { identifier: USER.email, password: USER.password } });
   if (r.status === 404) {
     await request(BORROWER_PORT, 'POST', '/api/users/request-otp', { body: { phoneNumber: USER.phoneNumber } });
-    r = await request(BORROWER_PORT, 'POST', '/api/flow/register', { body: { ...USER, code: '123456', language: 'en', registration: { disclaimerAccepted: true } } });
+    r = await request(BORROWER_PORT, 'POST', '/api/flow/register', { body: { ...USER, code: '123456', language: 'en', registration: { disclaimerAccepted: true, locationGranted: true } } });
   }
   if (r.status !== 200) throw new Error(`could not sign in the test borrower: ${r.status} ${JSON.stringify(r.body)}`);
   return { token: r.body.token, userId: r.body.user.id };
