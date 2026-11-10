@@ -160,7 +160,7 @@ async function setup() {
   if (login.status === 404) {
     await request(port, 'POST', '/api/users/request-otp', { body: { phoneNumber: MATRIX_USER.phoneNumber } });
     const reg = await request(port, 'POST', '/api/flow/register', {
-      body: { ...MATRIX_USER, code: '123456', language: 'en', registration: { disclaimerAccepted: true } },
+      body: { ...MATRIX_USER, code: '123456', language: 'en', registration: { disclaimerAccepted: true, locationGranted: true } },
     });
     if (reg.status !== 200) throw new Error(`could not register the test borrower: ${reg.status} ${JSON.stringify(reg.body)}`);
     login = reg;
