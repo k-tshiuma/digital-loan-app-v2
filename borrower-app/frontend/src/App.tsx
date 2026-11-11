@@ -41,6 +41,7 @@ import { storageService } from './services/storage';
 import { apiService, authTokens, SESSION_EXPIRED_EVENT } from './services/api';
 import { useFlowLiveUpdates } from './utils/useFlowLiveUpdates';
 import { goToAdminPortal } from './utils/portalRedirect';
+import { isClassicFlowEnabled } from './utils/featureFlags';
 import { useI18n } from '@quickloan/ui-core/i18n/LanguageContext';
 import { ENABLED_LANGUAGES, isEnabledLanguage, t } from '@quickloan/ui-core/i18n/translations';
 import { LeadData, LeadStatus, FlowApplicationView, Step1FormData, Step2FormData, Step3FormData, TermsVersionRecord } from '@quickloan/ui-core/types';
@@ -592,13 +593,16 @@ export default function App() {
             </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => setFlowMode('classic')}
-              className="text-[11px] font-semibold text-slate-500 hover:text-blue-600 underline"
-            >
-              {t(currentLanguage, 'flow.classicWizard')}
-            </button>
+            {isClassicFlowEnabled() && (
+              <button
+                type="button"
+                id="classic-wizard-link"
+                onClick={() => setFlowMode('classic')}
+                className="text-[11px] font-semibold text-slate-500 hover:text-blue-600 underline"
+              >
+                {t(currentLanguage, 'flow.classicWizard')}
+              </button>
+            )}
           </div>
 
           <div className="w-full max-w-xl">
