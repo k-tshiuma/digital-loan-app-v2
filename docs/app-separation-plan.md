@@ -427,6 +427,7 @@ Run both backends on one host while the data stays in SQLite, and give each app 
 | `CORS_ORIGIN` | ✓ | ✓ | only needed without same-origin proxying |
 | `VITE_API_URL` | borrower FE | admin FE | build time |
 | `VITE_ADMIN_URL` | borrower FE | – | redirects old `/backoffice` links |
+| `VITE_ENABLE_CLASSIC_FLOW` | borrower FE | – | `true` shows the classic wizard link (off by default; it skips the approvals) |
 
 Example `borrower-app/backend/.env.example`:
 
