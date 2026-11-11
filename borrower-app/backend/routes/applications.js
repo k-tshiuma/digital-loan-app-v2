@@ -3,6 +3,7 @@ const { dbGet, dbAll, newId, safeJson } = require('@quickloan/backend-core/servi
 const { canAccessUser } = require('@quickloan/backend-core/core/auth');
 const { parseApp, getAppById, writeApp, nextRequestNumber } = require('@quickloan/backend-core/core/applications');
 const { sseClients, lastSent } = require('@quickloan/backend-core/core/sse');
+const { refuseClassicDraft } = require('@quickloan/backend-core/core/classicApplications');
 
 function evaluateReusableDocuments(documents, residencyDetails, sourceAppId) {
   const reusableDocs = [];
@@ -66,6 +67,8 @@ function register(app) {
   app.get('/api/applications/active/:userId', async (req, res) => {
     const { userId } = req.params;
     if (!canAccessUser(req, userId)) return res.status(403).json({ success: false, error: 'Forbidden' });
+    // This route returns or creates the classic draft (history and live events below stay open).
+    if (refuseClassicDraft(res)) return;
 
     const userRow = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
     const userProfile = safeJson(userRow?.profileData, null);

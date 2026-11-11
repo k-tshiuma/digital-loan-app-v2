@@ -4,7 +4,7 @@ const { newId } = require('@quickloan/backend-core/services/dbHelpers');
 const { canAccessUser } = require('@quickloan/backend-core/core/auth');
 const { getAppById } = require('@quickloan/backend-core/core/applications');
 const {
-  withoutRisk, refuseFlowApplication, draftFromRequest, saveClassicApplication, applicationForPdf, uploadedFile, sendUploadedFile,
+  withoutRisk, refuseFlowApplication, refuseClassicDraft, draftFromRequest, saveClassicApplication, applicationForPdf, uploadedFile, sendUploadedFile,
 } = require('@quickloan/backend-core/core/classicApplications');
 const { streamApplicationPdf } = require('@quickloan/backend-core/services/pdfService');
 
@@ -37,6 +37,7 @@ function register(app) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     if (refuseFlowApplication(prev, res)) return;
+    if (refuseClassicDraft(res, prev)) return;
 
     const next = await draftFromRequest(id, incoming, prev, now);
     next.userId = req.auth.sub;

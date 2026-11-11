@@ -52,7 +52,7 @@ async function startSplitServers() {
       : '';
     const child = spawn(process.execPath, ['-e', `${poller}require(${JSON.stringify(SERVER_ENTRY[entry])}).listen(${port})`], {
       cwd: __dirname,
-      env: { ...process.env, NODE_ENV: '', DEMO_MODE: 'true', ...env },
+      env: { ...process.env, NODE_ENV: '', DEMO_MODE: 'true', ENABLE_CLASSIC_FLOW: 'true', ...env }, // one check calls the classic draft route
       stdio: ['ignore', 'ignore', 'inherit'],
     });
     children.push(child);
