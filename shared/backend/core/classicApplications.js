@@ -4,7 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const { dbGet, dbRun, safeJson } = require('../services/dbHelpers');
-const { UPLOAD_DIR } = require('./config');
+const { UPLOAD_DIR, CLASSIC_FLOW_ENABLED } = require('./config');
 const { parseApp, getAppById, writeApp, nextRequestNumber, applyRiskScore } = require('./applications');
 const { broadcastAppEvent } = require('./sse');
 const { notifyStatusChange } = require('./notifications');
@@ -15,6 +15,21 @@ const RISK_FIELDS = ['riskScore', 'riskLevel', 'riskFlags'];
 function withoutRisk(a) {
   for (const f of RISK_FIELDS) delete a[f];
   return a;
+}
+
+/**
+ * With the classic wizard switched off (ENABLE_CLASSIC_FLOW unset), a borrower can't start or change a classic
+ * draft. Sends the 403 and returns true then. `submittedApp`: a classic application that was already submitted
+ * is let through (its handler only allows re-submitting after a requested document).
+ */
+function refuseClassicDraft(res, submittedApp) {
+  if (CLASSIC_FLOW_ENABLED || (submittedApp && submittedApp.isSubmitted)) return false;
+  res.status(403).json({
+    success: false,
+    code: 'CLASSIC_FLOW_DISABLED',
+    error: 'The classic application form is closed. Please apply through the 3-step loan flow.',
+  });
+  return true;
 }
 
 /** 3-step applications (flowVersion 2) are changed only through /api/flow. Sends the 409 and returns true for them. */
@@ -132,6 +147,7 @@ function sendUploadedFile(res, filePath) {
 module.exports = {
   withoutRisk,
   refuseFlowApplication,
+  refuseClassicDraft,
   draftFromRequest,
   saveClassicApplication,
   applicationForPdf,

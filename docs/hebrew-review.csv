@@ -473,6 +473,7 @@
 "4 app","app","err.authRequired","Please sign in to continue.","נא להתחבר כדי להמשיך.","",""
 "4 app","app","err.sessionExpired","Your session has expired. Please sign in again.","פג תוקף ההתחברות. נא להתחבר מחדש.","",""
 "4 app","app","err.applicationNotFound","Application not found.","הבקשה לא נמצאה.","",""
+"4 app","app","err.classicFlowClosed","The classic application form is closed. Please apply through the 3-step loan flow.","טופס הבקשה הרגיל סגור. יש להגיש בקשה דרך תהליך 3 השלבים.","",""
 "4 app","app","err.userNotFound","Account not found.","החשבון לא נמצא.","",""
 "4 app","app","err.passwordTooShort","Password must be at least 8 characters.","הסיסמה חייבת להכיל לפחות 8 תווים.","",""
 "4 app","app","err.tooManyAttempts","Too many attempts. Please request a new code.","יותר מדי ניסיונות. נא לבקש קוד חדש.","",""

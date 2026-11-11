@@ -8,6 +8,11 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 // back in API responses). Enabled by default for local development, always off in production.
 const DEMO_MODE = !IS_PRODUCTION && process.env.DEMO_MODE !== 'false';
 
+// The classic 9-step wizard skips the Back Office approvals of the 3-step flow, so the borrower API refuses
+// to start or change classic drafts unless ENABLE_CLASSIC_FLOW=true (the frontend link has its own
+// VITE_ENABLE_CLASSIC_FLOW). Submitted classic applications stay readable and can still get a requested document.
+const CLASSIC_FLOW_ENABLED = String(process.env.ENABLE_CLASSIC_FLOW || '').trim().toLowerCase() === 'true';
+
 // Token signing secrets, one per kind: borrower tokens (borrower API) and staff tokens (admin API), so a key
 // from one app can never sign a session for the other. JWT_SECRET is the fallback for both (local
 // development). Outside production a missing secret gets a fixed development value.
@@ -44,4 +49,4 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR
   : path.resolve(__dirname, '..', '..', '..', 'data', 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-module.exports = { IS_PRODUCTION, DEMO_MODE, JWT_SECRETS, assertJwtSecrets, JWT_EXPIRES_IN, BCRYPT_ROUNDS, STAFF_ROLES, UPLOAD_DIR };
+module.exports = { IS_PRODUCTION, DEMO_MODE, CLASSIC_FLOW_ENABLED, JWT_SECRETS, assertJwtSecrets, JWT_EXPIRES_IN, BCRYPT_ROUNDS, STAFF_ROLES, UPLOAD_DIR };

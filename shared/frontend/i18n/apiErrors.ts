@@ -8,6 +8,7 @@ const KNOWN_ERRORS: Record<string, string> = {
   'Authentication required': 'err.authRequired',
   'Invalid or expired session. Please sign in again.': 'err.sessionExpired',
   'Application not found': 'err.applicationNotFound',
+  'The classic application form is closed. Please apply through the 3-step loan flow.': 'err.classicFlowClosed',
   'User not found': 'err.userNotFound',
   'Account not found': 'err.userNotFound',
   'Password must be at least 8 characters.': 'err.passwordTooShort',

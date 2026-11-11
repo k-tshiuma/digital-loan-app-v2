@@ -423,6 +423,7 @@ Run both backends on one host while the data stays in SQLite, and give each app 
 | `DB_INIT` | `true` | `false` | only one process sets up the schema |
 | `TWILIO_*`, `SMTP_*` | ✓ | ✓ | admin sends decision notifications too |
 | `FLOW_REGISTER_RATE_LIMIT` | ✓ | – |  |
+| `ENABLE_CLASSIC_FLOW` | ✓ | – | `true` lets borrowers start and change classic drafts (off by default; the classic wizard skips the approvals) |
 | `STAFF_LOGIN_RATE_LIMIT` | – | ✓ |  |
 | `CORS_ORIGIN` | ✓ | ✓ | only needed without same-origin proxying |
 | `VITE_API_URL` | borrower FE | admin FE | build time |

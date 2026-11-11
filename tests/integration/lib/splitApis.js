@@ -54,6 +54,8 @@ function startApi(name, port, env) {
       STAFF_LOGIN_RATE_LIMIT: '1000',
       // Staff changes reach open status streams within half a second instead of five.
       SSE_POLL_MS: '500',
+      // These older tests drive the classic wizard, which the borrower API refuses unless this is on.
+      ENABLE_CLASSIC_FLOW: 'true',
       ...(name === 'admin' ? { DB_INIT: 'false' } : {}),
       ...env,
     },

@@ -57,7 +57,7 @@ function request(port, method, urlPath, { body, token } = {}) {
 function spawnNode(code, env) {
   const child = spawn(process.execPath, ['-e', code], {
     cwd: __dirname,
-    env: { ...process.env, NODE_ENV: '', DEMO_MODE: 'true', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ...env },
+    env: { ...process.env, NODE_ENV: '', DEMO_MODE: 'true', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ENABLE_CLASSIC_FLOW: 'true', ...env }, // the request-number check uses a classic draft
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const state = { output: '', stdout: '', exited: false };

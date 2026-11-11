@@ -127,7 +127,7 @@ function openEventStream(port, urlPath, token) {
 function startServer(port, extraEnv, code) {
   const child = spawn(process.execPath, ['-e', code], {
     cwd: __dirname,
-    env: { ...process.env, NODE_ENV: '', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ...extraEnv },
+    env: { ...process.env, NODE_ENV: '', FLOW_REGISTER_RATE_LIMIT: '1000', STAFF_LOGIN_RATE_LIMIT: '1000', ENABLE_CLASSIC_FLOW: 'true', ...extraEnv }, // the setup and SSE check use a classic application
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   // Keep the tail of the server's output so a failed start can be explained.
