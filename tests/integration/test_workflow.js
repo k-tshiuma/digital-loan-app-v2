@@ -424,6 +424,14 @@ async function runTests() {
     assert.strictEqual(invalidCountryAndVisaRangeRes.body.fieldErrors.monthlySalaryNis, 'required');
     console.log('  ✓ PASS: Mandatory validation enforces passportNumber, countryOfOrigin, visa validity period, and monthlySalaryNis\n');
 
+    // Visa type: only the known Step 1 ids are kept (a draft with an unknown value stores none)
+    const oddVisaDraft = await request('PUT', '/api/flow/application/steps/1/draft', {
+      data: { personal: { fullName: 'Somchai Prasrt', visaType: 'not_a_visa' } },
+    }, applicantToken);
+    assert.strictEqual(oddVisaDraft.status, 200, `Step 1 draft failed: ${JSON.stringify(oddVisaDraft.body)}`);
+    assert.strictEqual(oddVisaDraft.body.application.steps[1].data.personal.visaType, '');
+    console.log('  ✓ PASS: An unknown visa type is not stored\n');
+
     // Submit Step 1 (confirmed name correction; phone/email in the body are ignored in favour of the account)
     const step1SubmitRes = await request('POST', '/api/flow/application/steps/1/submit', {
       data: {
@@ -436,6 +444,7 @@ async function runTests() {
           address: 'Herzl St 45, Tel Aviv',
           passportNumber: 'TH7744112',
           countryOfOrigin: 'Thailand',
+          visaType: 'foreign_expert',
           visaStartDate: '2025-06-01',
           visaExpiryDate: '2028-05-31',
           monthlySalaryNis: 8200,
@@ -480,6 +489,12 @@ async function runTests() {
     assert.strictEqual(boDetailRes.body.application.residencyDetails.visaStartDate, '2025-06-01');
     assert.strictEqual(boDetailRes.body.application.residencyDetails.visaExpiryDate, '2028-05-31');
     assert.strictEqual(boDetailRes.body.application.employmentDetails.monthlySalaryNis, 8200);
+    // The Step 1 visa type is stored with Step 1 (B/1 Foreign Expert, not B/1 Work Visa) and does not
+    // touch the classic residencyDetails.visaType, which the eligibility score reads.
+    assert.strictEqual(submittedStep1Personal.visaType, 'foreign_expert');
+    assert.strictEqual(boDetailRes.body.application.step1Data.personal.visaType, 'foreign_expert');
+    assert.strictEqual(boDetailRes.body.application.residencyDetails.visaType, undefined);
+    console.log('  ✓ PASS: Step 1 visa type stored and returned to the applicant and the Back Office\n');
 
     const boQueueSearchRes = await request('GET', '/api/flow/applications?q=TH7744112', null, reviewerToken);
     assert.strictEqual(boQueueSearchRes.status, 200);
@@ -652,6 +667,17 @@ async function runTests() {
     assert.strictEqual(finalApprove.status, 200);
     assert.strictEqual(finalApprove.body.flowStatus, 'LOAN_APPROVED');
     console.log('  ✓ PASS: Final decision mapped successfully to LOAN_APPROVED\n');
+
+    // An approved loan can't be approved a second time; its status stays as it was
+    const approveAgain = await request('POST', `/api/flow/applications/${appId}/final-decision`, {
+      status: 'Approved',
+      reason: 'Second approval attempt.',
+    }, reviewerToken);
+    assert.strictEqual(approveAgain.status, 409, `Re-approval must be refused: ${JSON.stringify(approveAgain.body)}`);
+    const afterAgain = await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken);
+    assert.strictEqual(afterAgain.body.application.flowStatus, 'LOAN_APPROVED');
+    assert.strictEqual(afterAgain.body.application.status, 'Approved');
+    console.log('  ✓ PASS: A second approval of an approved loan is refused (409) and changes nothing\n');
 
     // 10. Documents uploaded in the Step 1 form before registration move to the new account
     console.log('--- 10. GUEST UPLOADS ADOPTED AT REGISTRATION ---');

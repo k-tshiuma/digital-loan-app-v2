@@ -319,6 +319,8 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
 
   const handleStatusChange = async (newStatus: CanonicalStatus, reason?: string, missingNote?: string) => {
     if (!selectedApp) return;
+    // An approved loan is never approved again, whichever way its popup was opened.
+    if (newStatus === 'Approved' && isLoanApproved(selectedApp as any)) return;
 
     const updated = storageService.updateApplicationStatus(
       selectedApp.id,
@@ -1444,8 +1446,11 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                     <>
                       <button
                         type="button"
+                        id="bo-approve-loan-btn"
+                        disabled={isLoanApproved(selectedApp as any)}
+                        title={isLoanApproved(selectedApp as any) ? t(language, 'fi.note.alreadyApproved') : undefined}
                         onClick={() => handleStatusChange('Approved', DEFAULT_STATUS_REASONS.approved)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs"
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:bg-emerald-600"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         {t(language, 'bo.approve')}

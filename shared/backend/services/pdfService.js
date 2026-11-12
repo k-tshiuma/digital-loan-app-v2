@@ -3,6 +3,7 @@ const PDFDocument = require('pdfkit');
 const { FIELDS, VALUES, DOC_TITLE_KEYS, LEGACY_VALUES } = require('./pdfLabels');
 const { statusName, resolveMessageLanguage } = require('./messages');
 const { HEBREW, ltr, stripBidiControls, drawParagraph, wrapLines } = require('./pdfRtl');
+const { STEP1_VISA_CODES } = require('./visaTypes');
 
 const BRAND = '#1e3a8a';
 const MUTED = '#64748b';
@@ -290,7 +291,11 @@ function streamApplicationPdf(app, res, options = {}) {
   const visaStart = r.visaStartDate || s1p.visaStartDate;
   const visaEnd = r.visaExpiryDate || s1p.visaExpiryDate;
   section(L.field('sec.residency'));
-  row(L.field('visaType'), L.option('visa', r.visaType));
+  // Classic applications store residencyDetails.visaType; 3-step ones the Step 1 choice ("B/1 – Work Visa").
+  const s1VisaCode = s1p.visaType ? STEP1_VISA_CODES[s1p.visaType] : undefined;
+  row(L.field('visaType'), r.visaType
+    ? L.option('visa', r.visaType)
+    : s1VisaCode ? `${ltr(s1VisaCode)} – ${L.option('visaType', s1p.visaType)}` : undefined);
   if (visaStart && visaEnd) {
     row(L.field('visaValidity'), ltr(`${formatDate(visaStart, lang)} – ${formatDate(visaEnd, lang)}`));
   }

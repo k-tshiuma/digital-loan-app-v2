@@ -240,6 +240,75 @@ const filled: Step1FormData = {
   loan: { requestedAmountNis: 5000 },
 };
 
+describe('Step1LeadGeneration – visa type', () => {
+  const visaSelect = () => screen.getByLabelText('Visa Type') as HTMLSelectElement;
+
+  it('lists the eight visa types with code and description inside the visa section', () => {
+    render(<Step1LeadGeneration language="en" account={account} onSubmit={vi.fn()} />);
+    const options = Array.from(visaSelect().options).slice(1);
+    expect(options.map((o) => o.textContent)).toEqual([
+      '⁦2(a)(5)⁩ – Conditional Release',
+      '⁦A/2⁩ – Student Visa',
+      '⁦A/3⁩ – Clergymen',
+      '⁦A/5⁩ – Temporary Residence Permit',
+      '⁦B/1⁩ – Work Visa',
+      '⁦B/1⁩ – Foreign Expert',
+      '⁦B/2⁩ – Tourist',
+      '⁦B/4⁩ – Volunteer',
+    ]);
+    // The two B/1 types are separate values.
+    expect(new Set(options.map((o) => o.value)).size).toBe(8);
+    expect(visaSelect()).toHaveValue('');
+    expect(screen.getByTestId('step1-employee-info-section').contains(visaSelect())).toBe(true);
+  });
+
+  it('shows Hebrew descriptions with the same codes', () => {
+    render(<Step1LeadGeneration language="he" account={account} onSubmit={vi.fn()} />);
+    const select = screen.getByLabelText('סוג אשרה') as HTMLSelectElement;
+    expect(Array.from(select.options).find((o) => o.value === 'foreign_expert')?.textContent).toBe('⁦B/1⁩ – מומחה זר');
+  });
+
+  it('submits the chosen type, and each B/1 type separately', async () => {
+    const u = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<Step1LeadGeneration language="en" account={account} initialData={filled} onSubmit={onSubmit} />);
+
+    await u.selectOptions(visaSelect(), 'foreign_expert');
+    await u.click(submit());
+    expect(onSubmit.mock.calls[0][0].personal.visaType).toBe('foreign_expert');
+
+    await u.selectOptions(visaSelect(), 'work');
+    await u.click(submit());
+    expect(onSubmit.mock.calls[1][0].personal.visaType).toBe('work');
+  });
+
+  it('is optional: older records without a type still submit, without the field', async () => {
+    const u = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<Step1LeadGeneration language="en" account={account} initialData={filled} onSubmit={onSubmit} />);
+    await u.click(submit());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0].personal.visaType).toBeUndefined();
+  });
+
+  it('shows the saved type when the step is reopened, read-only included', () => {
+    const saved = { ...filled, personal: { ...filled.personal, visaType: 'foreign_expert' } };
+    const { unmount } = render(<Step1LeadGeneration language="en" account={account} initialData={saved} onSubmit={vi.fn()} />);
+    expect(visaSelect()).toHaveValue('foreign_expert');
+    unmount();
+
+    render(<Step1LeadGeneration language="en" account={account} initialData={saved} isReadOnly onSubmit={vi.fn()} />);
+    expect(visaSelect()).toHaveValue('foreign_expert');
+    expect(visaSelect()).toBeDisabled();
+  });
+
+  it('ignores an unknown stored value', () => {
+    const odd = { ...filled, personal: { ...filled.personal, visaType: 'b1_agri' } };
+    render(<Step1LeadGeneration language="en" account={account} initialData={odd} onSubmit={vi.fn()} />);
+    expect(visaSelect()).toHaveValue('');
+  });
+});
+
 const nameInput = () => screen.getByLabelText(/Full Name/) as HTMLInputElement;
 const submit = () => screen.getByRole('button', { name: /Submit/ });
 

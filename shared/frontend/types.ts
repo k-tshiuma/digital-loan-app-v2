@@ -465,6 +465,8 @@ export interface Step1FormData {
     address: string;
     passportNumber?: string;
     countryOfOrigin?: string;
+    /** Step 1 visa type id (STEP1_VISA_TYPES in config/appConfig.ts); optional, absent on older records. */
+    visaType?: string;
     visaStartDate?: string;
     visaExpiryDate?: string;
     monthlySalaryNis?: number;

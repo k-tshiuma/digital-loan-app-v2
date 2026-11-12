@@ -30,6 +30,9 @@ const STEP1_COUNTRIES = [
   'Uganda',
 ];
 
+// Step 1 visa type ids (services/visaTypes.js). Optional: older records have none.
+const { STEP1_VISA_TYPES } = require('./visaTypes');
+
 const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const digitsOnly = (v) => String(v || '').replace(/\D/g, '');
 
@@ -79,6 +82,7 @@ async function cleanStep1(raw, userId) {
       address: str(personal.address, 250),
       passportNumber: str(personal.passportNumber, 30),
       countryOfOrigin: str(personal.countryOfOrigin, 60),
+      visaType: STEP1_VISA_TYPES.includes(personal.visaType) ? personal.visaType : '',
       visaStartDate: str(personal.visaStartDate, 10),
       visaExpiryDate: str(personal.visaExpiryDate, 10),
       monthlySalaryNis: salaryNis,
@@ -203,6 +207,7 @@ module.exports = {
   ALLOWED_DOC_MIME,
   MAX_SPONSORS,
   STEP1_COUNTRIES,
+  STEP1_VISA_TYPES,
   cleanDocRef,
   cleanStep1, validateStep1,
   cleanStep2, validateStep2,

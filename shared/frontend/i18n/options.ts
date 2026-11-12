@@ -1,6 +1,6 @@
 import { CanonicalStatus, Language } from '../types';
 import { TRANSLATIONS, t } from './translations';
-import { DOCUMENT_TYPE_CONFIG, VISA_TYPES } from '../config/appConfig';
+import { DOCUMENT_TYPE_CONFIG, STEP1_VISA_TYPES, VISA_TYPES } from '../config/appConfig';
 
 /**
  * Option groups whose stored values are English words (from config/appConfig.ts).
@@ -37,6 +37,18 @@ export function optionLabel(lang: Language, group: OptionGroup, value: string | 
   const prefix = `opt.${group}.`;
   const match = Object.keys(TRANSLATIONS.en).find((k) => k.startsWith(prefix) && k.toLowerCase() === key.toLowerCase());
   return match ? t(lang, match) : value;
+}
+
+/**
+ * Display label for a Step 1 visa type id: the visa code and its description, e.g. "B/1 – Work Visa".
+ * The code is wrapped in a left-to-right isolate so "2(a)(5)" keeps its order in Hebrew (it is also
+ * used inside <option>, where <bdi> can't be). Unknown ids are shown as-is; empty gives ''.
+ */
+export function step1VisaTypeLabel(lang: Language, id: string | undefined | null): string {
+  if (!id) return '';
+  const visa = STEP1_VISA_TYPES.find((v) => v.id === id);
+  if (!visa) return id;
+  return `⁦${visa.code}⁩ – ${t(lang, `opt.visaType.${visa.id}`)}`;
 }
 
 const STATUS_KEYS: Record<CanonicalStatus, string> = {
