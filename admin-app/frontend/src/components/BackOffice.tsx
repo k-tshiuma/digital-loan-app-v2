@@ -67,6 +67,22 @@ export function maskAccountNumber(value: string | undefined | null): string {
 /** Flow statuses where a staff decision is due. */
 const NEEDS_REVIEW = new Set(['PENDING_STEP1_APPROVAL', 'PENDING_STEP2_APPROVAL', 'PENDING_FINAL_PROCESSING']);
 
+/** Staff roles authorized to see the "Push to Partner" action on approved loans. */
+const PUSH_TO_PARTNER_ROLES: ReadonlySet<UserRole> = new Set([
+  'customer_service',
+  'credit_reviewer',
+  'system_admin',
+]);
+
+/** Whether an application has reached final loan approval. */
+export function isLoanApproved(app: { status?: string; flowStatus?: string } | null | undefined): boolean {
+  if (!app) return false;
+  if (app.flowStatus) {
+    return app.flowStatus === 'LOAN_APPROVED';
+  }
+  return app.status === 'Approved';
+}
+
 interface BackOfficeProps {
   language: Language;
   currentRole: UserRole;
@@ -91,6 +107,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   const [selectedApp, setSelectedApp] = useState<LoanApplication | null>(null);
   const [selectedFlowDetail, setSelectedFlowDetail] = useState<any | null>(null);
   const [flowGroupFilter, setFlowGroupFilter] = useState<string>('ALL');
+  const canPushToPartner = PUSH_TO_PARTNER_ROLES.has(currentRole);
 
   // Escape closes the application detail window, unless the user is typing in a field (a note or reason
   // they are writing would be lost).
@@ -744,6 +761,18 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                   {t(language, 'fi.needsReview')}
                                 </span>
                               )}
+                              {canPushToPartner && isLoanApproved(app as any) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                  className="mt-1 mx-auto w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                >
+                                  <Send className="w-3 h-3" />
+                                  <span>{t(language, 'bo.pushToPartner')}</span>
+                                </button>
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-end">
                               <button
@@ -1042,7 +1071,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                 <div className="text-xs text-slate-300 mt-0.5">
                   {t(language, 'bo.submittedLang', {
                     date: formatDate(selectedApp.createdAt, language),
-                    lang: selectedApp.language === 'he' ? 'עברית' : selectedApp.language === 'en' ? 'English' : selectedApp.language.toUpperCase(),
+                    lang: selectedApp.language === 'he' ? 'עברית' : selectedApp.language === 'en' ? 'English' : (selectedApp.language || 'en').toUpperCase(),
                   })}
                 </div>
               </div>
@@ -1448,23 +1477,22 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                     </>
                   )}
 
-                  {/* Funding Entity Partner Action */}
-                  {(currentRole === 'funding_entity' || currentRole === 'system_admin' || currentRole === 'credit_reviewer') && (
-                    <button
-                      type="button"
-                      onClick={handleFundingHandoff}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      {t(language, 'bo.pushToFunding')}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
+              {canPushToPartner && isLoanApproved(selectedApp as any) && (
+                <button
+                  type="button"
+                  onClick={() => {}}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{t(language, 'bo.pushToPartner')}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedApp(null)}

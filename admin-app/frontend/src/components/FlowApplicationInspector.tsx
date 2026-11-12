@@ -47,6 +47,12 @@ interface FlowApplicationInspectorProps {
 const DECISION_BTN =
   'px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none';
 
+const PUSH_TO_PARTNER_ROLES: ReadonlySet<UserRole> = new Set([
+  'customer_service',
+  'credit_reviewer',
+  'system_admin',
+]);
+
 type DecisionStage = 1 | 2 | 'final';
 
 /** Statuses where a staff decision is due, and which one. */
@@ -90,6 +96,10 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   const [actionError, setActionError] = useState<string | null>(null);
 
   const canApproveOrReject = currentRole === 'credit_reviewer' || currentRole === 'system_admin';
+  const canPushToPartner = PUSH_TO_PARTNER_ROLES.has(currentRole);
+  const isLoanApproved = detail.flowStatus
+    ? detail.flowStatus === 'LOAN_APPROVED'
+    : detail.status === 'Approved';
 
   // Which decision the application is at. reviewStage: waiting for staff. waitingStage: waiting for the applicant.
   // Neither (loan approved or rejected): no decision left to make.
@@ -1026,6 +1036,17 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {canPushToPartner && isLoanApproved && (
+                <button
+                  type="button"
+                  onClick={() => {}}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{t(language, 'bo.pushToPartner')}</span>
+                </button>
+              )}
+
               {stage !== undefined && (
                 <>
                   <button

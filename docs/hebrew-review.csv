@@ -1386,6 +1386,7 @@
 "4 app","app","bo.requestDoc","Request additional document","בקשת מסמך נוסף","",""
 "4 app","app","bo.reject","Reject loan","דחיית ההלוואה","",""
 "4 app","app","bo.pushToFunding","Push to funding partner","העברה לגוף המממן","",""
+"4 app","app","bo.pushToPartner","Push to Partner","העברה לשותף מימון","",""
 "4 app","app","an.title","Executive lending & risk analytics","ניתוח הלוואות וסיכונים","",""
 "4 app","app","an.subtitle","Real-time portfolio metrics, underwriting speed and pre-screening distribution.","מדדי תיק בזמן אמת, מהירות חיתום והתפלגות הסינון המוקדם.","",""
 "4 app","app","an.refresh","Refresh","רענון","",""
