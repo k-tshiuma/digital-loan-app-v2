@@ -11,13 +11,10 @@ import {
   LogOut,
   FileText,
   Bell,
-  Phone,
 } from 'lucide-react';
 import { Language, User, UserRole } from '@quickloan/ui-core/types';
 import { ENABLED_LANGUAGES, t } from '@quickloan/ui-core/i18n/translations';
 import { NotificationBell } from './NotificationBell';
-import { SUPPORT_CONFIG } from '@quickloan/ui-core/config/appConfig';
-import { Linking } from '../utils/linking';
 
 interface HeaderProps {
   currentLanguage: Language;
@@ -48,7 +45,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
 
   // Short label shown on the language button.
   const shortLabel = (code: Language) =>
@@ -56,25 +52,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Close the language menu on an outside click or Escape.
   const langMenuRef = useRef<HTMLDivElement>(null);
-  const helpMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isHelpMenuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (helpMenuRef.current && !helpMenuRef.current.contains(e.target as Node)) {
-        setIsHelpMenuOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsHelpMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [isHelpMenuOpen]);
 
   useEffect(() => {
     if (!isLangMenuOpen) return;
@@ -153,16 +130,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          <button
-            id="header-help-btn"
-            onClick={onOpenHelp}
-            aria-label={t(currentLanguage, 'helpAndFaq')}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition-colors"
-            title={t(currentLanguage, 'helpAndFaq')}
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
-
           {!isOnline ? (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
               <WifiOff className="w-3 h-3" />
@@ -209,45 +176,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Back Office Toggle & User Account Profile & Help */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Top-Right Help Icon (?) with Contact Support Dropdown */}
-          <div className="relative" ref={helpMenuRef}>
-            <button
-              id="header-help-btn"
-              type="button"
-              onClick={() => setIsHelpMenuOpen(!isHelpMenuOpen)}
-              className="p-1.5 rounded-full text-slate-600 hover:text-blue-600 hover:bg-slate-100 transition-colors flex items-center justify-center"
-              title={t(currentLanguage, 'helpAndFaq')}
-              aria-label={t(currentLanguage, 'helpAndFaq')}
-            >
-              <HelpCircle className="w-5 h-5 text-slate-600 hover:text-blue-600" />
-            </button>
-
-            {isHelpMenuOpen && (
-              <div className="absolute end-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
-                <button
-                  type="button"
-                  id="contact-support-dropdown-btn"
-                  onClick={() => {
-                    setIsHelpMenuOpen(false);
-                    Linking.openURL(`tel:${SUPPORT_CONFIG.phoneNumber}`);
-                  }}
-                  className="w-full px-4 py-2.5 text-start hover:bg-blue-50/60 flex items-center gap-3 group transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-blue-600">
-                      {/* i18n-ignore */} Contact Support
-                    </div>
-                    <div className="text-xs text-slate-500 font-mono" dir="ltr">
-                      {SUPPORT_CONFIG.displayPhone || SUPPORT_CONFIG.phoneNumber}
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Help & FAQ: opens the full Help & FAQ modal */}
+          <button
+            id="header-help-btn"
+            onClick={onOpenHelp}
+            aria-label={t(currentLanguage, 'helpAndFaq')}
+            className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition-colors"
+            title={t(currentLanguage, 'helpAndFaq')}
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
 
           {/* Notification Bell (if user is authenticated) */}
           {currentUser && onOpenNotifications && (
