@@ -79,6 +79,7 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
   const handleAddSponsor = (e: React.FormEvent) => {
     e.preventDefault();
     setSponsorError(null);
+    if (isReadOnly) return;
 
     if (sponsors.length >= 3) {
       setSponsorError(t(language, 'step2.err.maxSponsors'));
@@ -131,6 +132,8 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
     e.preventDefault();
     setServerError(null);
 
+    // Read-only steps are a historical record: nothing can be submitted from them.
+    if (isReadOnly) return;
     if (!validate()) return;
 
     setIsSubmitting(true);

@@ -157,6 +157,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     setter: (doc: UploadedDocRef | null) => void,
     fieldKey: string
   ) => {
+    if (isReadOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -231,6 +232,8 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
     e.preventDefault();
     setServerError(null);
 
+    // Read-only steps are a historical record: nothing can be submitted from them.
+    if (isReadOnly) return;
     if (!validate()) return;
 
     setIsSubmitting(true);
@@ -906,7 +909,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           type="submit"
           id="submit-step1-btn"
           disabled={isSubmitting || isReadOnly}
-          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <span>{t(language, 'lead.submittingButton')}</span>

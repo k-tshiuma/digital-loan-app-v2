@@ -74,6 +74,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -122,6 +123,8 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
     e.preventDefault();
     setServerError(null);
 
+    // Read-only steps are a historical record: nothing can be submitted from them.
+    if (isReadOnly) return;
     if (!validate()) return;
 
     setIsSubmitting(true);

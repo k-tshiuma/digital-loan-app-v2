@@ -197,10 +197,10 @@ export const apiService = {
     return res.application;
   },
 
-  async submitFlowStep(step: number, data?: any): Promise<import('@quickloan/ui-core/types').FlowApplicationView> {
+  async submitFlowStep(step: number, data?: any, options?: { newApplication?: boolean }): Promise<import('@quickloan/ui-core/types').FlowApplicationView> {
     const res = await request<{ application: import('@quickloan/ui-core/types').FlowApplicationView }>(
       `/flow/application/steps/${step}/submit`,
-      { method: 'POST', body: { data } }
+      { method: 'POST', body: { data, ...(options?.newApplication ? { newApplication: true } : {}) } }
     );
     return res.application;
   },

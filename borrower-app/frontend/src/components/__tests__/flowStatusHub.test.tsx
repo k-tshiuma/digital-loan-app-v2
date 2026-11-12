@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -212,5 +212,53 @@ describe('FlowStatusHub', () => {
     expect(screen.getByText('ממתין לאישור שלב 1')).toBeInTheDocument();
     expect(screen.getByText('מסלול הגשת הבקשה ב-3 שלבים')).toBeInTheDocument();
     expect(screen.getByText('שלב 1: הרשמה והגשת בקשה')).toBeInTheDocument();
+  });
+  describe('approved loan', () => {
+    const approved = () =>
+      makeApp({
+        flowStatus: 'LOAN_APPROVED',
+        isCompleted: true,
+        unlockedStep: 3,
+        stepStates: { 1: 'approved', 2: 'approved', 3: 'approved' },
+        loanBreakdown: breakdown,
+      });
+
+    it('lets the applicant open all three completed steps to review them', async () => {
+      const user = userEvent.setup();
+      const onNavigate = vi.fn();
+      render(<FlowStatusHub application={approved()} language="en" onNavigateToStep={onNavigate} onStartNewApplication={vi.fn()} />);
+
+      for (const [n, title] of [[1, /Step 1: Registration/], [2, /Step 2: Sponsors/], [3, /Step 3: Bank Details/]] as const) {
+        expect(card(title)).toBeEnabled();
+        await user.click(card(title));
+        expect(onNavigate).toHaveBeenLastCalledWith(n);
+      }
+    });
+
+    it('shows an active Submit Loan Application button at the bottom that starts a new application', async () => {
+      const user = userEvent.setup();
+      const onNew = vi.fn();
+      const onNavigate = vi.fn();
+      const { container } = render(<FlowStatusHub application={approved()} language="en" onNavigateToStep={onNavigate} onStartNewApplication={onNew} />);
+
+      const btn = screen.getByRole('button', { name: 'Submit Loan Application' });
+      expect(btn).toBeEnabled();
+      const buttons = container.querySelectorAll('button');
+      expect(buttons[buttons.length - 1]).toBe(btn);
+      await user.click(btn);
+      expect(onNew).toHaveBeenCalledTimes(1);
+      expect(onNavigate).not.toHaveBeenCalled();
+    });
+
+    it('shows the button in Hebrew', () => {
+      render(<FlowStatusHub application={approved()} language="he" onNavigateToStep={vi.fn()} onStartNewApplication={vi.fn()} />);
+      const hebrewSubmitText = "הגשת בקשת הלוואה";
+      expect(screen.getByRole("button", { name: hebrewSubmitText })).toBeEnabled();
+    });
+
+    it('does not offer a new application before the loan is approved', () => {
+      render(<FlowStatusHub application={makeApp({ flowStatus: 'PENDING_FINAL_PROCESSING', isCompleted: true })} language="en" onNavigateToStep={vi.fn()} onStartNewApplication={vi.fn()} />);
+      expect(screen.queryByRole('button', { name: 'Submit Loan Application' })).toBeNull();
+    });
   });
 });
