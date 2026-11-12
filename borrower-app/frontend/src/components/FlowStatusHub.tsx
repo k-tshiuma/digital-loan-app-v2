@@ -24,12 +24,15 @@ interface FlowStatusHubProps {
   language: Language;
   onNavigateToStep: (step: number) => void;
   onResubmitCorrections?: () => void;
+  /** Approved loans only: starts a new application at Step 1 (the approved one is not changed). */
+  onStartNewApplication?: () => void;
 }
 
 export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
   application,
   language,
   onNavigateToStep,
+  onStartNewApplication,
 }) => {
   const isRejected = application.flowStatus === 'LOAN_REJECTED';
   const isApproved = application.flowStatus === 'LOAN_APPROVED';
@@ -226,6 +229,19 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
           )}
         </div>
       </div>
+
+      {/* Approved: the application above is a read-only record; a new application starts again at Step 1 */}
+      {isApproved && onStartNewApplication && (
+        <button
+          type="button"
+          id="start-new-application-btn"
+          onClick={onStartNewApplication}
+          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>{t(language, 'lead.submitButton')}</span>
+          <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+        </button>
+      )}
     </div>
   );
 };

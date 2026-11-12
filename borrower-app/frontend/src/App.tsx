@@ -89,9 +89,15 @@ export default function App() {
   const [leadData, setLeadData] = useState<LeadData | null>(null);
   const [currentFlowStep, setCurrentFlowStep] = useState<1 | 2 | 3 | 'hub'>(1);
   const [flowApplication, setFlowApplication] = useState<FlowApplicationView | null>(null);
+  // Step 1 opened from the approved status page to start a new application (the approved one stays read-only).
+  const [startingNewApplication, setStartingNewApplication] = useState(false);
   const [flowTerms, setFlowTerms] = useState<Record<string, TermsVersionRecord> | null>(null);
   const [flowLoadFailed, setFlowLoadFailed] = useState(false);
   const [flowReloadKey, setFlowReloadKey] = useState(0);
+  // Leaving Step 1 ends "new application" mode: the Step 1 tab then shows the approved application again (read-only).
+  useEffect(() => {
+    if (currentFlowStep !== 1) setStartingNewApplication(false);
+  }, [currentFlowStep]);
 
   // Shows the flow application and opens the step the applicant should be on.
   const applyFlowApplication = (app: FlowApplicationView) => {
@@ -643,6 +649,11 @@ export default function App() {
               ) : currentFlowStep === 'hub' && flowApplication ? (
                 <FlowStatusHub
                   application={flowApplication}
+                  onStartNewApplication={() => {
+                    setStartingNewApplication(true);
+                    setCurrentFlowStep(1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   language={currentLanguage}
                   onNavigateToStep={(step) => {
                     setCurrentFlowStep(step as 1 | 2 | 3);
@@ -660,7 +671,8 @@ export default function App() {
                   }
                   isReadOnly={
                     flowApplication?.stepStates[2] === 'pending' ||
-                    flowApplication?.stepStates[2] === 'approved'
+                    flowApplication?.stepStates[2] === 'approved' ||
+                    flowApplication?.flowStatus === 'LOAN_APPROVED'
                   }
                   onSubmit={async (step2Data) => {
                     const updated = await apiService.submitFlowStep(2, step2Data);
@@ -686,6 +698,7 @@ export default function App() {
                   initialData={flowApplication?.steps[3]?.data}
                   termsVersions={flowTerms || {}}
                   isReadOnly={
+                    flowApplication?.flowStatus === 'LOAN_APPROVED' ||
                     flowApplication?.stepStates[3] === 'submitted' ||
                     flowApplication?.isCompleted
                   }
@@ -704,15 +717,18 @@ export default function App() {
                 />
               ) : (
                 <Step1LeadGeneration
+                  key={startingNewApplication ? 'new-application' : 'current-application'}
                   language={currentLanguage}
-                  initialData={flowApplication?.steps[1]?.data}
+                  initialData={startingNewApplication ? null : flowApplication?.steps[1]?.data}
                   account={flowApplication?.account}
                   isReadOnly={
-                    flowApplication?.stepStates[1] === 'pending' ||
-                    flowApplication?.stepStates[1] === 'approved'
+                    !startingNewApplication && (flowApplication?.stepStates[1] === 'pending' ||
+                    flowApplication?.stepStates[1] === 'approved' ||
+                    flowApplication?.flowStatus === 'LOAN_APPROVED')
                   }
                   onSubmit={async (step1Data) => {
-                    const updated = await apiService.submitFlowStep(1, step1Data);
+                    const updated = await apiService.submitFlowStep(1, step1Data, { newApplication: startingNewApplication });
+                    setStartingNewApplication(false);
                     if (updated) {
                       setFlowApplication(updated);
                       setCurrentFlowStep('hub');

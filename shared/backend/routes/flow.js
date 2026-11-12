@@ -183,7 +183,7 @@ module.exports = function createFlowRoutes(ctx) {
   // A JSON column as an object for json_set (NULL, 'null' or anything else that isn't an object -> '{}').
   const asJsonObject = (col) => `CASE WHEN json_valid(${col}) THEN CASE WHEN json_type(${col}) = 'object' THEN ${col} ELSE '{}' END ELSE '{}' END`;
   const getFlowAppByUser = async (userId) =>
-    flowRowToApp(await dbGet('SELECT * FROM applications WHERE userId = ? AND flowVersion = 2 ORDER BY createdAt DESC LIMIT 1', [userId]));
+    flowRowToApp(await dbGet('SELECT * FROM applications WHERE userId = ? AND flowVersion = 2 ORDER BY createdAt DESC, rowid DESC LIMIT 1', [userId]));
   const getFlowAppById = async (id) =>
     flowRowToApp(await dbGet('SELECT * FROM applications WHERE (id = ? OR requestNumber = ?) AND flowVersion = 2', [id, id]));
 
@@ -669,8 +669,17 @@ module.exports = function createFlowRoutes(ctx) {
     // Submit a step. Server-side: sequence check, full validation, snapshot, terms (step 3), transition, notifications.
     app.post('/api/flow/application/steps/:n/submit', requireApplicant, async (req, res) => {
       const n = parseStep(req, res); if (!n) return;
-      const a = await getFlowAppByUser(req.user.id);
+      let a = await getFlowAppByUser(req.user.id);
       if (!a) return res.status(404).json({ success: false, error: 'Application not found' });
+      // A new application after an approved loan: the approved application stays untouched (it is read-only
+      // for the applicant) and Step 1 is submitted on a fresh application that reuses the recorded consent.
+      if (n === 1 && req.body && req.body.newApplication === true && a.flowStatus === W.FLOW_STATUS.LOAN_APPROVED) {
+        const approved = a;
+        a = await createFlowApp(req.user, { leadSource: approved.leadSource || 'manual', language: approved.language, phoneVerified: !!approved.phoneVerified, registration: null, req });
+        const reg = (approved.step1Data || {}).registration;
+        if (reg) a.step1Data = { ...(a.step1Data || {}), registration: reg };
+        await audit(req, { applicationId: a.id, action: 'NEW_APPLICATION_AFTER_APPROVAL', metadata: { previousApplicationId: approved.id } });
+      }
       const prevStatus = a.flowStatus;
 
       if (n > (a.unlockedStep || 1)) {
