@@ -10,6 +10,7 @@ import {
   riskLevelLabel,
   roleLabel,
   statusLabel,
+  step1VisaTypeLabel,
 } from '../../i18n/options';
 import {
   COUNTRY_PHONE_CODES,
@@ -20,6 +21,7 @@ import {
   ORIGIN_COUNTRIES,
   REPAYMENT_SOURCE_OPTIONS,
   SALARY_PAYMENT_METHODS,
+  STEP1_VISA_TYPES,
   VISA_TYPES,
 } from '../../config/appConfig';
 
@@ -64,6 +66,26 @@ describe('Dropdown values have English and Hebrew labels', () => {
       ...DOCUMENT_TYPE_CONFIG.map((d) => docTypeLabel('he', d.code)),
     ];
     expect(checks.filter((c) => !HEBREW.test(c))).toEqual([]);
+  });
+});
+
+describe('Step 1 visa types', () => {
+  it('has eight unique ids, each with an English and Hebrew description', () => {
+    expect(STEP1_VISA_TYPES).toHaveLength(8);
+    expect(new Set(STEP1_VISA_TYPES.map((v) => v.id)).size).toBe(8);
+    expect(STEP1_VISA_TYPES.filter((v) => !has(`opt.visaType.${v.id}`))).toEqual([]);
+  });
+
+  it('labels show the code (kept left-to-right) and the description', () => {
+    expect(step1VisaTypeLabel('en', 'work')).toBe('⁦B/1⁩ – Work Visa');
+    expect(step1VisaTypeLabel('en', 'foreign_expert')).toBe('⁦B/1⁩ – Foreign Expert');
+    expect(step1VisaTypeLabel('he', 'conditional_release')).toBe('⁦2(a)(5)⁩ – שחרור על תנאי');
+  });
+
+  it('gives empty for no value and shows an unknown value as-is', () => {
+    expect(step1VisaTypeLabel('en', '')).toBe('');
+    expect(step1VisaTypeLabel('en', undefined)).toBe('');
+    expect(step1VisaTypeLabel('en', 'something_else')).toBe('something_else');
   });
 });
 

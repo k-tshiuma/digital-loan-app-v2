@@ -22,7 +22,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { Language, UserRole } from '@quickloan/ui-core/types';
-import { statusLabel, flowGroupLabel, optionLabel } from '@quickloan/ui-core/i18n/options';
+import { statusLabel, flowGroupLabel, optionLabel, step1VisaTypeLabel } from '@quickloan/ui-core/i18n/options';
 import { formatCurrency, formatDate, formatDateTime } from '@quickloan/ui-core/i18n/format';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { apiService } from '../services/api';
@@ -135,6 +135,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
     address: p1.address || b1.addressFull || '',
     passportNumber: p1.passportNumber || b1.passportNumber || '',
     countryOfOrigin: p1.countryOfOrigin || b1.countryOfOrigin || '',
+    visaType: p1.visaType || '',
     visaStartDate: p1.visaStartDate || r1.visaStartDate || '',
     visaExpiryDate: p1.visaExpiryDate || r1.visaExpiryDate || '',
     monthlySalaryNis:
@@ -189,6 +190,10 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
           <span className="font-semibold text-slate-900">
             {empInfo.countryOfOrigin ? optionLabel(language, 'country', empInfo.countryOfOrigin) : '—'}
           </span>
+        </div>
+        <div>
+          <span className="text-slate-400">{t(language, 'fi.visaType')}</span>{' '}
+          <span className="font-semibold text-slate-900">{step1VisaTypeLabel(language, empInfo.visaType) || '—'}</span>
         </div>
         <div>
           <span className="text-slate-400">{t(language, 'fi.visaValidity')}</span>{' '}
@@ -263,6 +268,8 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   };
 
   const handleFinalApprove = async () => {
+    // An approved loan is never approved again (the backend refuses Approved -> Approved too).
+    if (isLoanApproved) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
@@ -565,6 +572,10 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                   <div><span className="text-slate-400">{t(language, 'fi.address')}</span> {empInfo.address || '—'}</div>
                   <div><span className="text-slate-400">{t(language, 'fi.passportNumber')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-900">{empInfo.passportNumber || '—'}</bdi></div>
                   <div><span className="text-slate-400">{t(language, 'fi.countryOfOrigin')}</span> <span className="font-semibold text-slate-900">{empInfo.countryOfOrigin ? optionLabel(language, 'country', empInfo.countryOfOrigin) : '—'}</span></div>
+                  <div>
+                    <span className="text-slate-400">{t(language, 'fi.visaType')}</span>{' '}
+                    <span className="font-semibold text-slate-900">{step1VisaTypeLabel(language, empInfo.visaType) || '—'}</span>
+                  </div>
                   <div>
                     <span className="text-slate-400">{t(language, 'fi.visaValidity')}</span>{' '}
                     {renderVisaValidity()}
@@ -1044,6 +1055,21 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{t(language, 'bo.pushToPartner')}</span>
+                </button>
+              )}
+
+              {/* Already approved: the approval stays visible but disabled, so the loan can't be approved twice. */}
+              {isLoanApproved && stage === undefined && (
+                <button
+                  type="button"
+                  id="fi-approve-loan-btn"
+                  disabled
+                  aria-disabled="true"
+                  title={t(language, 'fi.note.alreadyApproved')}
+                  className={`${DECISION_BTN} bg-emerald-600`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{t(language, 'fi.approveLoan')}</span>
                 </button>
               )}
 

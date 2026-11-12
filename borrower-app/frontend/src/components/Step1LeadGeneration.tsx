@@ -23,10 +23,10 @@ import {
   UploadedDocRef,
   Language,
 } from '@quickloan/ui-core/types';
-import { STEP1_ORIGIN_COUNTRIES } from '@quickloan/ui-core/config/appConfig';
+import { STEP1_ORIGIN_COUNTRIES, STEP1_VISA_TYPES } from '@quickloan/ui-core/config/appConfig';
 import { DateInput } from '@quickloan/ui-core/components/DateInput';
 import { formatCurrency } from '@quickloan/ui-core/i18n/format';
-import { optionLabel } from '@quickloan/ui-core/i18n/options';
+import { optionLabel, step1VisaTypeLabel } from '@quickloan/ui-core/i18n/options';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import { apiService, ApiError } from '../services/api';
@@ -124,6 +124,11 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
   const [address, setAddress] = useState(initialData?.personal?.address || '');
   const [passportNumber, setPassportNumber] = useState(initialData?.personal?.passportNumber || '');
   const [countryOfOrigin, setCountryOfOrigin] = useState(initialData?.personal?.countryOfOrigin || '');
+  // Only a known id is shown as selected (older records have none).
+  const [visaType, setVisaType] = useState<string>(() => {
+    const saved = initialData?.personal?.visaType || '';
+    return STEP1_VISA_TYPES.some((v) => v.id === saved) ? saved : '';
+  });
   const [visaStartDate, setVisaStartDate] = useState(initialData?.personal?.visaStartDate || '');
   const [visaExpiryDate, setVisaExpiryDate] = useState(initialData?.personal?.visaExpiryDate || '');
   const [monthlySalary, setMonthlySalary] = useState<string>(() => {
@@ -251,6 +256,7 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
           address: address.trim(),
           passportNumber: passportNumber.trim(),
           countryOfOrigin,
+          visaType: visaType || undefined,
           visaStartDate,
           visaExpiryDate,
           monthlySalaryNis: salaryValue,
@@ -549,8 +555,27 @@ export const Step1LeadGeneration: React.FC<Step1LeadGenerationProps> = ({
             </div>
           </div>
 
-          {/* Visa Validity Period (Date-Range Selector) */}
+          {/* Visa: type (optional) and validity period (date-range selector) */}
           <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-3">
+            <div>
+              <label htmlFor="step1-visa-type" className="block text-xs font-bold text-slate-700 mb-1">
+                {t(language, 'lead.visaTypeLabel')}
+              </label>
+              <select
+                id="step1-visa-type"
+                value={visaType}
+                disabled={isReadOnly}
+                onChange={(e) => setVisaType(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 border-slate-200"
+              >
+                <option value="">{t(language, 'lead.visaTypePlaceholder')}</option>
+                {STEP1_VISA_TYPES.map((visa) => (
+                  <option key={visa.id} value={visa.id}>
+                    {step1VisaTypeLabel(language, visa.id)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="text-xs font-bold text-slate-700">
               {t(language, 'lead.visaValidityTitle')} <span className="text-red-500">*</span>
             </div>

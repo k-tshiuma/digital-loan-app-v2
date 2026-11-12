@@ -145,12 +145,47 @@ describe('FlowApplicationInspector', () => {
     expect(screen.getByRole('button', { name: 'Approve Step 2' })).toBeDisabled();
   });
 
-  it('shows no decision buttons once the loan is decided', () => {
-    setup('LOAN_APPROVED');
+  it('keeps Approve loan visible but disabled once the loan is approved, and clicking it does nothing', async () => {
+    for (const role of ['credit_reviewer', 'system_admin'] as UserRole[]) {
+      const { user, unmount, onFinalDecision, onApproveStep } = setup('LOAN_APPROVED', role);
+
+      expect(screen.getByRole('status')).toHaveTextContent('A final decision has been made.');
+      const approve = screen.getByRole('button', { name: 'Approve loan' });
+      expect(approve).toBeDisabled();
+      expect(approve).toHaveAttribute('title', 'This loan is already approved.');
+      expect(screen.queryByRole('button', { name: /Reject/ })).toBeNull();
+
+      await user.click(approve);
+      expect(onFinalDecision).not.toHaveBeenCalled();
+      expect(onApproveStep).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
+  it('shows no decision buttons once the loan is rejected', () => {
+    setup('LOAN_REJECTED');
 
     expect(screen.getByRole('status')).toHaveTextContent('A final decision has been made.');
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Reject/ })).toBeNull();
+  });
+
+  it('shows the Step 1 visa type with its code, and a dash for older records without one', () => {
+    const { unmount } = setup('PENDING_STEP1_APPROVAL', 'credit_reviewer', {
+      application: {
+        step1Data: {
+          personal: { fullName: 'Somchai Worker', phoneNumber: '050-1234567', visaType: 'foreign_expert' },
+          employment: { employerName: 'Moshe Cohen', companyName: 'Green Farms' },
+          loan: { requestedAmountNis: 5000 },
+        },
+      },
+    });
+    expect(screen.getAllByText('⁦B/1⁩ – Foreign Expert').length).toBeGreaterThan(0);
+    unmount();
+
+    setup('PENDING_STEP1_APPROVAL');
+    expect(screen.queryByText(/Foreign Expert|Work Visa/)).toBeNull();
+    expect(screen.getAllByText('Visa type:')[0].parentElement).toHaveTextContent('Visa type: —');
   });
 
   it('shows the localized error when a decision fails', async () => {

@@ -58,6 +58,25 @@ export const STEP1_ORIGIN_COUNTRIES = [
   'Uganda',
 ] as const;
 
+/**
+ * Visa types offered in Step 1 of the 3-step flow. The stored value is `id` (unique: "Work Visa" and
+ * "Foreign Expert" share the code B/1); `code` is the official visa code shown next to the label
+ * (opt.visaType.<id>). Mirrored in shared/backend/services/visaTypes.js (contract-tested).
+ * Not the classic wizard's VISA_TYPES, which are B-1 sub-categories.
+ */
+export const STEP1_VISA_TYPES = [
+  { id: 'conditional_release', code: '2(a)(5)' },
+  { id: 'student', code: 'A/2' },
+  { id: 'clergy', code: 'A/3' },
+  { id: 'temporary_residence', code: 'A/5' },
+  { id: 'work', code: 'B/1' },
+  { id: 'foreign_expert', code: 'B/1' },
+  { id: 'tourist', code: 'B/2' },
+  { id: 'volunteer', code: 'B/4' },
+] as const;
+
+export type Step1VisaTypeId = (typeof STEP1_VISA_TYPES)[number]['id'];
+
 export const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Other'];
 
 export const SALARY_PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'Check', 'Other'];
