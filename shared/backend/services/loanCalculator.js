@@ -1,8 +1,8 @@
 /**
  * Server-side loan calculation. This is a straight port of `calculateLoanRepayment` and
  * `getServiceFeeForAmount` in frontend/src/config/appConfig.ts and MUST stay identical to it.
- * A shared fixture (backend/fixtures/loan-calc-fixtures.json) is checked by both
- * `test_loan_calc_parity.js` (this file) and `frontend/src/config/__tests__/loanCalc.parity.test.ts`.
+ * A shared fixture (shared/backend/fixtures/loan-calc-fixtures.json) is checked by both
+ * `tests/integration/test_workflow.js` (this file) and `shared/frontend/config/__tests__/loanCalc.parity.test.ts`.
  */
 
 const LOAN_CONFIG = {
@@ -13,19 +13,11 @@ const LOAN_CONFIG = {
   defaultInterestRatePercent: 8.5,
 };
 
-const SERVICE_FEE_TIERS = [
-  { minAmount: 500, maxAmount: 2000, feeNis: 120 },
-  { minAmount: 2001, maxAmount: 4000, feeNis: 220 },
-  { minAmount: 4001, maxAmount: 7000, feeNis: 350 },
-  { minAmount: 7001, maxAmount: 10000, feeNis: 480 },
-];
+/** Flat one-time service (agent) fee, whatever the loan amount; split evenly across the months. */
+const SERVICE_FEE_NIS = 3000;
 
-function getServiceFeeForAmount(amount, tiers = SERVICE_FEE_TIERS) {
-  if (amount <= 0) return 0;
-  const match = tiers.find((t) => amount >= t.minAmount && amount <= t.maxAmount);
-  if (match) return match.feeNis;
-  if (amount < ((tiers[0] && tiers[0].minAmount) || 500)) return (tiers[0] && tiers[0].feeNis) || 120;
-  return (tiers[tiers.length - 1] && tiers[tiers.length - 1].feeNis) || 480;
+function getServiceFeeForAmount(amount) {
+  return amount > 0 ? SERVICE_FEE_NIS : 0;
 }
 
 function calculateLoanRepayment(principalAmount, periodMonths, config = LOAN_CONFIG) {
@@ -82,7 +74,7 @@ function isValidRepaymentPeriod(months) {
  * Full breakdown for display and for the stored snapshot. The loan figures (principal + interest)
  * are kept apart from the service fee so the applicant can see the difference:
  *  - loanOnly*   = what repays the loan itself (base monthly payment x months)
- *  - service fee = tiered one-time fee, split evenly across the months
+ *  - service fee = flat one-time fee (SERVICE_FEE_NIS), split evenly across the months
  *  - overall*    = both together (the existing monthlyPaymentNis / totalRepaymentNis)
  */
 function buildLoanBreakdown(principalAmount, periodMonths) {
@@ -104,7 +96,7 @@ function buildLoanBreakdown(principalAmount, periodMonths) {
 
 module.exports = {
   LOAN_CONFIG,
-  SERVICE_FEE_TIERS,
+  SERVICE_FEE_NIS,
   getServiceFeeForAmount,
   calculateLoanRepayment,
   isValidLoanAmount,

@@ -3,50 +3,70 @@
     "principal": 500,
     "period": 3,
     "expectedBaseMonthly": 169,
-    "expectedFee": 120,
-    "expectedMonthlyFee": 40,
-    "expectedTotalMonthly": 209,
-    "expectedTotalRepayment": 627,
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 1000,
+    "expectedTotalMonthly": 1169,
+    "expectedTotalRepayment": 3507,
     "expectedTotalInterest": 7
   },
   {
     "principal": 2000,
     "period": 6,
     "expectedBaseMonthly": 342,
-    "expectedFee": 120,
-    "expectedMonthlyFee": 20,
-    "expectedTotalMonthly": 362,
-    "expectedTotalRepayment": 2172,
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 500,
+    "expectedTotalMonthly": 842,
+    "expectedTotalRepayment": 5052,
     "expectedTotalInterest": 52
   },
   {
     "principal": 5000,
     "period": 6,
     "expectedBaseMonthly": 854,
-    "expectedFee": 350,
-    "expectedMonthlyFee": 58,
-    "expectedTotalMonthly": 912,
-    "expectedTotalRepayment": 5472,
-    "expectedTotalInterest": 122
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 500,
+    "expectedTotalMonthly": 1354,
+    "expectedTotalRepayment": 8124,
+    "expectedTotalInterest": 124
   },
   {
     "principal": 5000,
     "period": 9,
     "expectedBaseMonthly": 575,
-    "expectedFee": 350,
-    "expectedMonthlyFee": 39,
-    "expectedTotalMonthly": 614,
-    "expectedTotalRepayment": 5526,
-    "expectedTotalInterest": 176
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 333,
+    "expectedTotalMonthly": 908,
+    "expectedTotalRepayment": 8172,
+    "expectedTotalInterest": 172
   },
   {
     "principal": 10000,
     "period": 9,
     "expectedBaseMonthly": 1151,
-    "expectedFee": 480,
-    "expectedMonthlyFee": 53,
-    "expectedTotalMonthly": 1204,
-    "expectedTotalRepayment": 10836,
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 333,
+    "expectedTotalMonthly": 1484,
+    "expectedTotalRepayment": 13356,
     "expectedTotalInterest": 356
+  },
+  {
+    "principal": 6000,
+    "period": 6,
+    "expectedBaseMonthly": 1025,
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 500,
+    "expectedTotalMonthly": 1525,
+    "expectedTotalRepayment": 9150,
+    "expectedTotalInterest": 150
+  },
+  {
+    "principal": 3000,
+    "period": 3,
+    "expectedBaseMonthly": 1014,
+    "expectedFee": 3000,
+    "expectedMonthlyFee": 1000,
+    "expectedTotalMonthly": 2014,
+    "expectedTotalRepayment": 6042,
+    "expectedTotalInterest": 42
   }
 ]
