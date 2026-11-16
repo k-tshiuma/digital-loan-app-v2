@@ -20,6 +20,9 @@ import {
   MessageSquare,
   Lock,
   Eye,
+  EyeOff,
+  Percent,
+  Banknote,
 } from 'lucide-react';
 import { Language, UserRole } from '@quickloan/ui-core/types';
 import { statusLabel, flowGroupLabel, optionLabel, step1VisaTypeLabel } from '@quickloan/ui-core/i18n/options';
@@ -208,7 +211,24 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
       </div>
     </div>
   );
-  const reviews = detail.reviews || [];
+  const reviews = [...(detail.reviews || [])];
+  // If Step 3 / Loan is approved and not explicitly in reviews list, surface Step 3 approval
+  const hasStep3Review = reviews.some((r: any) => r.stepNumber === 3 || r.step === 3);
+  if (!hasStep3Review && (step3.status === 'APPROVED' || isLoanApproved)) {
+    const finalHistory = (detail.statusHistory || []).find(
+      (h: any) => h.toStatus === 'Approved' || h.toStatus === 'LOAN_APPROVED'
+    );
+    const finalAudit = (detail.audit || []).find(
+      (a: any) => a.action === 'FINAL_STATUS_CHANGED' && (a.toStatus === 'Approved' || a.metadata?.flowStatus === 'LOAN_APPROVED')
+    );
+    reviews.push({
+      stepNumber: 3,
+      decision: 'APPROVE',
+      notes: finalHistory?.reason || (finalAudit?.metadata?.reason as string) || undefined,
+      reviewedByName: finalHistory?.changedByName || finalAudit?.actorName || 'Credit Reviewer',
+      createdAt: finalHistory?.createdAt || finalAudit?.createdAt || detail.updatedAt || new Date().toISOString(),
+    });
+  }
   const auditLogs = detail.audit || [];
 
   const termsTypeLabel = (type: string | undefined) => {
@@ -314,17 +334,44 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   };
 
   const [isRevealing, setIsRevealing] = useState(false);
+  const [isBankManuallyHidden, setIsBankManuallyHidden] = useState(false);
+
+  const rawAccountNumber = step3.data?.bank?.accountNumber;
+  const isPartiallyMasked = rawAccountNumber ? rawAccountNumber.includes('*') : false;
+  // If backend returned full number, can be toggled hidden. If masked, shown when revealed unless manually hidden.
+  const isAccountRevealed = Boolean(detail.bankRevealed || !isPartiallyMasked) && !isBankManuallyHidden;
+
+  const maskAccountDisplay = (val: string | undefined) => {
+    if (!val) return '—';
+    if (val.includes('*')) return val;
+    return val.length <= 4 ? '****' : `${'*'.repeat(val.length - 4)}${val.slice(-4)}`;
+  };
+
+  const displayedAccountNumber = isAccountRevealed
+    ? rawAccountNumber || '—'
+    : maskAccountDisplay(rawAccountNumber);
+
   const handleRevealBankClick = async () => {
+    // If we already have the unmasked number or bankRevealed, simply toggle back to revealed
+    if (detail.bankRevealed || !isPartiallyMasked) {
+      setIsBankManuallyHidden(false);
+      return;
+    }
     if (!onRevealBank) return;
     setIsRevealing(true);
     setActionError(null);
     try {
       await onRevealBank();
+      setIsBankManuallyHidden(false);
     } catch (err: any) {
       setActionError(localizeError(err, language));
     } finally {
       setIsRevealing(false);
     }
+  };
+
+  const handleHideBankClick = () => {
+    setIsBankManuallyHidden(true);
   };
 
   const handleSendMessageSubmit = async (e: React.FormEvent) => {
@@ -511,7 +558,8 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             }`}
           >
             <span>{t(language, 'fi.tab.step3')}</span>
-            {step3.status === 'SUBMITTED' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+            {(step3.status === 'APPROVED' || isLoanApproved) && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+            {step3.status === 'SUBMITTED' && !isLoanApproved && <Clock className="w-3.5 h-3.5 text-amber-300" />}
           </button>
 
           <button
@@ -735,18 +783,31 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                   <div><span className="text-slate-400">{t(language, 'fi.branch')}</span> <bdi dir="ltr" className="font-mono font-bold">{step3.data?.bank?.branchNumber || '—'}</bdi></div>
                   <div className="flex flex-wrap items-center gap-x-1.5">
                     <span className="text-slate-400">{t(language, 'fi.accountNumber')}</span>
-                    <bdi dir="ltr" className="font-mono font-bold text-blue-900">{step3.data?.bank?.accountNumber || '—'}</bdi>
-                    {step3.data?.bank?.accountNumber && !detail.bankRevealed && onRevealBank && (
-                      <button
-                        type="button"
-                        disabled={isRevealing}
-                        onClick={handleRevealBankClick}
-                        title={t(language, 'fi.bank.showHint')}
-                        className="text-[10px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 disabled:opacity-50"
-                      >
-                        <Eye className="w-3 h-3" />
-                        {t(language, 'fi.bank.show')}
-                      </button>
+                    <bdi dir="ltr" className="font-mono font-bold text-blue-900">{displayedAccountNumber}</bdi>
+                    {rawAccountNumber && (
+                      isAccountRevealed ? (
+                        <button
+                          type="button"
+                          onClick={handleHideBankClick}
+                          className="text-[10px] font-bold text-slate-500 hover:text-slate-800 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <EyeOff className="w-3 h-3" />
+                          {t(language, 'fi.bank.hide')}
+                        </button>
+                      ) : (
+                        onRevealBank && (
+                          <button
+                            type="button"
+                            disabled={isRevealing}
+                            onClick={handleRevealBankClick}
+                            title={t(language, 'fi.bank.showHint')}
+                            className="text-[10px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 disabled:opacity-50 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            {t(language, 'fi.bank.show')}
+                          </button>
+                        )
+                      )
                     )}
                   </div>
                   <div><span className="text-slate-400">{t(language, 'fi.accountHolder')}</span> <span className="font-bold text-slate-900">{step3.data?.bank?.accountHolderName || '—'}</span></div>
@@ -808,60 +869,115 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
               </div>
 
               {breakdown ? (
-                <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-4">
-                  <h4 className="font-bold text-sm text-sky-400 border-b border-slate-800 pb-2">
-                    {t(language, 'fi.bd.title')}
-                  </h4>
+                <div className="space-y-4">
+                  {/* SECTION 1: Bank Loan Repayment Breakdown */}
+                  <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-white space-y-4">
+                    <h4 className="font-bold text-sm text-sky-400 border-b border-slate-800 pb-2 flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-sky-400" />
+                      <span>{t(language, 'fi.bd.bankBreakdownTitle')}</span>
+                    </h4>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
-                    <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.amount')}</span>
-                      <span className="text-xl font-bold font-mono text-white">
-                        {formatCurrency(breakdown.requestedAmountNis, language)}
-                      </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <span className="text-slate-400 block">{t(language, 'fi.bd.amount')}</span>
+                        <span className="text-xl font-bold font-mono text-white">
+                          {formatCurrency(breakdown.requestedAmountNis, language)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">{t(language, 'fi.bd.duration')}</span>
+                        <span className="text-xl font-bold font-mono text-white">
+                          {t(language, 'fi.months', { n: breakdown.repaymentPeriodMonths })}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">{t(language, 'fi.bd.interest')}</span>
+                        <span className="text-xl font-bold font-mono text-amber-300">
+                          {formatCurrency(breakdown.totalInterestNis, language)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">{t(language, 'fi.bd.monthlyLoan')}</span>
+                        <span className="text-xl font-extrabold font-mono text-emerald-300">
+                          {formatCurrency(breakdown.monthlyRepaymentWithInterestNis, language)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">{t(language, 'fi.bd.totalLoanRepayment')}</span>
+                        <span className="text-xl font-extrabold font-mono text-sky-300">
+                          {formatCurrency(
+                            breakdown.totalLoanRepaymentNis ??
+                              (breakdown.requestedAmountNis && breakdown.totalInterestNis
+                                ? breakdown.requestedAmountNis + breakdown.totalInterestNis
+                                : breakdown.monthlyRepaymentWithInterestNis && breakdown.repaymentPeriodMonths
+                                ? breakdown.monthlyRepaymentWithInterestNis * breakdown.repaymentPeriodMonths
+                                : breakdown.totalRepaymentNis),
+                            language
+                          )}
+                        </span>
+                      </div>
                     </div>
+                  </div>
 
-                    <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.duration')}</span>
-                      <span className="text-xl font-bold font-mono text-white">
-                        {t(language, 'fi.months', { n: breakdown.repaymentPeriodMonths })}
-                      </span>
+                  {/* SECTION 2: Service Fee Breakdown */}
+                  <div className="p-5 rounded-2xl bg-[#1e1338] border border-purple-900/60 text-white space-y-4">
+                    <h4 className="font-bold text-sm text-purple-300 border-b border-purple-900/50 pb-2 flex items-center gap-2">
+                      <Banknote className="w-4 h-4 text-purple-400" />
+                      <span>{t(language, 'fi.bd.serviceFeeTitle')}</span>
+                    </h4>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <span className="text-purple-300/80 block">{t(language, 'fi.bd.fee')}</span>
+                        <span className="text-xl font-bold font-mono text-purple-200">
+                          {formatCurrency(breakdown.totalServiceFeeNis || 3000, language)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-purple-300/80 block">{t(language, 'fi.bd.duration')}</span>
+                        <span className="text-xl font-bold font-mono text-white">
+                          {t(language, 'fi.months', { n: breakdown.repaymentPeriodMonths })}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-purple-300/80 block">{t(language, 'fi.bd.monthlyFee')}</span>
+                        <span className="text-xl font-extrabold font-mono text-purple-300">
+                          {formatCurrency(
+                            breakdown.monthlyServiceFeeNis ||
+                              Math.round((breakdown.totalServiceFeeNis || 3000) / (breakdown.repaymentPeriodMonths || 1)),
+                            language
+                          )}
+                        </span>
+                      </div>
                     </div>
+                  </div>
 
+                  {/* SECTION 3: Total Repayment (Loan + Fee) */}
+                  <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-white flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.interest')}</span>
-                      <span className="text-xl font-bold font-mono text-amber-300">
-                        {formatCurrency(breakdown.totalInterestNis, language)}
+                      <span className="text-slate-400 text-xs block font-medium">
+                        {t(language, 'fi.bd.totalWithFee')}
                       </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.fee')}</span>
-                      <span className="text-xl font-bold font-mono text-indigo-300">
-                        {formatCurrency(breakdown.totalServiceFeeNis, language)}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.total')}</span>
-                      <span className="text-xl font-extrabold font-mono text-emerald-400">
+                      <span className="text-2xl font-black font-mono text-emerald-400">
                         {formatCurrency(breakdown.totalRepaymentNis, language)}
                       </span>
                     </div>
-
-                    <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.monthlyLoan')}</span>
-                      <span className="text-xl font-extrabold font-mono text-emerald-300">
-                        {formatCurrency(breakdown.monthlyRepaymentWithInterestNis, language)}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 block">{t(language, 'fi.bd.monthlyFee')}</span>
-                      <span className="text-xl font-extrabold font-mono text-indigo-200">
-                        {formatCurrency(breakdown.monthlyServiceFeeNis, language)}
-                      </span>
-                    </div>
+                    {breakdown.monthlyPaymentTotalNis && (
+                      <div className="text-start sm:text-end">
+                        <span className="text-slate-400 text-xs block font-medium">
+                          {t(language, 'fi.bd.totalMonthlyWithFee') || 'Total monthly repayment (loan + fee):'}
+                        </span>
+                        <span className="text-xl font-extrabold font-mono text-emerald-300">
+                          {formatCurrency(breakdown.monthlyPaymentTotalNis, language)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

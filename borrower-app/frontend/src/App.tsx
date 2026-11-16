@@ -695,6 +695,7 @@ export default function App() {
                 <Step3FinalSubmission
                   language={currentLanguage}
                   breakdown={flowApplication?.loanBreakdown || null}
+                  applicantName={flowApplication?.account?.fullName || flowApplication?.steps[1]?.data?.personal?.fullName}
                   initialData={flowApplication?.steps[3]?.data}
                   termsVersions={flowTerms || {}}
                   isReadOnly={
