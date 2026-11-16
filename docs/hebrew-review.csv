@@ -25,7 +25,7 @@
 "1 legal","app","step3.mandatoryAgreementsTitle","Mandatory Agreements & Consents","הסכמים ואישורי חובה","",""
 "1 legal","app","step3.termsCheckbox","I have read, understood, and accept the General Terms & Conditions.","קראתי, הבנתי ואני מאשר/ת את תנאי השימוש וההלוואה הכלליים.","",""
 "1 legal","app","step3.serviceFeeCheckbox","I have reviewed and explicitly agree to the Service Fee Terms & Conditions.","עיינתי ואני מסכים/ה במפורש לתנאי דמי השירות.","",""
-"1 legal","app","step3.agentFeeAgreementNotice","I acknowledge and agree to the agent fee of 3,000 NIS, which will be divided into equal monthly payments over the agreed loan repayment period.","אני מאשר/ת ומסכים/ה לעמלת הסוכן בסך 3,000 ש""ח, שתחולק לתשלומים חודשיים שווים לאורך תקופת החזר ההלוואה המוסכמת.","",""
+"1 legal","app","step3.agentFeeAgreementNotice","I acknowledge and agree to the agent fee of {amount}, which will be divided into equal monthly payments over the agreed loan repayment period.","אני מאשר/ת ומסכים/ה לעמלת הסוכן בסך {amount}, שתחולק לתשלומים חודשיים שווים לאורך תקופת החזר ההלוואה המוסכמת.","",""
 "1 legal","app","step3.agentFeeCheckbox","I have read and agree to the agent fee terms.","קראתי ואני מסכים/ה לתנאי עמלת הסוכן.","",""
 "1 legal","app","step3.err.termsRequired","General Terms & Conditions acceptance is mandatory","אישור תנאי השימוש וההלוואה הינו שדה חובה","",""
 "1 legal","app","step3.err.serviceFeeRequired","Service Fee Terms acceptance is mandatory","אישור תנאי דמי השירות הינו שדה חובה","",""
@@ -47,6 +47,13 @@
 2. The service fee is paid in equal monthly instalments together with the loan repayment, over the same repayment period.
 3. The exact service fee, the monthly service fee and the loan repayment amounts are shown to you before you submit, and are recorded with your application.
 4. The service fee remunerates QuickLoan for its intermediary services and does not guarantee that a loan will be granted.","1. עמלת השירות היא עמלה חד-פעמית מדורגת, הנקבעת לפי סכום ההלוואה המבוקש. היא נפרדת מקרן ההלוואה ומריבית ההלוואה.
+2. עמלת השירות משולמת בתשלומים חודשיים שווים יחד עם החזר ההלוואה, לאורך אותה תקופת החזר.
+3. עמלת השירות המדויקת, עמלת השירות החודשית וסכומי החזר ההלוואה מוצגים לך לפני ההגשה ונשמרים יחד עם בקשתך.
+4. עמלת השירות מהווה תמורה עבור שירותי התיווך של QuickLoan ואינה מבטיחה שההלוואה תאושר.","",""
+"1 legal","backend terms","service_fee v2.0","1. The service fee is a one-time, flat fee of 3,000 NIS, the same for every loan amount. It is separate from the loan principal and the loan interest.
+2. The service fee is paid in equal monthly instalments together with the loan repayment, over the same repayment period.
+3. The exact service fee, the monthly service fee and the loan repayment amounts are shown to you before you submit, and are recorded with your application.
+4. The service fee remunerates QuickLoan for its intermediary services and does not guarantee that a loan will be granted.","1. עמלת השירות היא עמלה חד-פעמית קבועה בסך 3,000 ש""ח, זהה לכל סכום הלוואה. היא נפרדת מקרן ההלוואה ומריבית ההלוואה.
 2. עמלת השירות משולמת בתשלומים חודשיים שווים יחד עם החזר ההלוואה, לאורך אותה תקופת החזר.
 3. עמלת השירות המדויקת, עמלת השירות החודשית וסכומי החזר ההלוואה מוצגים לך לפני ההגשה ונשמרים יחד עם בקשתך.
 4. עמלת השירות מהווה תמורה עבור שירותי התיווך של QuickLoan ואינה מבטיחה שההלוואה תאושר.","",""
@@ -1531,6 +1538,11 @@
 "4 app","app","fi.ip","IP address:","כתובת IP:","",""
 "4 app","app","fi.hash","Hash:","גיבוב:","",""
 "4 app","app","fi.s3.noTerms","Terms acceptance is recorded when Step 3 is submitted.","אישור התנאים יתועד עם הגשת שלב 3.","",""
+"4 app","app","fi.bd.bankBreakdownTitle","Bank loan repayment breakdown","פירוט החזר הלוואה מהבנק","",""
+"4 app","app","fi.bd.serviceFeeTitle","Service fee breakdown","פירוט דמי שירות / עמלת סוכן","",""
+"4 app","app","fi.bd.totalLoanRepayment","Total to repay (loan):","סך החזר הלוואה (קרן וריבית):","",""
+"4 app","app","fi.bd.totalWithFee","Total to repay (loan + fee):","סך הכול לתשלום (הלוואה ודמי שירות):","",""
+"4 app","app","fi.bd.totalMonthlyWithFee","Total monthly repayment (loan + fee):","סך החזר חודשי (הלוואה ודמי שירות):","",""
 "4 app","app","fi.bd.feeTitle","Fees shown separately","הפרדה בין העמלות","",""
 "4 app","app","fi.bd.feeText","The monthly repayment covers the loan amount and the interest paid to the lender. The monthly service fee is charged separately for processing, compliance and agency services.","ההחזר החודשי מכסה את סכום ההלוואה ואת הריבית למלווה. דמי השירות החודשיים נגבים בנפרד עבור הטיפול בבקשה, ציות ושירותי סוכנות.","",""
 "4 app","app","fi.bd.title","Full loan and payment breakdown","פירוט מלא של ההלוואה והתשלומים","",""

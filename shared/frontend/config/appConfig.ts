@@ -109,31 +109,14 @@ export const LOAN_PERIOD_OPTIONS = [
 
 export const MAX_REPAYMENT_PERIOD_MONTHS = 9;
 
-export interface ServiceFeeTier {
-  minAmount: number;
-  maxAmount: number;
-  feeNis: number;
-}
-
 /**
- * Service fee table mapping loan amount ranges to a fixed fee.
+ * Flat one-time service (agent) fee, whatever the loan amount; split evenly across the months.
+ * Mirrored in shared/backend/services/loanCalculator.js; keep both identical.
  */
-export const SERVICE_FEE_TIERS: ServiceFeeTier[] = [
-  { minAmount: 500, maxAmount: 2000, feeNis: 120 },
-  { minAmount: 2001, maxAmount: 4000, feeNis: 220 },
-  { minAmount: 4001, maxAmount: 7000, feeNis: 350 },
-  { minAmount: 7001, maxAmount: 10000, feeNis: 480 },
-];
+export const SERVICE_FEE_NIS = 3000;
 
-export function getServiceFeeForAmount(
-  amount: number,
-  tiers: ServiceFeeTier[] = SERVICE_FEE_TIERS
-): number {
-  if (amount <= 0) return 0;
-  const match = tiers.find((t) => amount >= t.minAmount && amount <= t.maxAmount);
-  if (match) return match.feeNis;
-  if (amount < (tiers[0]?.minAmount ?? 500)) return tiers[0]?.feeNis ?? 120;
-  return tiers[tiers.length - 1]?.feeNis ?? 480;
+export function getServiceFeeForAmount(amount: number): number {
+  return amount > 0 ? SERVICE_FEE_NIS : 0;
 }
 
 export const VISA_TYPES = [

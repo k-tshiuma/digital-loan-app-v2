@@ -25,6 +25,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import { Language, UserRole } from '@quickloan/ui-core/types';
+import { SERVICE_FEE_NIS } from '@quickloan/ui-core/config/appConfig';
 import { statusLabel, flowGroupLabel, optionLabel, step1VisaTypeLabel } from '@quickloan/ui-core/i18n/options';
 import { formatCurrency, formatDate, formatDateTime } from '@quickloan/ui-core/i18n/format';
 import { t } from '@quickloan/ui-core/i18n/translations';
@@ -934,7 +935,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                       <div>
                         <span className="text-purple-300/80 block">{t(language, 'fi.bd.fee')}</span>
                         <span className="text-xl font-bold font-mono text-purple-200">
-                          {formatCurrency(breakdown.totalServiceFeeNis || 3000, language)}
+                          {formatCurrency(breakdown.totalServiceFeeNis || SERVICE_FEE_NIS, language)}
                         </span>
                       </div>
 
@@ -950,7 +951,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                         <span className="text-xl font-extrabold font-mono text-purple-300">
                           {formatCurrency(
                             breakdown.monthlyServiceFeeNis ||
-                              Math.round((breakdown.totalServiceFeeNis || 3000) / (breakdown.repaymentPeriodMonths || 1)),
+                              Math.round((breakdown.totalServiceFeeNis || SERVICE_FEE_NIS) / (breakdown.repaymentPeriodMonths || 1)),
                             language
                           )}
                         </span>

@@ -20,7 +20,7 @@ import {
   UploadedDocRef,
   TermsVersionRecord,
 } from '@quickloan/ui-core/types';
-import { ISRAELI_BANKS } from '@quickloan/ui-core/config/appConfig';
+import { ISRAELI_BANKS, SERVICE_FEE_NIS } from '@quickloan/ui-core/config/appConfig';
 import { formatCurrency } from '@quickloan/ui-core/i18n/format';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { apiService } from '../services/api';
@@ -60,9 +60,22 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
   const [bankDoc, setBankDoc] = useState<UploadedDocRef | null>(initialData?.bankDocument || null);
   const [isUploadingDoc, setIsUploadingDoc] = useState<boolean>(false);
 
-  // Mandatory Agreements Checkboxes
-  const [generalAccepted, setGeneralAccepted] = useState<boolean>(initialData?.terms.generalAccepted || false);
-  const [serviceFeeAccepted, setServiceFeeAccepted] = useState<boolean>(initialData?.terms.serviceFeeAccepted || false);
+  // Mandatory Agreements Checkboxes. A submitted Step 3 comes back from the server with the
+  // acceptance records (`terms.general` / `terms.serviceFee`, each with the accepted version)
+  // instead of the form's booleans. A record counts as ticked when the step is read-only, or when
+  // its version is still the current one (an acceptance of older wording must be given again).
+  const storedTerms = (initialData?.terms || {}) as Partial<Step3FormData['terms']> & {
+    general?: { version?: string } | null;
+    serviceFee?: { version?: string } | null;
+  };
+  const wasAccepted = (flag: boolean | undefined, record: { version?: string } | null | undefined, currentVersion?: string) =>
+    Boolean(flag) || (Boolean(record) && (isReadOnly || !currentVersion || record?.version === currentVersion));
+  const [generalAccepted, setGeneralAccepted] = useState<boolean>(
+    wasAccepted(storedTerms.generalAccepted, storedTerms.general, termsVersions?.general?.version)
+  );
+  const [serviceFeeAccepted, setServiceFeeAccepted] = useState<boolean>(
+    wasAccepted(storedTerms.serviceFeeAccepted, storedTerms.serviceFee, termsVersions?.service_fee?.version)
+  );
 
   // Terms Modal State
   const [activeTermsModal, setActiveTermsModal] = useState<'general' | 'service_fee' | null>(null);
@@ -250,7 +263,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
                   <div>
                     <span className="text-slate-700 block">{t(language, 'step3.totalAgentFee')}</span>
                     <span className="font-bold text-emerald-700 text-base">
-                      3,000 NIS {/* i18n-ignore */}
+                      {formatCurrency(SERVICE_FEE_NIS, language)}
                     </span>
                   </div>
                   <div>
@@ -266,14 +279,14 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
                     {t(language, 'step3.monthlyAgentFee')}
                   </span>
                   <span className="font-bold text-purple-800 text-sm">
-                    {formatCurrency(Math.round(3000 / (breakdown.repaymentPeriodMonths || 1)), language)}
+                    {formatCurrency(Math.round(SERVICE_FEE_NIS / (breakdown.repaymentPeriodMonths || 1)), language)}
                   </span>
                 </div>
 
                 {/* Mandatory Agent Fee Agreement */}
                 <div className="pt-2 border-t border-purple-200 space-y-2.5">
                   <p className="text-xs text-slate-800 leading-relaxed font-medium">
-                    {t(language, 'step3.agentFeeAgreementNotice')}
+                    {t(language, 'step3.agentFeeAgreementNotice', { amount: formatCurrency(SERVICE_FEE_NIS, language) })}
                   </p>
 
                   <div

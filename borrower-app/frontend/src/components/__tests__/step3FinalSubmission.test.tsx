@@ -51,8 +51,35 @@ describe('Step3FinalSubmission', () => {
     expect(screen.getByText(/5,000/)).toBeInTheDocument();
     expect(screen.getByText(/5,112/)).toBeInTheDocument();
     expect(screen.getByText(/852/)).toBeInTheDocument();
-    expect(screen.getAllByText(/3,000 NIS/).length).toBeGreaterThanOrEqual(1);
+    // The flat 3,000 NIS agent fee, formatted like every other amount (in the box and the agreement text)
+    expect(screen.getAllByText(/3,000/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/3,000 NIS/)).toBeNull();
     expect(screen.getByText(/500/)).toBeInTheDocument(); // 3000 / 6 = 500
+  });
+
+  it('formats the agent fee for Hebrew without an English currency code', () => {
+    render(<Step3FinalSubmission language="he" breakdown={breakdown} termsVersions={terms} applicantName="Somchai Worker" onSubmit={vi.fn()} />);
+    expect(screen.getAllByText(/3,000/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/NIS/)).toBeNull();
+  });
+
+  // A submitted Step 3 comes back from the server with acceptance records, not the form's booleans.
+  const serverTerms = {
+    general: { version: '1.2', sha256: 'a', acceptedAt: '2026-11-15T10:00:00.000Z' },
+    serviceFee: { version: '1.0', sha256: 'old', acceptedAt: '2026-11-15T10:00:00.000Z' },
+  } as unknown as Step3FormData['terms'];
+
+  it('shows both terms as accepted on a submitted (read-only) Step 3 loaded from the server', () => {
+    render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} initialData={{ ...filledData, terms: serverTerms }} isReadOnly onSubmit={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: /General Terms & Conditions/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /agent fee terms/i })).toBeChecked();
+  });
+
+  it('asks again for terms accepted under an older version when Step 3 is re-opened for changes', () => {
+    render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} initialData={{ ...filledData, terms: serverTerms }} onSubmit={vi.fn()} />);
+    // general 1.2 is still current; the service fee was accepted as 1.0 and is now 2.0
+    expect(screen.getByRole('checkbox', { name: /General Terms & Conditions/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /agent fee terms/i })).not.toBeChecked();
   });
 
   it('shows a loading notice when there is no breakdown yet', () => {
