@@ -47,7 +47,8 @@ const LEGAL_KEYS = [
   'review.term3', 'review.term4', 'review.term5', 'review.term6', 'review.term7',
   // 3-step workflow, Step 3 agreements
   'step3.mandatoryAgreementsTitle', 'step3.termsCheckbox', 'step3.serviceFeeCheckbox',
-  'step3.err.termsRequired', 'step3.err.serviceFeeRequired',
+  'step3.agentFeeAgreementNotice', 'step3.agentFeeCheckbox',
+  'step3.err.termsRequired', 'step3.err.serviceFeeRequired', 'step3.err.agentFeeRequired',
 ];
 
 type Row = { priority: string; where: string; key: string; english: string; hebrew: string };

@@ -217,6 +217,30 @@ describe('FlowApplicationInspector', () => {
     expect(onRevealBank).toHaveBeenCalled();
   });
 
+  it('allows hiding and re-showing a revealed bank account', async () => {
+    const { user } = setup('PENDING_FINAL_PROCESSING', 'system_admin', {
+      application: {
+        step3Data: { bank: { bankName: 'Bank Leumi', accountNumber: '12345678' } },
+      },
+      bankRevealed: true,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Step 3: Bank & terms' }));
+    expect(screen.getByText('12345678')).toBeInTheDocument();
+    const hideBtn = screen.getByRole('button', { name: 'Hide' });
+    expect(hideBtn).toBeInTheDocument();
+
+    // Clicking Hide toggles back to masked display
+    await user.click(hideBtn);
+    expect(screen.getByText('****5678')).toBeInTheDocument();
+    const showAgainBtn = screen.getByRole('button', { name: 'Show' });
+    expect(showAgainBtn).toBeInTheDocument();
+
+    // Clicking Show restores full account display
+    await user.click(showAgainBtn);
+    expect(screen.getByText('12345678')).toBeInTheDocument();
+  });
+
   it('shows the financial breakdown tab', async () => {
     const { user } = setup('PENDING_FINAL_PROCESSING');
 

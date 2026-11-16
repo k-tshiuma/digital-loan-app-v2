@@ -25,8 +25,11 @@
 "1 legal","app","step3.mandatoryAgreementsTitle","Mandatory Agreements & Consents","הסכמים ואישורי חובה","",""
 "1 legal","app","step3.termsCheckbox","I have read, understood, and accept the General Terms & Conditions.","קראתי, הבנתי ואני מאשר/ת את תנאי השימוש וההלוואה הכלליים.","",""
 "1 legal","app","step3.serviceFeeCheckbox","I have reviewed and explicitly agree to the Service Fee Terms & Conditions.","עיינתי ואני מסכים/ה במפורש לתנאי דמי השירות.","",""
+"1 legal","app","step3.agentFeeAgreementNotice","I acknowledge and agree to the agent fee of 3,000 NIS, which will be divided into equal monthly payments over the agreed loan repayment period.","אני מאשר/ת ומסכים/ה לעמלת הסוכן בסך 3,000 ש""ח, שתחולק לתשלומים חודשיים שווים לאורך תקופת החזר ההלוואה המוסכמת.","",""
+"1 legal","app","step3.agentFeeCheckbox","I have read and agree to the agent fee terms.","קראתי ואני מסכים/ה לתנאי עמלת הסוכן.","",""
 "1 legal","app","step3.err.termsRequired","General Terms & Conditions acceptance is mandatory","אישור תנאי השימוש וההלוואה הינו שדה חובה","",""
 "1 legal","app","step3.err.serviceFeeRequired","Service Fee Terms acceptance is mandatory","אישור תנאי דמי השירות הינו שדה חובה","",""
+"1 legal","app","step3.err.agentFeeRequired","Agreement to the agent fee is mandatory","אישור עמלת הסוכן הינו שדה חובה","",""
 "1 legal","backend terms","general v1.0","1. By submitting this application, you declare that all provided information is accurate and truthful.
 2. You authorize the funding entity to perform background and credit history checks.
 3. You agree to the proposed repayment schedule, which includes processing fees and interest rates as specified in the estimate.
@@ -1186,6 +1189,15 @@
 "4 app","app","step3.subtitle","Provide your bank account details, review the complete repayment breakdown, and accept the mandatory terms.","נא למלא את פרטי חשבון הבנק, לבדוק את פירוט ההחזר המלא ולאשר את תנאי השירות וההסכמים.","",""
 "4 app","app","step3.stepBadge","Step 3","שלב 3","",""
 "4 app","app","step3.financialBreakdownTitle","Loan Repayment & Service Fee Breakdown","פירוט החזר הלוואה ודמי שירות","",""
+"4 app","app","step3.bankLoanBreakdownTitle","Bank Loan Repayment Breakdown","פירוט החזר הלוואה מהבנק","",""
+"4 app","app","step3.agentFeeSectionTitle","Agent Fee","עמלת סוכן / דמי שירות","",""
+"4 app","app","step3.totalAgentFee","Total Agent Fee:","סך הכל עמלת סוכן:","",""
+"4 app","app","step3.repaymentPeriod","Repayment Period:","תקופת החזר:","",""
+"4 app","app","step3.repaymentPeriodMonths","{n} months","{n} חודשים","",""
+"4 app","app","step3.monthlyAgentFee","Monthly Agent Fee:","עמלת סוכן חודשית:","",""
+"4 app","app","step3.approvedLoanAmount","Approved Loan Amount:","סכום הלוואה מאושר:","",""
+"4 app","app","step3.monthlyBankRepayment","Monthly Bank Repayment:","החזר בנקאי חודשי:","",""
+"4 app","app","step3.accountHolderRegisteredHint","Registered name from application profile (non-editable)","שם רשום מפרופיל הבקשה (שדה נעול לעריכה)","",""
 "4 app","app","step3.requestedLoanAmount","Requested Loan Amount:","סכום הלוואה מבוקש:","",""
 "4 app","app","step3.totalInterest","Total Interest:","סך הכל ריבית:","",""
 "4 app","app","step3.totalServiceFee","Total Agent / Service Fee:","סך הכל דמי שירות / עמלת תיווך:","",""

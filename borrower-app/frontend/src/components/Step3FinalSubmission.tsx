@@ -28,6 +28,7 @@ import { apiService } from '../services/api';
 interface Step3FinalSubmissionProps {
   language: Language;
   breakdown: LoanBreakdown | null;
+  applicantName?: string | null;
   initialData?: Step3FormData | null;
   termsVersions: Record<string, TermsVersionRecord> | null;
   isReadOnly?: boolean;
@@ -38,18 +39,22 @@ interface Step3FinalSubmissionProps {
 export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
   language,
   breakdown,
+  applicantName,
   initialData,
   termsVersions,
   isReadOnly = false,
   onSubmit,
   onBack,
 }) => {
+  // Resolved registered applicant name for non-editable account holder name field
+  const resolvedApplicantName = (applicantName || initialData?.bank?.accountHolderName || '').trim();
+
   // Bank Account Fields
   const [bankName, setBankName] = useState<string>(initialData?.bank.bankName || ISRAELI_BANKS[0]?.name || 'Bank Hapoalim');
   const [bankCode, setBankCode] = useState<string>(initialData?.bank.bankCode || ISRAELI_BANKS[0]?.code || '12');
   const [branchNumber, setBranchNumber] = useState<string>(initialData?.bank.branchNumber || '');
   const [accountNumber, setAccountNumber] = useState<string>(initialData?.bank.accountNumber || '');
-  const [accountHolderName, setAccountHolderName] = useState<string>(initialData?.bank.accountHolderName || '');
+  const [accountHolderName] = useState<string>(resolvedApplicantName);
 
   // Document state
   const [bankDoc, setBankDoc] = useState<UploadedDocRef | null>(initialData?.bankDocument || null);
@@ -113,7 +118,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
     if (!accountHolderName.trim()) errs.accountHolder = t(language, 'step3.err.accountHolder');
     if (!bankDoc) errs.bankDoc = t(language, 'step3.err.bankDoc');
     if (!generalAccepted) errs.generalAccepted = t(language, 'step3.err.termsRequired');
-    if (!serviceFeeAccepted) errs.serviceFeeAccepted = t(language, 'step3.err.serviceFeeRequired');
+    if (!serviceFeeAccepted) errs.serviceFeeAccepted = t(language, 'step3.err.agentFeeRequired');
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -183,78 +188,138 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* SECTION 1: FINANCIAL BREAKDOWN */}
-        <div className="space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
-            <Percent className="w-3.5 h-3.5 text-blue-600" />
-            {t(language, 'step3.financialBreakdownTitle')}
-          </h2>
+        {/* SECTION 1: FINAL APPROVAL - FINANCIAL BREAKDOWN */}
+        {breakdown ? (
+          <div className="space-y-4">
+            {/* SECTION A: Bank Loan Repayment Breakdown */}
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                <Percent className="w-3.5 h-3.5 text-blue-700" />
+                {t(language, 'step3.bankLoanBreakdownTitle')}
+              </h2>
 
-          {breakdown ? (
-            <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-xs pb-3 border-b border-slate-200/80">
-                <div>
-                  <span className="text-slate-500 block">{t(language, 'step3.requestedLoanAmount')}</span>
-                  <span className="font-bold text-slate-900 text-sm">
-                    {formatCurrency(breakdown.requestedAmountNis, language)}
-                  </span>
+              <div className="bg-slate-100/90 rounded-2xl p-4 sm:p-5 border border-slate-300 space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-xs pb-3 border-b border-slate-200">
+                  <div>
+                    <span className="text-slate-600 block">{t(language, 'step3.approvedLoanAmount')}</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {formatCurrency(breakdown.requestedAmountNis, language)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 block">{t(language, 'step3.repaymentPeriod')}</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {t(language, 'step3.repaymentPeriodMonths', { n: breakdown.repaymentPeriodMonths })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 block">{t(language, 'step3.totalInterest')}</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {formatCurrency(breakdown.totalInterestNis, language)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 block">{t(language, 'step3.totalLoanToRepay')}</span>
+                    <span className="font-bold text-blue-700 text-sm">
+                      {formatCurrency(breakdown.totalLoanRepaymentNis, language)}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-500 block">{t(language, 'step3.totalInterest')}</span>
-                  <span className="font-bold text-slate-900 text-sm">
-                    {formatCurrency(breakdown.totalInterestNis, language)}
+
+                {/* Monthly Bank Repayment Card */}
+                <div className="bg-white rounded-xl p-3 border border-slate-300 shadow-2xs flex justify-between items-center text-xs">
+                  <span className="text-slate-800 font-bold">
+                    {t(language, 'step3.monthlyBankRepayment')}
                   </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">{t(language, 'step3.totalLoanToRepay')}</span>
                   <span className="font-bold text-blue-700 text-sm">
-                    {formatCurrency(breakdown.totalLoanRepaymentNis, language)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">{t(language, 'step3.totalServiceFee')}</span>
-                  <span className="font-bold text-purple-700 text-sm">
-                    {formatCurrency(breakdown.totalServiceFeeNis, language)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Monthly Distinction Card */}
-              <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-600 font-medium">
-                    {t(language, 'step3.monthlyLoanRepayment')}
-                  </span>
-                  <span className="font-bold text-slate-900">
                     {formatCurrency(breakdown.monthlyLoanRepaymentNis, language)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-purple-700 font-medium">
-                    {t(language, 'step3.monthlyServiceFee')}
+              </div>
+            </div>
+
+            {/* SECTION B: Agent Fee */}
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-purple-900 border-b border-purple-200 pb-1 flex items-center gap-1.5">
+                <Banknote className="w-3.5 h-3.5 text-purple-700" />
+                {t(language, 'step3.agentFeeSectionTitle')}
+              </h2>
+
+              <div className="bg-purple-100/70 rounded-2xl p-4 sm:p-5 border border-purple-300 space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-xs pb-3 border-b border-purple-200">
+                  <div>
+                    <span className="text-slate-700 block">{t(language, 'step3.totalAgentFee')}</span>
+                    <span className="font-bold text-emerald-700 text-base">
+                      3,000 NIS {/* i18n-ignore */}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-700 block">{t(language, 'step3.repaymentPeriod')}</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {t(language, 'step3.repaymentPeriodMonths', { n: breakdown.repaymentPeriodMonths })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-3 border border-purple-300 shadow-2xs flex justify-between items-center text-xs">
+                  <span className="text-purple-950 font-bold">
+                    {t(language, 'step3.monthlyAgentFee')}
                   </span>
-                  <span className="font-bold text-purple-700">
-                    {formatCurrency(breakdown.monthlyServiceFeeNis, language)}
+                  <span className="font-bold text-purple-800 text-sm">
+                    {formatCurrency(Math.round(3000 / (breakdown.repaymentPeriodMonths || 1)), language)}
                   </span>
                 </div>
-                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-sm font-black text-slate-900">
-                  <span>{t(language, 'step3.overallMonthlyPayment')}</span>
-                  <span className="text-blue-600">
-                    {formatCurrency(breakdown.monthlyPaymentTotalNis, language)}
-                  </span>
+
+                {/* Mandatory Agent Fee Agreement */}
+                <div className="pt-2 border-t border-purple-200 space-y-2.5">
+                  <p className="text-xs text-slate-800 leading-relaxed font-medium">
+                    {t(language, 'step3.agentFeeAgreementNotice')}
+                  </p>
+
+                  <div
+                    className={`p-3 rounded-xl border flex items-start gap-3 transition-colors ${
+                      serviceFeeAccepted ? 'border-purple-400 bg-purple-200/50' : 'border-purple-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      id="terms-agent-fee-checkbox"
+                      checked={serviceFeeAccepted}
+                      disabled={isReadOnly}
+                      onChange={(e) => setServiceFeeAccepted(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                    />
+                    <div className="flex-1 text-xs">
+                      <label
+                        htmlFor="terms-agent-fee-checkbox"
+                        className="font-bold text-slate-900 cursor-pointer select-none"
+                      >
+                        {t(language, 'step3.agentFeeCheckbox')}
+                      </label>
+                      <div className="mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTermsModal('service_fee')}
+                          className="text-[11px] text-purple-700 hover:underline flex items-center gap-1 font-semibold"
+                        >
+                          <span>{t(language, 'step3.viewTerms')}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {errors.serviceFeeAccepted && (
+                    <p className="text-[11px] text-red-500 ps-1">{errors.serviceFeeAccepted}</p>
+                  )}
                 </div>
               </div>
-
-              <p className="text-[11px] text-slate-500 leading-normal italic">
-                {t(language, 'step3.breakdownExplanation')}
-              </p>
             </div>
-          ) : (
-            <div className="p-4 bg-slate-50 rounded-xl text-xs text-slate-500">
-              {t(language, 'step3.loadingBreakdown')}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-slate-50 rounded-xl text-xs text-slate-500">
+            {t(language, 'step3.loadingBreakdown')}
+          </div>
+        )}
 
         {/* SECTION 2: BANK ACCOUNT DETAILS */}
         <div className="space-y-4">
@@ -331,13 +396,14 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
               <input
                 type="text"
                 value={accountHolderName}
-                disabled={isReadOnly}
-                onChange={(e) => setAccountHolderName(e.target.value)}
+                readOnly
+                disabled
                 placeholder={t(language, 'step3.accountHolderNamePlaceholder')}
-                className={`w-full px-3 py-2 text-xs rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                  errors.accountHolder ? 'border-red-500' : 'border-slate-200'
-                }`}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-100 text-slate-700 cursor-not-allowed select-none"
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                {t(language, 'step3.accountHolderRegisteredHint')}
+              </p>
               {errors.accountHolder && (
                 <p className="text-[11px] text-red-500 mt-1">{errors.accountHolder}</p>
               )}
@@ -403,7 +469,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
           </h2>
 
           <div className="space-y-2.5">
-            {/* 1. General Terms */}
+            {/* General Terms */}
             <div
               className={`p-3 rounded-xl border flex items-start gap-3 transition-colors ${
                 generalAccepted ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200 bg-slate-50/40'
@@ -438,43 +504,6 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
             </div>
             {errors.generalAccepted && (
               <p className="text-[11px] text-red-500 ps-1">{errors.generalAccepted}</p>
-            )}
-
-            {/* 2. Service Fee Terms */}
-            <div
-              className={`p-3 rounded-xl border flex items-start gap-3 transition-colors ${
-                serviceFeeAccepted ? 'border-blue-200 bg-blue-50/30' : 'border-slate-200 bg-slate-50/40'
-              }`}
-            >
-              <input
-                type="checkbox"
-                id="terms-service-fee-checkbox"
-                checked={serviceFeeAccepted}
-                disabled={isReadOnly}
-                onChange={(e) => setServiceFeeAccepted(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-              <div className="flex-1 text-xs">
-                <label
-                  htmlFor="terms-service-fee-checkbox"
-                  className="font-bold text-slate-800 cursor-pointer select-none"
-                >
-                  {t(language, 'step3.serviceFeeCheckbox')}
-                </label>
-                <div className="mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTermsModal('service_fee')}
-                    className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    <span>{t(language, 'step3.viewTerms')}</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            {errors.serviceFeeAccepted && (
-              <p className="text-[11px] text-red-500 ps-1">{errors.serviceFeeAccepted}</p>
             )}
           </div>
         </div>

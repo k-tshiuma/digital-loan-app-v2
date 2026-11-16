@@ -102,7 +102,7 @@ describe('Step 2 & Step 3 Workflow Details', () => {
     );
 
     const termsCheckbox = screen.getByRole('checkbox', { name: /General Terms & Conditions/i }) as HTMLInputElement;
-    const feeCheckbox = screen.getByRole('checkbox', { name: /Service Fee Terms & Conditions/i }) as HTMLInputElement;
+    const feeCheckbox = screen.getByRole('checkbox', { name: /agent fee terms/i }) as HTMLInputElement;
 
     // Both checkboxes MUST not be preselected
     expect(termsCheckbox.checked).toBe(false);
@@ -111,7 +111,9 @@ describe('Step 2 & Step 3 Workflow Details', () => {
     // Terms link exists and clicking opens the Terms modal
     const viewTermsBtns = screen.getAllByRole('button', { name: /View Terms/i });
     expect(viewTermsBtns.length).toBeGreaterThan(0);
-    await user.click(viewTermsBtns[0]);
+    // Click the General Terms view button (second view button, or find by container)
+    const generalTermsBtn = viewTermsBtns[viewTermsBtns.length - 1];
+    await user.click(generalTermsBtn);
 
     // Modal is opened
     expect(screen.getByRole('heading', { level: 3, name: /Terms and Conditions/i })).toBeInTheDocument();

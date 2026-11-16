@@ -35,24 +35,24 @@ const submitBtn = () => screen.getByRole('button', { name: /Submit Final Loan Ap
 async function fillForm(user: ReturnType<typeof userEvent.setup>, container: HTMLElement) {
   await user.type(screen.getByPlaceholderText('e.g. 612'), ' 612 ');
   await user.type(screen.getByPlaceholderText('e.g. 12345678'), '12345678');
-  const holder = screen.getAllByRole('textbox').find((el) => el.getAttribute('dir') !== 'ltr')!;
-  await user.type(holder, 'Somchai Worker');
   const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
   await user.upload(fileInput, new File(['%PDF'], 'bank-confirmation.pdf', { type: 'application/pdf' }));
   await screen.findByText('bank-confirmation.pdf');
   await user.click(screen.getByRole('checkbox', { name: /General Terms & Conditions/i }));
-  await user.click(screen.getByRole('checkbox', { name: /Service Fee Terms & Conditions/i }));
+  await user.click(screen.getByRole('checkbox', { name: /agent fee terms/i }));
 }
 
 describe('Step3FinalSubmission', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('shows the financial breakdown', () => {
-    render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} onSubmit={vi.fn()} />);
+  it('shows the financial breakdown separated into Bank Loan Repayment and Agent Fee', () => {
+    render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} applicantName="Somchai Worker" onSubmit={vi.fn()} />);
 
     expect(screen.getByText(/5,000/)).toBeInTheDocument();
     expect(screen.getByText(/5,112/)).toBeInTheDocument();
-    expect(screen.getByText(/910/)).toBeInTheDocument();
+    expect(screen.getByText(/852/)).toBeInTheDocument();
+    expect(screen.getAllByText(/3,000 NIS/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/500/)).toBeInTheDocument(); // 3000 / 6 = 500
   });
 
   it('shows a loading notice when there is no breakdown yet', () => {
@@ -66,7 +66,7 @@ describe('Step3FinalSubmission', () => {
       filename: 'f_1.pdf', url: '/uploads/f_1.pdf', originalName: 'bank-confirmation.pdf', mimeType: 'application/pdf', size: 4,
     });
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    const { container } = render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} onSubmit={onSubmit} />);
+    const { container } = render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} applicantName="Somchai Worker" onSubmit={onSubmit} />);
 
     expect(submitBtn()).toBeDisabled();
     await fillForm(user, container);
@@ -85,15 +85,25 @@ describe('Step3FinalSubmission', () => {
     expect(payload.terms).toEqual({ generalVersion: '1.2', serviceFeeVersion: '2.0', generalAccepted: true, serviceFeeAccepted: true });
   });
 
-  it('keeps submit disabled until both terms are accepted', async () => {
+  it('keeps submit disabled until both terms are accepted and unchecking disables it', async () => {
     const user = userEvent.setup();
     render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} initialData={{ ...filledData, terms: { ...filledData.terms, generalAccepted: false, serviceFeeAccepted: false } }} onSubmit={vi.fn()} />);
 
     expect(submitBtn()).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /General Terms & Conditions/i }));
     expect(submitBtn()).toBeDisabled();
-    await user.click(screen.getByRole('checkbox', { name: /Service Fee Terms & Conditions/i }));
+    await user.click(screen.getByRole('checkbox', { name: /agent fee terms/i }));
     expect(submitBtn()).toBeEnabled();
+    // Unchecking immediately disables the button again
+    await user.click(screen.getByRole('checkbox', { name: /agent fee terms/i }));
+    expect(submitBtn()).toBeDisabled();
+  });
+
+  it('prefills applicant name as non-editable', () => {
+    render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} applicantName="Somchai Worker" onSubmit={vi.fn()} />);
+    const holder = screen.getByDisplayValue('Somchai Worker');
+    expect(holder).toBeDisabled();
+    expect(holder).toHaveAttribute('readonly');
   });
 
   it('shows the upload error when the bank document fails to upload', async () => {
@@ -134,7 +144,7 @@ describe('Step3FinalSubmission', () => {
     const user = userEvent.setup();
     const { unmount } = render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} onSubmit={vi.fn()} />);
 
-    const [generalBtn, feeBtn] = screen.getAllByRole('button', { name: /View Terms/i });
+    const [feeBtn, generalBtn] = screen.getAllByRole('button', { name: /View Terms/i });
     await user.click(generalBtn);
     expect(screen.getByText('General terms in English.')).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: 'Close' })[0]);
@@ -145,7 +155,8 @@ describe('Step3FinalSubmission', () => {
     unmount();
 
     render(<Step3FinalSubmission language="he" breakdown={breakdown} termsVersions={terms} onSubmit={vi.fn()} />);
-    await user.click(screen.getAllByRole('button', { name: /תנאי/ })[0]);
+    const heTermsBtns = screen.getAllByRole('button', { name: /תנאי/ });
+    await user.click(heTermsBtns[heTermsBtns.length - 1]);
     expect(screen.getByText('תנאים כלליים בעברית.')).toBeInTheDocument();
   });
 
