@@ -173,6 +173,7 @@ async function cleanStep3(raw, userId) {
   const d = raw || {};
   const bank = d.bank || {};
   const terms = d.terms || {};
+  const sig = d.signature || {};
   return {
     bank: {
       bankName: str(bank.bankName, 80),
@@ -188,6 +189,14 @@ async function cleanStep3(raw, userId) {
       generalAccepted: terms.generalAccepted === true,
       serviceFeeAccepted: terms.serviceFeeAccepted === true,
     },
+    ...(sig.signatureValue ? {
+      signature: {
+        signatureMethod: sig.signatureMethod === 'typed_name' ? 'typed_name' : 'drawn_touch',
+        signatureValue: str(sig.signatureValue, 200),
+        signatureDataUri: typeof sig.signatureDataUri === 'string' && sig.signatureDataUri.startsWith('data:image/') ? sig.signatureDataUri.slice(0, 500000) : undefined,
+        signedAt: str(sig.signedAt, 40) || new Date().toISOString(),
+      }
+    } : {}),
   };
 }
 
