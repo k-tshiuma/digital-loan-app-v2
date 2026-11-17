@@ -520,6 +520,12 @@ export interface Step3FormData {
     generalAccepted: boolean;
     serviceFeeAccepted: boolean;
   };
+  signature?: {
+    signatureMethod: 'drawn_touch' | 'typed_name';
+    signatureValue: string;
+    signatureDataUri?: string;
+    signedAt?: string;
+  };
 }
 
 export interface LoanBreakdown {

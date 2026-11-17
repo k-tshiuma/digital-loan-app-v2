@@ -16,6 +16,7 @@ import {
   Users,
   Building2,
   Lock,
+  ChevronLeft,
   ChevronRight,
   Sparkles,
   RefreshCw,
@@ -23,6 +24,10 @@ import {
   Sliders,
   TrendingUp,
   AlertTriangle,
+  Menu,
+  X,
+  LayoutDashboard,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Language,
@@ -125,7 +130,10 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   }, [selectedApp]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const PAGE_SIZE = 10;
   const [activeTab, setActiveTab] = useState<'applications' | 'analytics' | 'audit' | 'config'>('applications');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [creditRules, setCreditRules] = useState<Partial<CreditRules>>({
     salaryMultiplier: 6,
     salaryWarnRatio: 1.5,
@@ -317,6 +325,15 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     return matchesStatus && matchesSearch;
   });
 
+  // Reset to first page when filtering or searching changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, flowGroupFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredApps.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedApps = filteredApps.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
+
   const handleStatusChange = async (newStatus: CanonicalStatus, reason?: string, missingNote?: string) => {
     if (!selectedApp) return;
     // An approved loan is never approved again, whichever way its popup was opened.
@@ -431,9 +448,18 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col animate-in fade-in">
       {/* Top Admin Navigation Bar */}
-      <div className="bg-[#0b1a2d] text-white border-b border-slate-800 px-4 py-3 sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <header className="bg-[#192742] text-white border-b border-slate-700/60 px-4 sm:px-6 py-3 sticky top-0 z-30 shadow-md">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
+            {/* Mobile menu toggle */}
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
             <div className="w-8 h-8 rounded-xl bg-sky-600 flex items-center justify-center font-bold text-white shadow-xs">
               <Shield className="w-4 h-4" />
             </div>
@@ -482,82 +508,189 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto w-full px-4 py-6 flex-1 flex flex-col">
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-slate-300 pb-3 mb-6">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab('applications')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                activeTab === 'applications'
-                  ? 'bg-[#0b1a2d] text-sky-300 border border-sky-500/40 shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 inline me-1.5 text-sky-400" />
-              {t(language, 'bo.tab.applications', { n: applications.length })}
-            </button>
-
-            {(currentRole === 'credit_reviewer' || currentRole === 'system_admin') && (
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'analytics'
-                    ? 'bg-[#0b1a2d] text-sky-300 border border-sky-500/40 shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5 inline me-1.5 text-sky-400" />
-                {t(language, 'bo.tab.analytics')}
-              </button>
-            )}
-
-            <button
-              onClick={() => setActiveTab('audit')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                activeTab === 'audit'
-                  ? 'bg-[#0b1a2d] text-sky-300 border border-sky-500/40 shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 inline me-1.5 text-sky-400" />
-              {t(language, 'bo.tab.audit', { n: auditEvents.length })}
-            </button>
-
-            {(currentRole === 'system_admin' || currentRole === 'credit_reviewer') && (
-              <button
-                onClick={() => setActiveTab('config')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'config'
-                    ? 'bg-[#0b1a2d] text-sky-300 border border-sky-500/40 shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5 inline me-1.5 text-sky-400" />
-                {t(language, 'bo.tab.config')}
-              </button>
-            )}
-          </div>
-
-          {/* Export CSV button */}
-          <button
-            onClick={handleExportCsv}
-            className="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
-          >
-            <Download className="w-3.5 h-3.5 text-sky-600" />
-            {t(language, 'bo.exportCsv')}
-          </button>
-        </div>
-
-        {actionSuccessMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-bold flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{actionSuccessMessage}</span>
-          </div>
+      {/* Main Layout Body with Sidebar and Content Panel */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Mobile Navigation Drawer Backdrop */}
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
         )}
+
+        {/* Left-Side Vertical Navigation Sidebar */}
+        <aside
+          className={`fixed inset-y-0 start-0 z-50 lg:static lg:z-auto w-64 bg-[#223458] text-white flex flex-col justify-between border-e border-[#1a2946] shadow-xl transition-transform duration-200 ease-in-out ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full lg:translate-x-0 rtl:lg:translate-x-0'
+          }`}
+        >
+          {/* Sidebar Top: Header & Nav links */}
+          <div className="flex flex-col flex-1 overflow-y-auto">
+            {/* Sidebar Brand / Header for mobile close */}
+            <div className="p-4 flex items-center justify-between border-b border-[#2d436e] lg:hidden">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-sky-400" />
+                <span className="font-bold text-sm text-white">{t(language, 'bo.portal')}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-[#2d436e] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sidebar Section Heading */}
+            <div className="px-4 pt-5 pb-2 text-[11px] font-bold uppercase tracking-wider text-[#8fa7ce]">
+              {t(language, 'bo.sidebarNavigation')}
+            </div>
+
+            {/* 4 Main Navigation Items */}
+            <nav className="px-3 space-y-1.5" role="navigation">
+              {/* 1. Loan Applications */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('applications');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'applications'
+                    ? 'bg-[#35528f] text-white shadow-md border border-[#486bb3]'
+                    : 'text-slate-200 hover:text-white hover:bg-[#2c426e]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      activeTab === 'applications'
+                        ? 'bg-[#486bb3] text-white'
+                        : 'bg-[#1b2b4a] text-[#8fa7ce]'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <span>{t(language, 'bo.tab.applications', { n: applications.length })}</span>
+                </div>
+              </button>
+
+              {/* 2. Analytics Dashboard */}
+              {(currentRole === 'credit_reviewer' || currentRole === 'system_admin') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('analytics');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'analytics'
+                      ? 'bg-[#35528f] text-white shadow-md border border-[#486bb3]'
+                      : 'text-slate-200 hover:text-white hover:bg-[#2c426e]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        activeTab === 'analytics'
+                          ? 'bg-[#486bb3] text-white'
+                          : 'bg-[#1b2b4a] text-[#8fa7ce]'
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <span>{t(language, 'bo.tab.analytics')}</span>
+                  </div>
+                </button>
+              )}
+
+              {/* 3. Immutable Audit Logs */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('audit');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'audit'
+                    ? 'bg-[#35528f] text-white shadow-md border border-[#486bb3]'
+                    : 'text-slate-200 hover:text-white hover:bg-[#2c426e]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      activeTab === 'audit'
+                        ? 'bg-[#486bb3] text-white'
+                        : 'bg-[#1b2b4a] text-[#8fa7ce]'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <span>{t(language, 'bo.tab.audit', { n: auditEvents.length })}</span>
+                </div>
+              </button>
+
+              {/* 4. Credit Policy & Configuration */}
+              {(currentRole === 'system_admin' || currentRole === 'credit_reviewer') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('config');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'config'
+                      ? 'bg-[#35528f] text-white shadow-md border border-[#486bb3]'
+                      : 'text-slate-200 hover:text-white hover:bg-[#2c426e]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        activeTab === 'config'
+                          ? 'bg-[#486bb3] text-white'
+                          : 'bg-[#1b2b4a] text-[#8fa7ce]'
+                      }`}
+                    >
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <span>{t(language, 'bo.tab.config')}</span>
+                  </div>
+                </button>
+              )}
+            </nav>
+          </div>
+
+          {/* Sidebar Footer: User / Role Summary */}
+          <div className="p-4 border-t border-[#2d436e] bg-[#1d2d4c]">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#35528f] flex items-center justify-center font-bold text-white text-xs shrink-0">
+                {staffName ? staffName.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-white truncate">
+                  {staffName || roleLabel(language, currentRole)}
+                </div>
+                <div className="text-[10px] text-[#8fa7ce] font-medium truncate">
+                  {roleLabel(language, currentRole)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 flex flex-col">
+          {/* Action Success Message Banner */}
+          {actionSuccessMessage && (
+            <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-bold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{actionSuccessMessage}</span>
+            </div>
+          )}
 
         {/* TAB 1: Applications Table & Search */}
         {activeTab === 'applications' && (
@@ -632,42 +765,45 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             </div>
 
             {/* Applications Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#D4D4D4] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-start text-xs text-slate-700">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 tracking-wider">
+                <table className="w-full text-start text-xs text-slate-800 border-collapse">
+                  <thead className="bg-[#003366] text-white border-b-2 border-[#4285F4] text-[11px] font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="py-3 px-4">{t(language, 'bo.col.request')}</th>
-                      <th className="py-3 px-4">{t(language, 'bo.col.borrower')}</th>
-                      <th className="py-3 px-4">{t(language, 'bo.col.passport')}</th>
-                      <th className="py-3 px-4">{t(language, 'bo.col.visa')}</th>
-                      <th className="py-3 px-4 text-end">{t(language, 'bo.col.loan')}</th>
-                      <th className="py-3 px-4 text-center">{t(language, 'bo.col.risk')}</th>
-                      <th className="py-3 px-4 text-center">{t(language, 'bo.col.status')}</th>
-                      <th className="py-3 px-4 text-end">{t(language, 'bo.col.action')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30">{t(language, 'bo.col.request')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30">{t(language, 'bo.col.borrower')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30">{t(language, 'bo.col.passport')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30">{t(language, 'bo.col.visa')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30 text-end">{t(language, 'bo.col.loan')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30 text-center">{t(language, 'bo.col.risk')}</th>
+                      <th className="py-2.5 px-3 border-e border-[#D4D4D4]/30 text-center">{t(language, 'bo.col.status')}</th>
+                      <th className="py-2.5 px-3 text-end">{t(language, 'bo.col.action')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredApps.length > 0 ? (
-                      filteredApps.map((app) => {
+                  <tbody>
+                    {paginatedApps.length > 0 ? (
+                      paginatedApps.map((app, index) => {
                         const sCfg = STATUS_BADGE_CONFIG[app.status] || STATUS_BADGE_CONFIG['Received'];
                         const flowStatus = (app as any).flowStatus;
+                        const isEven = index % 2 === 1;
                         return (
                           <tr
                             key={app.id}
-                            className="hover:bg-purple-50/40 transition-colors cursor-pointer"
+                            className={`transition-colors cursor-pointer border-b border-[#D4D4D4] ${
+                              isEven ? 'bg-[#D9E7FD]' : 'bg-white'
+                            } hover:bg-[#c5dcfa]`}
                             onClick={() => handleSelectApp(app)}
                           >
-                            <td className="py-3.5 px-4 font-mono font-bold text-purple-950">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] font-mono font-bold text-[#003366]">
                               <bdi dir="ltr">{app.requestNumber}</bdi>
                             </td>
-                            <td className="py-3.5 px-4 font-bold text-slate-900">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] font-bold text-slate-900">
                               {(app as any).applicantName || app.borrowerDetails?.fullName || t(language, 'bo.anonymousDraft')}
-                              <div className="text-[10px] text-slate-400 font-normal">
+                              <div className="text-[10px] text-slate-500 font-normal">
                                 <bdi dir="ltr">{(app as any).phoneNumber || app.borrowerDetails?.mobilePhoneNumber}</bdi>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] text-slate-800">
                               <span className="font-mono"><bdi dir="ltr">{(app as any).passportNumber || (app as any).step1Data?.personal?.passportNumber || app.borrowerDetails?.passportNumber || '—'}</bdi></span>
                               <span className="text-[11px] text-slate-500 block">
                                 {(() => {
@@ -676,7 +812,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                 })()}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] text-slate-800">
                               {app.residencyDetails?.visaType ? (
                                 <>
                                   <span className="font-semibold text-slate-800">{optionLabel(language, 'visa', app.residencyDetails.visaType)}</span>
@@ -706,11 +842,11 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                 );
                               })()}
                             </td>
-                            <td className="py-3.5 px-4 text-end">
-                              <span className="font-mono font-extrabold text-blue-900">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] text-end">
+                              <span className="font-mono font-extrabold text-[#003366]">
                                 {formatCurrency((app as any).requestedAmountNis || app.loanRequest?.requestedAmountNis, language)}
                               </span>
-                              <span className="text-[10px] text-slate-400 block">
+                              <span className="text-[10px] text-slate-500 block">
                                 {t(language, 'bo.termAtMonthly', {
                                   months: (app as any).repaymentPeriodMonths || (app.loanRequest?.repaymentPeriodMonths ?? 0),
                                   monthly: formatCurrency(
@@ -721,10 +857,10 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                 })}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] text-center">
                               {app.riskLevel ? (
                                 <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border inline-flex items-center gap-1 ${
                                     app.riskLevel === 'Low'
                                       ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                       : app.riskLevel === 'Medium'
@@ -739,9 +875,9 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                 <span className="text-slate-400 text-[10px]">{t(language, 'bo.unscored')}</span>
                               )}
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            <td className="py-2 px-3 border-e border-[#D4D4D4] text-center">
                               <span
-                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border inline-block ${
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold border inline-block ${
                                   flowStatus
                                     ? flowStatus.includes('APPROVED')
                                       ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
@@ -758,7 +894,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                 {statusLabel(language, flowStatus || app.status)}
                               </span>
                               {NEEDS_REVIEW.has(flowStatus) && (
-                                <span className="mt-1 mx-auto w-fit px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white flex items-center gap-1">
+                                <span className="mt-1 mx-auto w-fit px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white flex items-center gap-1">
                                   <AlertCircle className="w-3 h-3" />
                                   {t(language, 'fi.needsReview')}
                                 </span>
@@ -769,21 +905,21 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                   }}
-                                  className="mt-1 mx-auto w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                  className="mt-1 mx-auto w-fit px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#003366] hover:bg-[#002244] text-white flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                                 >
                                   <Send className="w-3 h-3" />
                                   <span>{t(language, 'bo.pushToPartner')}</span>
                                 </button>
                               )}
                             </td>
-                            <td className="py-3.5 px-4 text-end">
+                            <td className="py-2 px-3 text-end">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSelectApp(app);
                                 }}
-                                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-purple-100 text-purple-900 font-bold text-xs inline-flex items-center gap-1"
+                                className="px-2.5 py-1 rounded bg-[#003366]/10 hover:bg-[#003366]/20 text-[#003366] font-bold text-xs inline-flex items-center gap-1 border border-[#003366]/20 transition-colors"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>{t(language, 'bo.inspect')}</span>
@@ -794,7 +930,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                       })
                     ) : (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400">
+                        <td colSpan={8} className="py-8 text-center text-slate-400 bg-white">
                           {t(language, 'bo.noMatches')}
                         </td>
                       </tr>
@@ -802,6 +938,45 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* Excel-style Pagination Bar */}
+              {filteredApps.length > 0 && (
+                <div className="bg-[#f0f4f9] border-t border-[#D4D4D4] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700">
+                  <div className="font-medium text-slate-600">
+                    {t(language, 'bo.pagination.showing', {
+                      start: (safeCurrentPage - 1) * PAGE_SIZE + 1,
+                      end: Math.min(safeCurrentPage * PAGE_SIZE, filteredApps.length),
+                      total: filteredApps.length,
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safeCurrentPage <= 1}
+                      className="px-2.5 py-1 rounded border border-[#D4D4D4] bg-white font-semibold text-[#003366] hover:bg-[#D9E7FD] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                      <span>{t(language, 'bo.pagination.prev')}</span>
+                    </button>
+
+                    <span className="px-2 font-semibold text-slate-700">
+                      {t(language, 'bo.pagination.pageOf', { page: safeCurrentPage, totalPages })}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safeCurrentPage >= totalPages}
+                      className="px-2.5 py-1 rounded border border-[#D4D4D4] bg-white font-semibold text-[#003366] hover:bg-[#D9E7FD] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>{t(language, 'bo.pagination.next')}</span>
+                      <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1023,6 +1198,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             </div>
           </form>
         )}
+        </main>
       </div>
 
       {/* Application Detail Inspection & Action Modal */}

@@ -28,6 +28,7 @@ const filledData: Step3FormData = {
   bank: { bankName: 'Bank Leumi', bankCode: '10', branchNumber: '612', accountNumber: '12345678', accountHolderName: 'Somchai Worker' },
   bankDocument: { filename: 'bank.pdf', fileUrl: '/uploads/bank.pdf', originalName: 'bank-confirmation.pdf', mimeType: 'application/pdf', size: 1000 },
   terms: { generalVersion: '1.2', serviceFeeVersion: '2.0', generalAccepted: true, serviceFeeAccepted: true },
+  signature: { signatureMethod: 'typed_name', signatureValue: 'Somchai Worker', signedAt: '2026-11-15T10:00:00.000Z' },
 };
 
 const submitBtn = () => screen.getByRole('button', { name: /Submit Final Loan Application/i });
@@ -40,6 +41,8 @@ async function fillForm(user: ReturnType<typeof userEvent.setup>, container: HTM
   await screen.findByText('bank-confirmation.pdf');
   await user.click(screen.getByRole('checkbox', { name: /General Terms & Conditions/i }));
   await user.click(screen.getByRole('checkbox', { name: /agent fee terms/i }));
+  // Switch to type signature and ensure signature is entered
+  await user.click(screen.getByRole('button', { name: /Type Signature/i }));
 }
 
 describe('Step3FinalSubmission', () => {
@@ -110,6 +113,8 @@ describe('Step3FinalSubmission', () => {
     expect(payload.bank.bankCode).toBeTruthy();
     expect(payload.bankDocument).toMatchObject({ filename: 'f_1.pdf', fileUrl: '/uploads/f_1.pdf' });
     expect(payload.terms).toEqual({ generalVersion: '1.2', serviceFeeVersion: '2.0', generalAccepted: true, serviceFeeAccepted: true });
+    expect(payload.signature?.signatureMethod).toBe('typed_name');
+    expect(payload.signature?.signatureValue).toBe('Somchai Worker');
   });
 
   it('keeps submit disabled until both terms are accepted and unchecking disables it', async () => {
@@ -158,7 +163,10 @@ describe('Step3FinalSubmission', () => {
 
     expect(screen.getByDisplayValue('612')).toBeDisabled();
     expect(screen.getByDisplayValue('12345678')).toBeDisabled();
-    expect(screen.getByDisplayValue('Somchai Worker')).toBeDisabled();
+    // Account holder and the restored typed signature both show the name, both locked
+    const named = screen.getAllByDisplayValue('Somchai Worker');
+    expect(named).toHaveLength(2);
+    named.forEach((el) => expect(el).toBeDisabled());
     expect(screen.getByText('bank-confirmation.pdf')).toBeInTheDocument();
     for (const box of screen.getAllByRole('checkbox')) {
       expect(box).toBeChecked();
@@ -185,6 +193,27 @@ describe('Step3FinalSubmission', () => {
     const heTermsBtns = screen.getAllByRole('button', { name: /תנאי/ });
     await user.click(heTermsBtns[heTermsBtns.length - 1]);
     expect(screen.getByText('תנאים כלליים בעברית.')).toBeInTheDocument();
+  });
+
+  it('requires a digital signature to enable submission', async () => {
+    const user = userEvent.setup();
+    render(<Step3FinalSubmission language="en" breakdown={breakdown} termsVersions={terms} initialData={{ ...filledData, signature: undefined }} onSubmit={vi.fn()} />);
+
+    // By default signature is 'draw' and empty
+    expect(submitBtn()).toBeDisabled();
+
+    // Switch to type signature
+    await user.click(screen.getByRole('button', { name: /Type Signature/i }));
+    const sigInput = screen.getByPlaceholderText(/Type your full legal name as signature/i);
+    expect(submitBtn()).toBeEnabled(); // Since initial typed value has prefilled applicant name
+
+    // Clearing typed signature disables submit
+    await user.clear(sigInput);
+    expect(submitBtn()).toBeDisabled();
+
+    // Typing enables submit
+    await user.type(sigInput, 'My Legal Signature');
+    expect(submitBtn()).toBeEnabled();
   });
 
   it('calls onBack', async () => {

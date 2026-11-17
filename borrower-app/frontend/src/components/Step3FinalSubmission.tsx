@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Building2,
   FileText,
@@ -12,6 +12,9 @@ import {
   Calendar,
   X,
   ExternalLink,
+  PenTool,
+  Type,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Language,
@@ -80,6 +83,98 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
   // Terms Modal State
   const [activeTermsModal, setActiveTermsModal] = useState<'general' | 'service_fee' | null>(null);
 
+  // Signature State
+  const [signatureTab, setSignatureTab] = useState<'draw' | 'type'>(
+    initialData?.signature?.signatureMethod === 'typed_name' ? 'type' : 'draw'
+  );
+  const [typedSignature, setTypedSignature] = useState<string>(
+    initialData?.signature?.signatureMethod === 'typed_name' ? initialData.signature.signatureValue : resolvedApplicantName
+  );
+  const [hasDrawn, setHasDrawn] = useState<boolean>(
+    Boolean(initialData?.signature?.signatureMethod === 'drawn_touch' || initialData?.signature?.signatureDataUri)
+  );
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDrawing = useRef(false);
+
+  // Setup canvas high DPI
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      ctx.scale(2, 2);
+    }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineWidth = 2.5;
+
+    // Restore existing signature data URI if available
+    if (initialData?.signature?.signatureDataUri) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = initialData.signature.signatureDataUri;
+    }
+  }, [signatureTab]);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (isReadOnly) return;
+    isDrawing.current = true;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    ctx.beginPath();
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    setHasDrawn(true);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.signature;
+      return copy;
+    });
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (isReadOnly || !isDrawing.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    isDrawing.current = false;
+  };
+
+  const clearCanvas = () => {
+    if (isReadOnly) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
+  };
+
   // Validation & Submission States
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -132,6 +227,12 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
     if (!bankDoc) errs.bankDoc = t(language, 'step3.err.bankDoc');
     if (!generalAccepted) errs.generalAccepted = t(language, 'step3.err.termsRequired');
     if (!serviceFeeAccepted) errs.serviceFeeAccepted = t(language, 'step3.err.agentFeeRequired');
+    if (signatureTab === 'draw' && !hasDrawn) {
+      errs.signature = t(language, 'step3.err.signatureRequired');
+    }
+    if (signatureTab === 'type' && !typedSignature.trim()) {
+      errs.signature = t(language, 'step3.err.signatureRequired');
+    }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -147,6 +248,10 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
 
     setIsSubmitting(true);
     try {
+      const canvas = canvasRef.current;
+      const signatureDataUri =
+        signatureTab === 'draw' && canvas ? canvas.toDataURL('image/png') : undefined;
+
       const payload: Step3FormData = {
         bank: {
           bankName,
@@ -162,6 +267,12 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
           generalAccepted,
           serviceFeeAccepted,
         },
+        signature: {
+          signatureMethod: signatureTab === 'draw' ? 'drawn_touch' : 'typed_name',
+          signatureValue: signatureTab === 'draw' ? 'DRAWN_SIGNATURE_DATA' : typedSignature.trim(),
+          signatureDataUri,
+          signedAt: new Date().toISOString(),
+        },
       };
       await onSubmit(payload);
     } catch (err: any) {
@@ -171,6 +282,8 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
     }
   };
 
+  const hasValidSignature = signatureTab === 'draw' ? hasDrawn : typedSignature.trim() !== '';
+
   const isFormValid =
     bankName.trim() !== '' &&
     branchNumber.trim() !== '' &&
@@ -178,7 +291,8 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
     accountHolderName.trim() !== '' &&
     bankDoc !== null &&
     generalAccepted &&
-    serviceFeeAccepted;
+    serviceFeeAccepted &&
+    hasValidSignature;
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 max-w-xl mx-auto animate-in fade-in">
@@ -517,6 +631,127 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
             </div>
             {errors.generalAccepted && (
               <p className="text-[11px] text-red-500 ps-1">{errors.generalAccepted}</p>
+            )}
+          </div>
+        </div>
+
+        {/* SECTION 5: DIGITAL SIGNATURE */}
+        <div className="space-y-3 pt-2">
+          <div className="border-b border-slate-100 pb-1 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <PenTool className="w-3.5 h-3.5 text-blue-600" />
+              <span>{t(language, 'digitalSignatureLabel')}</span>
+              <span className="text-red-500">*</span>
+            </h2>
+
+            {!isReadOnly && (
+              <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setSignatureTab('draw')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    signatureTab === 'draw'
+                      ? 'bg-white text-blue-900 font-bold shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <PenTool className="w-3 h-3 inline me-1" />
+                  {t(language, 'drawSignature')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSignatureTab('type')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    signatureTab === 'type'
+                      ? 'bg-white text-blue-900 font-bold shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Type className="w-3 h-3 inline me-1" />
+                  {t(language, 'typeSignature')}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {t(language, 'step3.signatureSectionDesc')}
+          </p>
+
+          <div
+            className={`p-3.5 rounded-2xl border ${
+              hasValidSignature
+                ? 'border-emerald-300 bg-emerald-50/30'
+                : errors.signature
+                ? 'border-red-300 bg-red-50/40'
+                : 'border-slate-200 bg-slate-50/40'
+            }`}
+          >
+            {signatureTab === 'draw' ? (
+              <div className="space-y-2">
+                <div className="relative border-2 border-dashed border-slate-300 rounded-xl bg-white overflow-hidden h-36 touch-none">
+                  <canvas
+                    ref={canvasRef}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                    className={`w-full h-full block ${isReadOnly ? 'cursor-not-allowed opacity-90' : 'cursor-crosshair'}`}
+                  />
+                  {!hasDrawn && !isReadOnly && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-xs">
+                      {t(language, 'review.signHere')}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-[11px] text-slate-400">
+                    {t(language, 'review.drawFullSignature')}
+                  </span>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={clearCanvas}
+                      className="text-xs text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      {t(language, 'clearSignature')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  id="typed-signature-input"
+                  type="text"
+                  value={typedSignature}
+                  disabled={isReadOnly}
+                  onChange={(e) => {
+                    setTypedSignature(e.target.value);
+                    setErrors((prev) => {
+                      const copy = { ...prev };
+                      delete copy.signature;
+                      return copy;
+                    });
+                  }}
+                  placeholder={t(language, 'typeSignaturePlaceholder')}
+                  className={`w-full px-4 py-3 rounded-xl border bg-white font-serif text-lg text-blue-950 italic focus:border-blue-900 focus:outline-none ${
+                    errors.signature ? 'border-red-500' : 'border-slate-300'
+                  }`}
+                />
+                <span className="text-[11px] text-slate-400 block">
+                  {t(language, 'review.typedNameLegal')}
+                </span>
+              </div>
+            )}
+
+            {errors.signature && (
+              <p className="text-[11px] text-red-500 mt-2 font-medium">{errors.signature}</p>
             )}
           </div>
         </div>
