@@ -189,15 +189,32 @@ async function cleanStep3(raw, userId) {
       generalAccepted: terms.generalAccepted === true,
       serviceFeeAccepted: terms.serviceFeeAccepted === true,
     },
-    ...(sig.signatureValue ? {
-      signature: {
-        signatureMethod: sig.signatureMethod === 'typed_name' ? 'typed_name' : 'drawn_touch',
-        signatureValue: str(sig.signatureValue, 200),
-        signatureDataUri: typeof sig.signatureDataUri === 'string' && sig.signatureDataUri.startsWith('data:image/') ? sig.signatureDataUri.slice(0, 500000) : undefined,
-        signedAt: str(sig.signedAt, 40) || new Date().toISOString(),
-      }
-    } : {}),
+    ...(cleanSignature(sig) ? { signature: cleanSignature(sig) } : {}),
   };
+}
+
+// A drawn signature is a PNG from the Step 3 canvas; a few tens of KB in practice.
+const MAX_SIGNATURE_DATA_URI = 500000;
+const PNG_DATA_URI = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/**
+ * The Step 3 signature, or null when there is no usable one. A drawn signature must be a complete
+ * PNG data URI (an oversized one is dropped, never cut, since a cut image is unreadable); a typed one
+ * needs the name. signedAt is replaced with the server time when the step is submitted.
+ */
+function cleanSignature(sig) {
+  if (!sig || typeof sig !== 'object') return null;
+  const signedAt = str(sig.signedAt, 40) || null;
+  if (sig.signatureMethod === 'typed_name') {
+    const name = str(sig.signatureValue, 120);
+    return name ? { signatureMethod: 'typed_name', signatureValue: name, signedAt } : null;
+  }
+  if (sig.signatureMethod === 'drawn_touch') {
+    const uri = sig.signatureDataUri;
+    if (typeof uri !== 'string' || uri.length > MAX_SIGNATURE_DATA_URI || !PNG_DATA_URI.test(uri)) return null;
+    return { signatureMethod: 'drawn_touch', signatureValue: '', signatureDataUri: uri, signedAt };
+  }
+  return null;
 }
 
 function validateStep3(d) {
@@ -209,6 +226,7 @@ function validateStep3(d) {
   if (!d.bankDocument) e.bankDocument = 'required';
   if (!d.terms.generalAccepted) e.termsGeneral = 'required';
   if (!d.terms.serviceFeeAccepted) e.termsServiceFee = 'required';
+  if (!d.signature) e.signature = 'required';
   return e;
 }
 

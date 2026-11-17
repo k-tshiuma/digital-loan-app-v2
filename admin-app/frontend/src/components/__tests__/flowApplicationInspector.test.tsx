@@ -217,6 +217,31 @@ describe('FlowApplicationInspector', () => {
     expect(onRevealBank).toHaveBeenCalled();
   });
 
+  it('shows a drawn signature as an image, a typed one as the name, and a notice when there is none', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const bank = { bankName: 'Bank Leumi', accountNumber: '****5678' };
+    const drawn = setup('PENDING_FINAL_PROCESSING', 'credit_reviewer', {
+      application: { step3Data: { bank, signature: { signatureMethod: 'drawn_touch', signatureValue: '', signatureDataUri: png, signedAt: '2026-11-17T10:00:00.000Z' } } },
+    });
+    await drawn.user.click(screen.getByRole('button', { name: 'Step 3: Bank & terms' }));
+    expect(screen.getByText('Drawn by hand')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Applicant’s drawn signature' })).toHaveAttribute('src', png);
+    drawn.unmount();
+
+    const typed = setup('PENDING_FINAL_PROCESSING', 'credit_reviewer', {
+      application: { step3Data: { bank, signature: { signatureMethod: 'typed_name', signatureValue: 'Somchai Q. Worker', signedAt: '2026-11-17T10:00:00.000Z' } } },
+    });
+    await typed.user.click(screen.getByRole('button', { name: 'Step 3: Bank & terms' }));
+    expect(screen.getByText('Typed name')).toBeInTheDocument();
+    expect(screen.getByText('Somchai Q. Worker')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Applicant’s drawn signature' })).not.toBeInTheDocument();
+    typed.unmount();
+
+    const none = setup('PENDING_FINAL_PROCESSING', 'credit_reviewer');
+    await none.user.click(screen.getByRole('button', { name: 'Step 3: Bank & terms' }));
+    expect(screen.getByText(/No signature on file/)).toBeInTheDocument();
+  });
+
   it('allows hiding and re-showing a revealed bank account', async () => {
     const { user } = setup('PENDING_FINAL_PROCESSING', 'system_admin', {
       application: {

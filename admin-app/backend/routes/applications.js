@@ -22,6 +22,13 @@ function register(app, { flowRoutes }) {
         const masked = { ...app, group: groupOf(app.flowStatus) };
         if (masked.bankAccount) masked.bankAccount = flowRoutes.maskBank(masked.bankAccount);
         if (masked.step3Data && masked.step3Data.bank) masked.step3Data = { ...masked.step3Data, bank: flowRoutes.maskBank(masked.step3Data.bank) };
+        // A drawn signature is an image; the list doesn't show it and the inspector loads it from the detail.
+        if (masked.step3Data && masked.step3Data.signature && masked.step3Data.signature.signatureDataUri) {
+          masked.step3Data = { ...masked.step3Data, signature: { ...masked.step3Data.signature, signatureDataUri: undefined } };
+        }
+        if (masked.digitalSignature && masked.digitalSignature.signatureMethod === 'draw') {
+          masked.digitalSignature = { ...masked.digitalSignature, signatureValue: undefined };
+        }
         return masked;
       }),
     });

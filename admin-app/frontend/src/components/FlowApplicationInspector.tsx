@@ -23,6 +23,7 @@ import {
   EyeOff,
   Percent,
   Banknote,
+  PenTool,
 } from 'lucide-react';
 import { Language, UserRole } from '@quickloan/ui-core/types';
 import { SERVICE_FEE_NIS } from '@quickloan/ui-core/config/appConfig';
@@ -853,6 +854,41 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                   <div className="text-xs text-slate-500">
                     {t(language, 'fi.s3.noTerms')}
                   </div>
+                )}
+              </div>
+
+              {/* Applicant signature */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3" data-testid="step3-signature">
+                <h4 className="font-bold text-slate-900 border-b pb-1 flex items-center gap-1.5">
+                  <PenTool className="w-3.5 h-3.5 text-blue-700" />
+                  <span>{t(language, 'fi.s3.signature')}</span>
+                </h4>
+                {step3.data?.signature ? (
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-slate-400">{t(language, 'fi.s3.signatureMethod')}</span>{' '}
+                      <span className="font-bold text-slate-800">
+                        {t(language, step3.data.signature.signatureMethod === 'typed_name' ? 'fi.s3.signatureTyped' : 'fi.s3.signatureDrawn')}
+                      </span>
+                    </div>
+                    {step3.data.signature.signatureMethod === 'typed_name' ? (
+                      <div className="px-4 py-3 rounded-xl bg-white border border-slate-200 font-serif italic text-lg text-blue-950">
+                        {step3.data.signature.signatureValue}
+                      </div>
+                    ) : step3.data.signature.signatureDataUri ? (
+                      <img
+                        src={step3.data.signature.signatureDataUri}
+                        alt={t(language, 'fi.s3.signatureImageAlt')}
+                        className="h-24 max-w-full rounded-xl bg-white border border-slate-200 object-contain"
+                      />
+                    ) : null}
+                    <div>
+                      <span className="text-slate-400">{t(language, 'fi.s3.signedAt')}</span>{' '}
+                      <bdi dir="ltr" className="font-mono">{step3.data.signature.signedAt ? formatDateTime(step3.data.signature.signedAt, language) : '—'}</bdi>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500">{t(language, 'fi.s3.noSignature')}</div>
                 )}
               </div>
             </div>
