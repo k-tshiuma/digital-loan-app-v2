@@ -618,6 +618,28 @@ async function runTests() {
     }, applicantToken);
     assert.strictEqual(failTermsRes.status, 422, 'Step 3 must reject unaccepted terms');
 
+    const step3Base = {
+      bank: { bankName: 'Bank Hapoalim', branchNumber: '612', accountNumber: '12345678', accountHolderName: 'Somchai Prasert' },
+      bankDocument: bankDoc.body.file,
+      terms: { generalVersion: genVersion, serviceFeeVersion: feeVersion, generalAccepted: true, serviceFeeAccepted: true },
+    };
+    // A 1x1 PNG, as the Step 3 canvas would send it
+    const signaturePng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+    // The signature is required on the server too, and only a well-formed one counts
+    for (const [label, signature] of [
+      ['no signature', undefined],
+      ['an empty typed name', { signatureMethod: 'typed_name', signatureValue: '   ' }],
+      ['a drawn signature without an image', { signatureMethod: 'drawn_touch', signatureValue: 'x' }],
+      ['a drawn signature that is not a PNG data URI', { signatureMethod: 'drawn_touch', signatureDataUri: 'data:image/svg+xml;base64,PHN2Zy8+' }],
+      ['an oversized drawn signature', { signatureMethod: 'drawn_touch', signatureDataUri: `data:image/png;base64,${'A'.repeat(500000)}` }],
+    ]) {
+      const r = await request('POST', '/api/flow/application/steps/3/submit', { data: { ...step3Base, signature } }, applicantToken);
+      assert.strictEqual(r.status, 422, `Step 3 with ${label} must be refused: ${JSON.stringify(r.body).slice(0, 200)}`);
+      assert.strictEqual(r.body.fieldErrors && r.body.fieldErrors.signature, 'required', `Step 3 with ${label} must flag the signature`);
+    }
+    console.log('  ✓ PASS: Step 3 without a valid signature is refused (422, fieldErrors.signature)');
+
     // Submit Step 3 with all mandatory requirements fulfilled
     const step3SubmitRes = await request('POST', '/api/flow/application/steps/3/submit', {
       data: {
@@ -634,6 +656,7 @@ async function runTests() {
           generalAccepted: true,
           serviceFeeAccepted: true,
         },
+        signature: { signatureMethod: 'drawn_touch', signatureValue: 'ignored', signatureDataUri: signaturePng, signedAt: '2000-01-01T00:00:00.000Z' },
       },
     }, applicantToken);
     assert.strictEqual(step3SubmitRes.status, 200, `Step 3 submit failed: ${JSON.stringify(step3SubmitRes.body)}`);
@@ -656,6 +679,22 @@ async function runTests() {
     assert(fullApp.audit.length >= 7, 'Comprehensive audit trail must be recorded');
     assert(fullApp.audit.some((r) => r.action === 'LEGAL_NAME_CORRECTED' && r.metadata.from === 'Somchai Prasrt'), 'Name correction must be audited');
     assert.strictEqual(fullApp.application.step1Data.registration.location.latitude, 32.09, 'Position is stored coarsely');
+    const storedSig = fullApp.application.step3Data.signature;
+    assert.strictEqual(storedSig.signatureMethod, 'drawn_touch');
+    assert.strictEqual(storedSig.signatureDataUri, signaturePng, 'Staff see the drawn signature');
+    assert.strictEqual(storedSig.signatureValue, '', 'A drawn signature keeps no text value');
+    assert(Date.now() - Date.parse(storedSig.signedAt) < 5 * 60 * 1000, `signedAt is the server time, not the device's: ${storedSig.signedAt}`);
+    const listRes = await request('GET', '/api/applications', null, reviewerToken);
+    const listed = listRes.body.applications.find((x) => x.id === appId);
+    assert(listed && listed.step3Data.signature && !listed.step3Data.signature.signatureDataUri, 'The list leaves out the signature image');
+    assert(!(listed.digitalSignature && listed.digitalSignature.signatureValue), 'The list leaves out the mirrored signature image');
+    const staffPdf = await request('GET', `/api/applications/${appId}/pdf?lang=en`, null, reviewerToken);
+    assert.strictEqual(staffPdf.status, 200);
+    assert(String(staffPdf.body).includes('/Subtype /Image'), 'The PDF embeds the drawn signature');
+    const ownPdf = await request('GET', `/api/applications/${appId}/pdf?lang=he`, null, applicantToken);
+    assert.strictEqual(ownPdf.status, 200);
+    assert(String(ownPdf.body).includes('/Subtype /Image'), "The applicant's Hebrew PDF embeds the drawn signature");
+    console.log('  ✓ PASS: The signature is stored with the server time, shown to staff, left out of the list and drawn in the PDF');
     console.log('  ✓ PASS: Back Office centralized view contains all steps, documents, terms acceptances, and audit entries\n');
 
     // 9. Final Decision (Approved)

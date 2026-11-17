@@ -28,11 +28,11 @@ const REGISTRATION_VERSION = '1.0';
 const DOC_STEP_1 = [['passport', 'PASSPORT'], ['visa', 'WORK_VISA'], ['payslip', 'PAY_SLIP']];
 
 const FLOW_JSON = ['borrowerDetails', 'residencyDetails', 'employmentDetails', 'loanRequest', 'guarantor', 'guarantors', 'documents', 'bankAccount', 'statusHistory',
-  'eligibilityBreakdown', 'consents', 'step1Data', 'step2Data', 'step3Data', 'loanBreakdown', 'staffMessage'];
+  'eligibilityBreakdown', 'consents', 'step1Data', 'step2Data', 'step3Data', 'loanBreakdown', 'staffMessage', 'digitalSignature'];
 const FLOW_UPDATE_COLS = ['requestNumber', 'isSubmitted', 'submittedAt', 'status', 'language', 'currentStep', 'borrowerDetails', 'residencyDetails', 'employmentDetails',
   'loanRequest', 'guarantor', 'guarantors', 'documents', 'bankAccount', 'bankAccountConfirmed', 'statusHistory', 'eligibilityScore', 'eligibilityBreakdown',
   'consents', 'flowStatus', 'unlockedStep', 'rejectedAtStep', 'rejectionReason', 'step1Data', 'step2Data', 'step3Data', 'step1SubmittedAt',
-  'step2SubmittedAt', 'step3SubmittedAt', 'flowCompletedAt', 'loanBreakdown', 'staffMessage', 'phoneVerified', 'updatedAt'];
+  'step2SubmittedAt', 'step3SubmittedAt', 'flowCompletedAt', 'loanBreakdown', 'staffMessage', 'phoneVerified', 'digitalSignature', 'updatedAt'];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const mask = (v) => { const s = String(v || ''); return s.length <= 4 ? '****' : `${'*'.repeat(s.length - 4)}${s.slice(-4)}`; };
@@ -271,6 +271,13 @@ module.exports = function createFlowRoutes(ctx) {
       a.bankAccount = { ...s3.bank };
       a.bankAccountConfirmed = true;
     }
+    // The PDF's signature section reads the classic `digitalSignature` shape.
+    const sig = s3.signature;
+    a.digitalSignature = sig
+      ? sig.signatureMethod === 'typed_name'
+        ? { signatureMethod: 'type', signatureValue: sig.signatureValue, signedAt: sig.signedAt }
+        : { signatureMethod: 'draw', signatureValue: sig.signatureDataUri, signedAt: sig.signedAt }
+      : null;
     try {
       const el = calculateEligibilityScore(a);
       a.eligibilityScore = el.rawScore;
@@ -731,6 +738,8 @@ module.exports = function createFlowRoutes(ctx) {
       } else {
         const loan = a.step2Data.loan;
         next.loanBreakdown = buildLoanBreakdown(loan.requestedAmountNis, loan.repaymentPeriodMonths);
+        // The signature counts from the moment the server accepts the submission, not the device clock.
+        data.signature = { ...data.signature, signedAt: now };
         next.step3Data = { ...data, terms: {
           general: { version: currentTerms.general.version, sha256: currentTerms.general.sha256, acceptedAt: now },
           serviceFee: { version: currentTerms.service_fee.version, sha256: currentTerms.service_fee.sha256, acceptedAt: now },

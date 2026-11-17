@@ -114,6 +114,10 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
     ctx.strokeStyle = '#1e3a8a';
     ctx.lineWidth = 2.5;
 
+    // Re-creating the canvas (first show, or back from the typed tab) empties it: only a saved
+    // signature, redrawn below, counts as drawn.
+    setHasDrawn(Boolean(initialData?.signature?.signatureDataUri));
+
     // Restore existing signature data URI if available
     if (initialData?.signature?.signatureDataUri) {
       const img = new Image();
@@ -269,7 +273,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
         },
         signature: {
           signatureMethod: signatureTab === 'draw' ? 'drawn_touch' : 'typed_name',
-          signatureValue: signatureTab === 'draw' ? 'DRAWN_SIGNATURE_DATA' : typedSignature.trim(),
+          signatureValue: signatureTab === 'draw' ? '' : typedSignature.trim(),
           signatureDataUri,
           signedAt: new Date().toISOString(),
         },
