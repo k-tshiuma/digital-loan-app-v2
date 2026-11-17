@@ -40,7 +40,7 @@ import {
 } from '@quickloan/ui-core/types';
 import { STATUS_BADGE_CONFIG } from '@quickloan/ui-core/config/appConfig';
 import { storageService } from '../services/storage';
-import { apiService } from '../services/api';
+import { apiService, type ServiceFeeConfig } from '../services/api';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import {
@@ -144,6 +144,10 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     lowRiskMinScore: 80,
     mediumRiskMinScore: 50,
   });
+  // Service fee new applications take at Step 2 (GET/PUT /api/config/service-fee). null until loaded.
+  const [serviceFee, setServiceFee] = useState<ServiceFeeConfig | null>(null);
+  const [serviceFeeInput, setServiceFeeInput] = useState<string>('');
+  const [serviceFeeError, setServiceFeeError] = useState<string | null>(null);
 
   // Review modal actions
   const [reviewReason, setReviewReason] = useState('');
@@ -163,10 +167,16 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     if (currentRole === 'borrower') return;
     try {
       await apiService.ensureStaffSession(currentRole);
-      const [backendApps, rulesData] = await Promise.all([
+      const [backendApps, rulesData, feeData] = await Promise.all([
         apiService.listAllApplications().catch(() => null),
         apiService.getCreditRules().catch(() => null),
+        apiService.getServiceFee().catch(() => null),
       ]);
+      if (feeData) {
+        setServiceFee(feeData);
+        setServiceFeeInput(String(feeData.serviceFeeNis));
+        setServiceFeeError(null);
+      }
       if (backendApps && backendApps.length > 0) {
         setApplications(backendApps);
       }
@@ -407,6 +417,29 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
       }
     } catch (err) {
       console.warn('Backend credit rules update failed:', err);
+    }
+
+    // The service fee is checked here and on the server; a bad value stops the save message.
+    if (currentRole === 'system_admin' && serviceFee) {
+      const fee = Number(serviceFeeInput);
+      if (serviceFeeInput.trim() === '' || !Number.isInteger(fee) || fee < serviceFee.min || fee > serviceFee.max) {
+        setServiceFeeError(t(language, 'bo.cfg.serviceFeeInvalid', {
+          min: formatCurrency(serviceFee.min, language),
+          max: formatCurrency(serviceFee.max, language),
+        }));
+        return;
+      }
+      if (fee !== serviceFee.serviceFeeNis) {
+        try {
+          const saved = await apiService.updateServiceFee(fee);
+          setServiceFee(saved);
+          setServiceFeeInput(String(saved.serviceFeeNis));
+        } catch (err) {
+          setServiceFeeError(localizeError(err, language, 'bo.cfg.serviceFeeSaveFailed'));
+          return;
+        }
+      }
+      setServiceFeeError(null);
     }
 
     setActionSuccessMessage(t(language, 'bo.msg.configSaved'));
@@ -1029,7 +1062,9 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
 
         {/* TAB 3: Credit Policy Configuration */}
         {activeTab === 'config' && (
-          <form onSubmit={handleSaveConfig} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 max-w-2xl mx-auto space-y-6">
+          // noValidate: the service fee range is checked in handleSaveConfig with a translated message,
+          // instead of the browser's own pop-up in the browser's language.
+          <form noValidate onSubmit={handleSaveConfig} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 max-w-2xl mx-auto space-y-6">
             <div className="border-b pb-3">
               <h3 className="text-base font-bold text-slate-900">{t(language, 'bo.cfg.title')}</h3>
               <p className="text-xs text-slate-500">{t(language, 'bo.cfg.subtitle')}</p>
@@ -1090,13 +1125,29 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">{t(language, 'bo.cfg.managementFee')}</label>
+                  <label htmlFor="config-service-fee" className="font-bold text-slate-700">{t(language, 'bo.cfg.serviceFee')}</label>
                   <input
+                    id="config-service-fee"
                     type="number"
-                    value={config.managementFeeNis}
-                    onChange={(e) => setConfig({ ...config, managementFeeNis: Number(e.target.value) })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 font-mono"
+                    inputMode="numeric"
+                    min={serviceFee?.min}
+                    max={serviceFee?.max}
+                    step={1}
+                    dir="ltr"
+                    value={serviceFeeInput}
+                    disabled={!serviceFee || currentRole !== 'system_admin'}
+                    aria-invalid={Boolean(serviceFeeError)}
+                    aria-describedby="config-service-fee-hint"
+                    onChange={(e) => {
+                      setServiceFeeInput(e.target.value);
+                      setServiceFeeError(null);
+                    }}
+                    className={`w-full p-2.5 rounded-xl border font-mono disabled:bg-slate-100 disabled:text-slate-500 ${
+                      serviceFeeError ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
+                  {serviceFeeError && <p className="text-[11px] text-red-600 font-medium">{serviceFeeError}</p>}
+                  <p id="config-service-fee-hint" className="text-[11px] text-slate-500">{t(language, 'bo.cfg.serviceFeeHint')}</p>
                 </div>
               </div>
             </div>

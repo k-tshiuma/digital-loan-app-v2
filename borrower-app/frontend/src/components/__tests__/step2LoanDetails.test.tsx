@@ -66,6 +66,21 @@ describe('Step 2 & Step 3 Workflow Details', () => {
     expect(screen.queryByRole('button', { name: /12\s*months/i })).toBeNull();
   });
 
+  it('1b. Service fee in Step 2 comes from the configuration (the API) and is used in the figures', () => {
+    // 5,000 over 6 months with a configured fee of 1,200 (fixture: 854 + 200 a month, 6,324 in total)
+    const { unmount } = render(<Step2ApplicationCompletion language="en" defaultAmount={5000} serviceFeeNis={1200} />);
+    const feeRow = screen.getByTestId('step2-service-fee');
+    expect(feeRow).toHaveTextContent('Service fee');
+    expect(feeRow).toHaveTextContent('₪1,200');
+    expect(screen.getByText('₪1,054')).toBeInTheDocument();
+    expect(screen.getByText('₪6,324')).toBeInTheDocument();
+    unmount();
+
+    // Without a fee from the API the default 3,000 applies
+    render(<Step2ApplicationCompletion language="en" defaultAmount={5000} />);
+    expect(screen.getByTestId('step2-service-fee')).toHaveTextContent('₪3,000');
+  });
+
   it('2. Simplified Sponsors in Step 2: requires only Full Name and ID or Passport', async () => {
     const user = userEvent.setup();
     render(

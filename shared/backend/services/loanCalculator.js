@@ -13,14 +13,17 @@ const LOAN_CONFIG = {
   defaultInterestRatePercent: 8.5,
 };
 
-/** Flat one-time service (agent) fee, whatever the loan amount; split evenly across the months. */
+/**
+ * Default flat one-time service (agent) fee, whatever the loan amount; split evenly across the months.
+ * The fee actually charged is configured in the Back Office (services/serviceFee.js) and passed in.
+ */
 const SERVICE_FEE_NIS = 3000;
 
-function getServiceFeeForAmount(amount) {
-  return amount > 0 ? SERVICE_FEE_NIS : 0;
+function getServiceFeeForAmount(amount, serviceFeeNis = SERVICE_FEE_NIS) {
+  return amount > 0 ? serviceFeeNis : 0;
 }
 
-function calculateLoanRepayment(principalAmount, periodMonths, config = LOAN_CONFIG) {
+function calculateLoanRepayment(principalAmount, periodMonths, config = LOAN_CONFIG, serviceFeeNis = SERVICE_FEE_NIS) {
   if (principalAmount <= 0 || periodMonths <= 0) {
     return {
       baseMonthlyRepaymentNis: 0,
@@ -38,20 +41,20 @@ function calculateLoanRepayment(principalAmount, periodMonths, config = LOAN_CON
   const factor = Math.pow(1 + monthlyRate, periodMonths);
   const baseMonthlyRepaymentNis = Math.round((principalAmount * (monthlyRate * factor)) / (factor - 1));
 
-  const serviceFeeNis = getServiceFeeForAmount(principalAmount);
-  const monthlyServiceFeeNis = Math.round(serviceFeeNis / periodMonths);
+  const feeNis = getServiceFeeForAmount(principalAmount, serviceFeeNis);
+  const monthlyServiceFeeNis = Math.round(feeNis / periodMonths);
   const monthlyPaymentNis = baseMonthlyRepaymentNis + monthlyServiceFeeNis;
   const totalRepaymentNis = monthlyPaymentNis * periodMonths;
-  const totalInterestNis = totalRepaymentNis - principalAmount - serviceFeeNis;
+  const totalInterestNis = totalRepaymentNis - principalAmount - feeNis;
 
   return {
     baseMonthlyRepaymentNis,
-    serviceFeeNis,
+    serviceFeeNis: feeNis,
     monthlyServiceFeeNis,
     monthlyPaymentNis,
     totalRepaymentNis,
     totalInterestNis,
-    managementFeeNis: serviceFeeNis,
+    managementFeeNis: feeNis,
     interestRatePercent: config.defaultInterestRatePercent,
   };
 }
@@ -74,11 +77,11 @@ function isValidRepaymentPeriod(months) {
  * Full breakdown for display and for the stored snapshot. The loan figures (principal + interest)
  * are kept apart from the service fee so the applicant can see the difference:
  *  - loanOnly*   = what repays the loan itself (base monthly payment x months)
- *  - service fee = flat one-time fee (SERVICE_FEE_NIS), split evenly across the months
+ *  - service fee = flat one-time fee (the configured fee the application took at Step 2), split evenly across the months
  *  - overall*    = both together (the existing monthlyPaymentNis / totalRepaymentNis)
  */
-function buildLoanBreakdown(principalAmount, periodMonths) {
-  const r = calculateLoanRepayment(principalAmount, periodMonths);
+function buildLoanBreakdown(principalAmount, periodMonths, serviceFeeNis = SERVICE_FEE_NIS) {
+  const r = calculateLoanRepayment(principalAmount, periodMonths, LOAN_CONFIG, serviceFeeNis);
   return {
     requestedAmountNis: principalAmount,
     repaymentPeriodMonths: periodMonths,

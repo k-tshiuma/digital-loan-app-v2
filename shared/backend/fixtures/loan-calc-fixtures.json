@@ -68,5 +68,38 @@
     "expectedTotalMonthly": 2014,
     "expectedTotalRepayment": 6042,
     "expectedTotalInterest": 42
+  },
+  {
+    "principal": 5000,
+    "period": 6,
+    "serviceFeeNis": 1200,
+    "expectedBaseMonthly": 854,
+    "expectedFee": 1200,
+    "expectedMonthlyFee": 200,
+    "expectedTotalMonthly": 1054,
+    "expectedTotalRepayment": 6324,
+    "expectedTotalInterest": 124
+  },
+  {
+    "principal": 2000,
+    "period": 9,
+    "serviceFeeNis": 2500,
+    "expectedBaseMonthly": 230,
+    "expectedFee": 2500,
+    "expectedMonthlyFee": 278,
+    "expectedTotalMonthly": 508,
+    "expectedTotalRepayment": 4572,
+    "expectedTotalInterest": 72
+  },
+  {
+    "principal": 10000,
+    "period": 3,
+    "serviceFeeNis": 0,
+    "expectedBaseMonthly": 3381,
+    "expectedFee": 0,
+    "expectedMonthlyFee": 0,
+    "expectedTotalMonthly": 3381,
+    "expectedTotalRepayment": 10143,
+    "expectedTotalInterest": 143
   }
 ]

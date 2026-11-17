@@ -243,6 +243,9 @@ function routes(ctx) {
     ['GET', '/api/analytics/summary'],
     ['GET', '/api/config/credit-rules'],
     ['PUT', '/api/config/credit-rules', { rules: { mediumRiskMinScore: 99, lowRiskMinScore: 1 } }],
+    ['GET', '/api/config/service-fee'],
+    // An invalid fee: the admin gets 400, so the matrix never changes the configured fee.
+    ['PUT', '/api/config/service-fee', { serviceFeeNis: -1 }],
     // 3-step flow, applicant side
     ['GET', '/api/flow/terms/current'],
     ['GET', '/api/flow/application'],
