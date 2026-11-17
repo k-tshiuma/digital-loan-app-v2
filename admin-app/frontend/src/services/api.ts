@@ -7,6 +7,14 @@ import { staffSession, type StaffRole, type StaffAccount, type StaffSessionData 
 
 setSessionStore(staffSession);
 
+/** GET/PUT /api/config/service-fee: the configured fee (whole NIS) and the allowed range. */
+export interface ServiceFeeConfig {
+  serviceFeeNis: number;
+  min: number;
+  max: number;
+  default: number;
+}
+
 // Re-exported so the dashboard imports everything API-related from this file.
 export { API_BASE_URL, ApiError, isNetworkError, SESSION_EXPIRED_EVENT } from '@quickloan/ui-core/services/apiCore';
 export { staffSession } from './staffSession';
@@ -65,6 +73,15 @@ export const apiService = {
 
   async updateCreditRules(rules: Partial<CreditRules>): Promise<{ rules: CreditRules; rescored: number }> {
     return request('/config/credit-rules', { method: 'PUT', body: { rules } });
+  },
+
+  // --- Service fee: taken by each application when its Step 2 is first submitted --------
+  async getServiceFee(): Promise<ServiceFeeConfig> {
+    return request('/config/service-fee');
+  },
+
+  async updateServiceFee(serviceFeeNis: number): Promise<ServiceFeeConfig> {
+    return request('/config/service-fee', { method: 'PUT', body: { serviceFeeNis } });
   },
 
   /** Staff sign-in. The API sets the session cookie; only the role, account and expiry are kept here. */

@@ -574,6 +574,11 @@ export interface FlowApplicationView {
     3: StepStateSummary<Step3FormData>;
   };
   loanBreakdown: LoanBreakdown | null;
+  /**
+   * The service fee for this application: the one it took when Step 2 was first submitted (also in
+   * loanBreakdown.totalServiceFeeNis), or before that the fee configured in the Back Office.
+   */
+  serviceFeeNis?: number;
   language: Language;
   leadSource: 'google' | 'manual' | null;
   account: {

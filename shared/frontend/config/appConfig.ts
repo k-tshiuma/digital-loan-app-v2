@@ -110,13 +110,15 @@ export const LOAN_PERIOD_OPTIONS = [
 export const MAX_REPAYMENT_PERIOD_MONTHS = 9;
 
 /**
- * Flat one-time service (agent) fee, whatever the loan amount; split evenly across the months.
+ * Default flat one-time service (agent) fee, whatever the loan amount; split evenly across the months.
+ * The fee actually charged is configured in the Back Office and comes from the API
+ * (FlowApplicationView.serviceFeeNis, LoanBreakdown.totalServiceFeeNis); pass it in.
  * Mirrored in shared/backend/services/loanCalculator.js; keep both identical.
  */
 export const SERVICE_FEE_NIS = 3000;
 
-export function getServiceFeeForAmount(amount: number): number {
-  return amount > 0 ? SERVICE_FEE_NIS : 0;
+export function getServiceFeeForAmount(amount: number, serviceFeeNis: number = SERVICE_FEE_NIS): number {
+  return amount > 0 ? serviceFeeNis : 0;
 }
 
 export const VISA_TYPES = [
@@ -251,7 +253,8 @@ export const STATUS_BADGE_CONFIG: Record<
 export function calculateLoanRepayment(
   principalAmount: number,
   periodMonths: number,
-  config: ApplicationConfig = DEFAULT_APP_CONFIG
+  config: ApplicationConfig = DEFAULT_APP_CONFIG,
+  serviceFeeNis: number = SERVICE_FEE_NIS
 ): {
   baseMonthlyRepaymentNis: number;
   serviceFeeNis: number;
@@ -281,20 +284,20 @@ export function calculateLoanRepayment(
     (principalAmount * (monthlyRate * factor)) / (factor - 1)
   );
 
-  const serviceFeeNis = getServiceFeeForAmount(principalAmount);
-  const monthlyServiceFeeNis = Math.round(serviceFeeNis / periodMonths);
+  const feeNis = getServiceFeeForAmount(principalAmount, serviceFeeNis);
+  const monthlyServiceFeeNis = Math.round(feeNis / periodMonths);
   const monthlyPaymentNis = baseMonthlyRepaymentNis + monthlyServiceFeeNis;
   const totalRepaymentNis = monthlyPaymentNis * periodMonths;
-  const totalInterestNis = totalRepaymentNis - principalAmount - serviceFeeNis;
+  const totalInterestNis = totalRepaymentNis - principalAmount - feeNis;
 
   return {
     baseMonthlyRepaymentNis,
-    serviceFeeNis,
+    serviceFeeNis: feeNis,
     monthlyServiceFeeNis,
     monthlyPaymentNis,
     totalRepaymentNis,
     totalInterestNis,
-    managementFeeNis: serviceFeeNis,
+    managementFeeNis: feeNis,
     interestRatePercent: config.defaultInterestRatePercent,
   };
 }

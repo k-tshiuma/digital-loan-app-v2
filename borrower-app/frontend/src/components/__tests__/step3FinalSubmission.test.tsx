@@ -6,17 +6,19 @@ import { Step3FinalSubmission } from '../Step3FinalSubmission';
 import { apiService } from '../../services/api';
 import { LoanBreakdown, Step3FormData, TermsVersionRecord } from '@quickloan/ui-core/types';
 
+// The service fee is the one the application took at Step 2 from the Back Office configuration
+// (here 1,200, i.e. 200 a month), not the 3,000 default.
 const breakdown: LoanBreakdown = {
   requestedAmountNis: 5000,
   repaymentPeriodMonths: 6,
   interestRatePercent: 8.5,
   totalInterestNis: 112,
-  totalServiceFeeNis: 350,
+  totalServiceFeeNis: 1200,
   monthlyLoanRepaymentNis: 852,
-  monthlyServiceFeeNis: 58,
+  monthlyServiceFeeNis: 200,
   totalLoanRepaymentNis: 5112,
-  monthlyPaymentTotalNis: 910,
-  overallTotalNis: 5462,
+  monthlyPaymentTotalNis: 1052,
+  overallTotalNis: 6312,
 };
 
 const terms: Record<string, TermsVersionRecord> = {
@@ -54,15 +56,16 @@ describe('Step3FinalSubmission', () => {
     expect(screen.getByText(/5,000/)).toBeInTheDocument();
     expect(screen.getByText(/5,112/)).toBeInTheDocument();
     expect(screen.getByText(/852/)).toBeInTheDocument();
-    // The flat 3,000 NIS agent fee, formatted like every other amount (in the box and the agreement text)
-    expect(screen.getAllByText(/3,000/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.queryByText(/3,000 NIS/)).toBeNull();
-    expect(screen.getByText(/500/)).toBeInTheDocument(); // 3000 / 6 = 500
+    // The application's own fee from the breakdown, formatted like every other amount (in the box and the agreement text)
+    expect(screen.getAllByText(/1,200/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/1,200 NIS/)).toBeNull();
+    expect(screen.queryByText(/3,000/)).toBeNull(); // never the default constant
+    expect(screen.getByText('₪200')).toBeInTheDocument(); // monthly fee from the breakdown
   });
 
   it('formats the agent fee for Hebrew without an English currency code', () => {
     render(<Step3FinalSubmission language="he" breakdown={breakdown} termsVersions={terms} applicantName="Somchai Worker" onSubmit={vi.fn()} />);
-    expect(screen.getAllByText(/3,000/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/1,200/).length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText(/NIS/)).toBeNull();
   });
 

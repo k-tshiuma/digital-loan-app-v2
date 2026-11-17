@@ -664,6 +664,7 @@ export default function App() {
                 <Step2ApplicationCompletion
                   language={currentLanguage}
                   initialData={flowApplication?.steps[2]?.data}
+                  serviceFeeNis={flowApplication?.serviceFeeNis}
                   defaultAmount={
                     flowApplication?.loanBreakdown?.requestedAmountNis ||
                     flowApplication?.steps[1]?.data?.loan?.requestedAmountNis ||

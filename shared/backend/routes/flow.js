@@ -17,7 +17,8 @@ const bcrypt = require('bcryptjs');
 const { dbGet, dbAll, dbRun, newId, sha256, safeJson } = require('../services/dbHelpers');
 const W = require('../services/workflow');
 const V = require('../services/flowValidation');
-const { calculateLoanRepayment, buildLoanBreakdown } = require('../services/loanCalculator');
+const { calculateLoanRepayment, buildLoanBreakdown, LOAN_CONFIG } = require('../services/loanCalculator');
+const { getServiceFeeNis, lockedServiceFee } = require('../services/serviceFee');
 const { getAllCurrentTerms } = require('../services/terms');
 // Sign-in responses also set the HttpOnly session cookie (the browser apps use it instead of the token).
 const { setSessionCookie } = require('../core/sessionCookie');
@@ -187,8 +188,11 @@ module.exports = function createFlowRoutes(ctx) {
   const getFlowAppById = async (id) =>
     flowRowToApp(await dbGet('SELECT * FROM applications WHERE (id = ? OR requestNumber = ?) AND flowVersion = 2', [id, id]));
 
-  /** Legacy fields the rest of the system reads (PDF, scoring, Back Office lists) are derived from the step data. */
-  function mirrorLegacy(a) {
+  /**
+   * Legacy fields the rest of the system reads (PDF, scoring, Back Office lists) are derived from the step data.
+   * `currentFeeNis` is the configured service fee, used until the application takes its own at Step 2.
+   */
+  function mirrorLegacy(a, currentFeeNis) {
     const s1 = a.step1Data || {};
     const s2 = a.step2Data || {};
     const s3 = a.step3Data || {};
@@ -237,7 +241,8 @@ module.exports = function createFlowRoutes(ctx) {
     const amount = (s2.loan && s2.loan.requestedAmountNis) || (s1.loan && s1.loan.requestedAmountNis) || 0;
     const months = (s2.loan && s2.loan.repaymentPeriodMonths) || 6;
     if (amount > 0) {
-      const r = calculateLoanRepayment(amount, months);
+      const fee = lockedServiceFee(a) ?? currentFeeNis;
+      const r = calculateLoanRepayment(amount, months, LOAN_CONFIG, fee);
       a.loanRequest = {
         requestedAmountNis: amount,
         repaymentPeriodMonths: months,
@@ -364,6 +369,8 @@ module.exports = function createFlowRoutes(ctx) {
       needsRegistrationConsent: !(s1.registration && s1.registration.disclaimerAcceptedAt),
       steps,
       loanBreakdown: a.loanBreakdown || null,
+      // The service fee for this application: the one it took at Step 2, or else the configured fee Step 2 will use.
+      serviceFeeNis: lockedServiceFee(a) ?? await getServiceFeeNis(),
       language: a.language,
       leadSource: a.leadSource || null,
       account: user ? { email: user.email || null, phoneNumber: user.phoneNumber && !String(user.phoneNumber).startsWith('google:') ? user.phoneNumber : null, fullName: user.fullName || null, authProvider: user.authProvider || null } : null,
@@ -668,7 +675,7 @@ module.exports = function createFlowRoutes(ctx) {
         a.step3Data = c;
       }
       a.updatedAt = new Date().toISOString();
-      mirrorLegacy(a);
+      mirrorLegacy(a, await getServiceFeeNis());
       if (!(await updateFlowApp(a, a.flowStatus))) return res.status(409).json({ success: false, code: 'CONFLICT', error: 'The application changed. Please reload.' });
       res.json({ success: true, application: await applicantView(await getFlowAppById(a.id), req.user) });
     });
@@ -734,10 +741,12 @@ module.exports = function createFlowRoutes(ctx) {
       } else if (n === 2) {
         next.step2Data = data;
         next.step2SubmittedAt = now;
-        next.loanBreakdown = buildLoanBreakdown(data.loan.requestedAmountNis, data.loan.repaymentPeriodMonths);
+        // The configured service fee is taken the first time Step 2 is submitted and kept from then on
+        // (a Step 2 re-submitted after requested changes, Step 3 and the final decision all use it).
+        next.loanBreakdown = buildLoanBreakdown(data.loan.requestedAmountNis, data.loan.repaymentPeriodMonths, lockedServiceFee(a) ?? await getServiceFeeNis());
       } else {
         const loan = a.step2Data.loan;
-        next.loanBreakdown = buildLoanBreakdown(loan.requestedAmountNis, loan.repaymentPeriodMonths);
+        next.loanBreakdown = buildLoanBreakdown(loan.requestedAmountNis, loan.repaymentPeriodMonths, lockedServiceFee(a) ?? await getServiceFeeNis());
         // The signature counts from the moment the server accepts the submission, not the device clock.
         data.signature = { ...data.signature, signedAt: now };
         next.step3Data = { ...data, terms: {
@@ -758,7 +767,7 @@ module.exports = function createFlowRoutes(ctx) {
       next.unlockedStep = W.unlockedStepFor(next.flowStatus);
       next.currentStep = next.unlockedStep;
       next.staffMessage = null;
-      mirrorLegacy(next);
+      mirrorLegacy(next, await getServiceFeeNis());
 
       // 1. snapshot (deterministic id: a concurrent duplicate submit collides here)
       const revision = ((await dbGet('SELECT COUNT(*) AS c FROM application_step_submissions WHERE applicationId = ? AND step = ?', [a.id, n])).c || 0) + 1;
@@ -936,7 +945,7 @@ module.exports = function createFlowRoutes(ctx) {
           personal: { ...subPersonal, ...curPersonal },
         };
       }
-      mirrorLegacy(view);
+      mirrorLegacy(view, await getServiceFeeNis());
       delete view.riskScore; delete view.riskLevel; delete view.riskFlags;
       if (view.step3Data && view.step3Data.bank && !reveal) view.step3Data = { ...view.step3Data, bank: maskBank(view.step3Data.bank) };
       if (view.bankAccount && !reveal) view.bankAccount = maskBank(view.bankAccount);

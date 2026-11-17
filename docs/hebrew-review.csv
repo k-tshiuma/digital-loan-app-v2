@@ -57,6 +57,13 @@
 2. עמלת השירות משולמת בתשלומים חודשיים שווים יחד עם החזר ההלוואה, לאורך אותה תקופת החזר.
 3. עמלת השירות המדויקת, עמלת השירות החודשית וסכומי החזר ההלוואה מוצגים לך לפני ההגשה ונשמרים יחד עם בקשתך.
 4. עמלת השירות מהווה תמורה עבור שירותי התיווך של QuickLoan ואינה מבטיחה שההלוואה תאושר.","",""
+"1 legal","backend terms","service_fee v3.0","1. The service fee is a one-time, flat fee, the same for every loan amount. Its amount is shown to you in Step 2 and is fixed for your application from the moment you submit Step 2. It is separate from the loan principal and the loan interest.
+2. The service fee is paid in equal monthly instalments together with the loan repayment, over the same repayment period.
+3. The exact service fee, the monthly service fee and the loan repayment amounts are shown to you before you submit, and are recorded with your application.
+4. The service fee remunerates QuickLoan for its intermediary services and does not guarantee that a loan will be granted.","1. עמלת השירות היא עמלה חד-פעמית קבועה, זהה לכל סכום הלוואה. סכומה מוצג לך בשלב 2, והוא נקבע לבקשתך מרגע הגשת שלב 2. היא נפרדת מקרן ההלוואה ומריבית ההלוואה.
+2. עמלת השירות משולמת בתשלומים חודשיים שווים יחד עם החזר ההלוואה, לאורך אותה תקופת החזר.
+3. עמלת השירות המדויקת, עמלת השירות החודשית וסכומי החזר ההלוואה מוצגים לך לפני ההגשה ונשמרים יחד עם בקשתך.
+4. עמלת השירות מהווה תמורה עבור שירותי התיווך של QuickLoan ואינה מבטיחה שההלוואה תאושר.","",""
 "2 sms","backend status SMS","Received","Your application has been received and is queued for review.","בקשתך התקבלה ותיבדק בקרוב.","",""
 "2 sms","backend status SMS","Under Review","A credit officer is now reviewing your application.","נציג אשראי בודק כעת את בקשתך.","",""
 "2 sms","backend status SMS","Additional Document Required","We need an additional document to continue. Please open the app to upload it.","נדרש מסמך נוסף. נא להעלות אותו באפליקציה.","",""
@@ -1111,10 +1118,11 @@
 "4 app","app","step2.selectAmount","Select Loan Amount:","בחירת סכום ההלוואה:","",""
 "4 app","app","step2.repaymentDuration","Repayment Duration (Months):","תקופת החזר (חודשים):","",""
 "4 app","app","step2.perMonth","/mo","לחודש","",""
+"4 app","app","step2.serviceFee","Service fee","עמלת שירות","",""
+"4 app","app","step2.serviceFeeNote","One-time fee, included in the payments above and fixed when you submit this step","עמלה חד-פעמית, כלולה בתשלומים שלמעלה ונקבעת עם הגשת שלב זה","",""
 "4 app","app","step2.breakdownTitle","Payment Breakdown (Monthly & Total)","פירוט תשלומים (חודשי וכולל)","",""
 "4 app","app","step2.paymentToBank","Payment to Bank","תשלום לבנק","",""
 "4 app","app","step2.totalLoanToBank","Total loan to bank: {amount}","סך הכל הלוואה לבנק: {amount}","",""
-"4 app","app","step2.serviceFee","Service Fee (Tiered)","דמי שירות (מדורגים)","",""
 "4 app","app","step2.totalFee","Total fee: {amount}","סך דמי שירות: {amount}","",""
 "4 app","app","step2.totalBoth","Total (Bank + Service Fee)","סך הכל (בנק + דמי שירות)","",""
 "4 app","app","step2.overallTotal","Overall total: {amount}","סך הכל לתשלום: {amount}","",""
@@ -1357,7 +1365,10 @@
 "4 app","app","bo.cfg.minAge","Min borrower age (years)","גיל לווה מינימלי (שנים)","",""
 "4 app","app","bo.cfg.visaBuffer","Visa validity buffer (months)","מרווח תוקף אשרה (חודשים)","",""
 "4 app","app","bo.cfg.apr","Default APR (%)","ריבית שנתית ברירת מחדל (%)","",""
-"4 app","app","bo.cfg.managementFee","Management fee (₪)","דמי ניהול (₪)","",""
+"4 app","app","bo.cfg.serviceFee","Service fee (₪)","עמלת שירות (₪)","",""
+"4 app","app","bo.cfg.serviceFeeHint","One-time fee shown to applicants in Step 2. Each application keeps the fee it had when its Step 2 was first submitted, through Step 3 and the final approval.","עמלה חד-פעמית המוצגת למבקשים בשלב 2. כל בקשה שומרת את העמלה שהייתה בתוקף כשהוגש שלב 2 לראשונה, לאורך שלב 3 ועד לאישור הסופי.","",""
+"4 app","app","bo.cfg.serviceFeeInvalid","Enter a whole number from {min} to {max}.","יש להזין מספר שלם בין {min} ל-{max}.","",""
+"4 app","app","bo.cfg.serviceFeeSaveFailed","The service fee could not be saved. Please try again.","לא ניתן היה לשמור את עמלת השירות. יש לנסות שוב.","",""
 "4 app","app","bo.cfg.scoringPolicy","Automated credit scoring policy","מדיניות דירוג אשראי אוטומטית","",""
 "4 app","app","bo.cfg.scoringHint","Updating credit rules automatically rescores active under-review applications.","עדכון כללי האשראי מדרג מחדש באופן אוטומטי בקשות פעילות שנמצאות בבדיקה.","",""
 "4 app","app","bo.cfg.salaryMultiplier","Max salary multiplier","מכפיל שכר מרבי","",""

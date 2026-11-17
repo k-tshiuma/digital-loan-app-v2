@@ -27,6 +27,8 @@ interface Step2ApplicationCompletionProps {
   language: Language;
   initialData?: Step2FormData | null;
   defaultAmount?: number;
+  /** The application's service fee from the API (configured in the Back Office, fixed once Step 2 is submitted). */
+  serviceFeeNis?: number;
   isReadOnly?: boolean;
   onSubmit?: (data: Step2FormData) => Promise<void>;
   onCompleted?: (data: any) => void;
@@ -38,6 +40,7 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
   language = 'en',
   initialData,
   defaultAmount = 5000,
+  serviceFeeNis,
   isReadOnly = false,
   onSubmit,
   onCompleted,
@@ -60,7 +63,7 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
     return m && [3, 6, 9].includes(m) ? m : 6;
   });
 
-  const repayment = calculateLoanRepayment(requestedAmountNis, repaymentMonths);
+  const repayment = calculateLoanRepayment(requestedAmountNis, repaymentMonths, undefined, serviceFeeNis);
 
   // Validation & Form States
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -403,6 +406,15 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
                   {formatCurrency(repayment.totalRepaymentNis, language)}
                 </span>
               </div>
+            </div>
+
+            {/* Service fee: from the Back Office configuration, included in the figures above */}
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs" data-testid="step2-service-fee">
+              <div>
+                <span className="font-bold text-slate-700 block">{t(language, 'step2.serviceFee')}</span>
+                <span className="text-[11px] text-slate-500">{t(language, 'step2.serviceFeeNote')}</span>
+              </div>
+              <span className="font-bold text-slate-900 text-sm">{formatCurrency(repayment.serviceFeeNis, language)}</span>
             </div>
           </div>
         </div>

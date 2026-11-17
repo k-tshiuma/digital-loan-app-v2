@@ -23,7 +23,7 @@ import {
   UploadedDocRef,
   TermsVersionRecord,
 } from '@quickloan/ui-core/types';
-import { ISRAELI_BANKS, SERVICE_FEE_NIS } from '@quickloan/ui-core/config/appConfig';
+import { ISRAELI_BANKS } from '@quickloan/ui-core/config/appConfig';
 import { formatCurrency } from '@quickloan/ui-core/i18n/format';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { apiService } from '../services/api';
@@ -381,7 +381,7 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
                   <div>
                     <span className="text-slate-700 block">{t(language, 'step3.totalAgentFee')}</span>
                     <span className="font-bold text-emerald-700 text-base">
-                      {formatCurrency(SERVICE_FEE_NIS, language)}
+                      {formatCurrency(breakdown.totalServiceFeeNis, language)}
                     </span>
                   </div>
                   <div>
@@ -397,14 +397,14 @@ export const Step3FinalSubmission: React.FC<Step3FinalSubmissionProps> = ({
                     {t(language, 'step3.monthlyAgentFee')}
                   </span>
                   <span className="font-bold text-purple-800 text-sm">
-                    {formatCurrency(Math.round(SERVICE_FEE_NIS / (breakdown.repaymentPeriodMonths || 1)), language)}
+                    {formatCurrency(breakdown.monthlyServiceFeeNis, language)}
                   </span>
                 </div>
 
                 {/* Mandatory Agent Fee Agreement */}
                 <div className="pt-2 border-t border-purple-200 space-y-2.5">
                   <p className="text-xs text-slate-800 leading-relaxed font-medium">
-                    {t(language, 'step3.agentFeeAgreementNotice', { amount: formatCurrency(SERVICE_FEE_NIS, language) })}
+                    {t(language, 'step3.agentFeeAgreementNotice', { amount: formatCurrency(breakdown.totalServiceFeeNis, language) })}
                   </p>
 
                   <div

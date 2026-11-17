@@ -190,7 +190,7 @@ async function runTests() {
   // 1. Calculation Parity Verification
   console.log('--- 1. LOAN CALCULATION PARITY ---');
   for (const item of fixtures) {
-    const res = calculateLoanRepayment(item.principal, item.period);
+    const res = calculateLoanRepayment(item.principal, item.period, undefined, item.serviceFeeNis);
     assert.strictEqual(res.baseMonthlyRepaymentNis, item.expectedBaseMonthly, `Base monthly mismatch for ${item.principal} NIS / ${item.period} mos`);
     assert.strictEqual(res.serviceFeeNis, item.expectedFee, `Fee mismatch for ${item.principal} NIS`);
     assert.strictEqual(res.monthlyServiceFeeNis, item.expectedMonthlyFee, `Monthly fee mismatch for ${item.principal} NIS`);
@@ -203,6 +203,10 @@ async function runTests() {
   // Start both APIs for the HTTP tests
   console.log('(borrower API on 5022, admin API on 5023)\n');
   await startSplitServers();
+
+  // The tests change the configured service fee; the real database gets its original row back at the end.
+  const { dbGet: cfgGet, dbRun: cfgRun } = require('@quickloan/backend-core/services/dbHelpers');
+  const originalFeeRow = await cfgGet("SELECT value, updatedAt FROM app_config WHERE key = 'serviceFeeNis'");
 
   try {
     // 2. Staff Authentication
@@ -554,6 +558,27 @@ async function runTests() {
     assert.strictEqual(appStateAfterS1.body.application.steps[2].state, 'available');
     console.log('  ✓ PASS: Step 2 is now officially unlocked and available for the applicant\n');
 
+    // 5b. Service fee configured in the Back Office ("Credit Policy & Config")
+    console.log('--- 5b. CONFIGURABLE SERVICE FEE ---');
+    const feeGet = await request('GET', '/api/config/service-fee', null, reviewerToken);
+    assert.strictEqual(feeGet.status, 200, 'Staff can read the service fee');
+    assert.deepStrictEqual([feeGet.body.min, feeGet.body.max, feeGet.body.default], [0, 50000, 3000]);
+    const feeByReviewer = await request('PUT', '/api/config/service-fee', { serviceFeeNis: 1000 }, reviewerToken);
+    assert.strictEqual(feeByReviewer.status, 403, 'Only a system admin may change the service fee');
+    for (const bad of [-1, 50001, 12.5, 'abc', null]) {
+      const r = await request('PUT', '/api/config/service-fee', { serviceFeeNis: bad }, adminToken);
+      assert.strictEqual(r.status, 400, `Service fee ${JSON.stringify(bad)} must be refused`);
+      assert.strictEqual(r.body.code, 'INVALID_SERVICE_FEE');
+    }
+    const feeSet = await request('PUT', '/api/config/service-fee', { serviceFeeNis: 1200 }, adminToken);
+    assert.strictEqual(feeSet.status, 200, `Admin sets the fee: ${JSON.stringify(feeSet.body)}`);
+    assert.strictEqual(feeSet.body.serviceFeeNis, 1200);
+    const feeAudit = await cfgGet("SELECT * FROM audit_log WHERE action = 'SERVICE_FEE_CHANGED' ORDER BY createdAt DESC, rowid DESC LIMIT 1");
+    assert(feeAudit && JSON.parse(feeAudit.metadata).to === 1200 && feeAudit.actorRole === 'system_admin', 'The fee change is audited');
+    const viewBeforeStep2 = await request('GET', '/api/flow/application', null, applicantToken);
+    assert.strictEqual(viewBeforeStep2.body.application.serviceFeeNis, 1200, 'Step 2 shows the configured fee (borrower API, other process)');
+    console.log('  ✓ PASS: Staff read the fee, only a system admin can set it (0-50,000, audited), and the applicant sees it before Step 2\n');
+
     // 6. Step 2 Submission (Sponsors & Loan Duration)
     console.log('--- 6. STEP 2 SUBMISSION & APPROVAL ---');
     // Ensure sponsor requires at least 1 sponsor
@@ -576,7 +601,19 @@ async function runTests() {
     }, applicantToken);
     assert.strictEqual(step2SubmitRes.status, 200);
     assert.strictEqual(step2SubmitRes.body.application.flowStatus, 'PENDING_STEP2_APPROVAL');
+    const step2Breakdown = step2SubmitRes.body.application.loanBreakdown;
+    assert.strictEqual(step2Breakdown.totalServiceFeeNis, 1200, 'Step 2 takes the configured fee');
+    assert.strictEqual(step2Breakdown.monthlyServiceFeeNis, 200, '1,200 over 6 months');
+    assert.strictEqual(step2Breakdown.overallTotalNis, 6324, 'Totals use the configured fee (fixture: 5,000 / 6 months / 1,200)');
     console.log('  ✓ PASS: Step 2 submitted with simplified sponsor; status is PENDING_STEP2_APPROVAL\n');
+
+    // A later change of the configured fee leaves this application's fee as it was
+    const feeChanged = await request('PUT', '/api/config/service-fee', { serviceFeeNis: 2500 }, adminToken);
+    assert.strictEqual(feeChanged.status, 200);
+    const viewAfterChange = await request('GET', '/api/flow/application', null, applicantToken);
+    assert.strictEqual(viewAfterChange.body.application.serviceFeeNis, 1200, 'The application keeps the fee it took at Step 2');
+    assert.strictEqual(viewAfterChange.body.application.loanBreakdown.totalServiceFeeNis, 1200);
+    console.log('  ✓ PASS: Changing the configured fee afterwards does not change an application past Step 2\n');
 
     // Step 2 Approval by Admin
     const approveStep2 = await request('POST', `/api/flow/applications/${appId}/steps/2/decision`, {
@@ -662,6 +699,9 @@ async function runTests() {
     assert.strictEqual(step3SubmitRes.status, 200, `Step 3 submit failed: ${JSON.stringify(step3SubmitRes.body)}`);
     assert.strictEqual(step3SubmitRes.body.application.flowStatus, 'PENDING_FINAL_PROCESSING');
     assert.strictEqual(step3SubmitRes.body.application.isCompleted, true);
+    assert.strictEqual(step3SubmitRes.body.application.loanBreakdown.totalServiceFeeNis, 1200, 'Step 3 keeps the fee from Step 2');
+    assert.strictEqual(termsRes.body.terms.service_fee.version, '3.0', 'Service fee terms v3.0 (no amount in the text) is current');
+    assert(!/\d,\d{3}/.test(termsRes.body.terms.service_fee.textEn), 'The current service fee terms name no amount');
     console.log('  ✓ PASS: Step 3 submitted with recorded terms acceptance; status is PENDING_FINAL_PROCESSING\n');
 
     // Verify Back Office Centralized Record
@@ -716,6 +756,8 @@ async function runTests() {
     const afterAgain = await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken);
     assert.strictEqual(afterAgain.body.application.flowStatus, 'LOAN_APPROVED');
     assert.strictEqual(afterAgain.body.application.status, 'Approved');
+    assert.strictEqual(afterAgain.body.application.loanBreakdown.totalServiceFeeNis, 1200, 'The approved loan keeps the fee from Step 2');
+    assert.strictEqual(afterAgain.body.application.loanRequest.serviceFeeNis, 1200, 'The PDF/list figures use the same fee');
     console.log('  ✓ PASS: A second approval of an approved loan is refused (409) and changes nothing\n');
 
     // 10. Documents uploaded in the Step 1 form before registration move to the new account
@@ -811,6 +853,11 @@ async function runTests() {
     console.log('🎉 ALL 3-STEP WORKFLOW TESTS PASSED ACCURATELY!');
     console.log('====================================================\n');
   } finally {
+    if (originalFeeRow) {
+      await cfgRun("UPDATE app_config SET value = ?, updatedAt = ? WHERE key = 'serviceFeeNis'", [originalFeeRow.value, originalFeeRow.updatedAt]);
+    } else {
+      await cfgRun("DELETE FROM app_config WHERE key = 'serviceFeeNis'");
+    }
     for (const child of children) child.kill();
   }
 }

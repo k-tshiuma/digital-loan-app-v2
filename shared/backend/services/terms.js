@@ -68,6 +68,25 @@ const SEED_TERMS = [
       'עמלת השירות מהווה תמורה עבור שירותי התיווך של QuickLoan ואינה מבטיחה שההלוואה תאושר.',
     ].map((t, i) => `${i + 1}. ${t}`).join('\n'),
   },
+  {
+    // 3.0: the fee amount is set in the Back Office configuration, so the text no longer names a number.
+    // An application takes the configured fee at Step 2 and keeps it (services/serviceFee.js).
+    type: 'service_fee',
+    version: '3.0',
+    effectiveFrom: '2026-11-17T00:00:00.000Z',
+    textEn: [
+      'The service fee is a one-time, flat fee, the same for every loan amount. Its amount is shown to you in Step 2 and is fixed for your application from the moment you submit Step 2. It is separate from the loan principal and the loan interest.',
+      'The service fee is paid in equal monthly instalments together with the loan repayment, over the same repayment period.',
+      'The exact service fee, the monthly service fee and the loan repayment amounts are shown to you before you submit, and are recorded with your application.',
+      'The service fee remunerates QuickLoan for its intermediary services and does not guarantee that a loan will be granted.',
+    ].map((t, i) => `${i + 1}. ${t}`).join('\n'),
+    textHe: [
+      'עמלת השירות היא עמלה חד-פעמית קבועה, זהה לכל סכום הלוואה. סכומה מוצג לך בשלב 2, והוא נקבע לבקשתך מרגע הגשת שלב 2. היא נפרדת מקרן ההלוואה ומריבית ההלוואה.',
+      'עמלת השירות משולמת בתשלומים חודשיים שווים יחד עם החזר ההלוואה, לאורך אותה תקופת החזר.',
+      'עמלת השירות המדויקת, עמלת השירות החודשית וסכומי החזר ההלוואה מוצגים לך לפני ההגשה ונשמרים יחד עם בקשתך.',
+      'עמלת השירות מהווה תמורה עבור שירותי התיווך של QuickLoan ואינה מבטיחה שההלוואה תאושר.',
+    ].map((t, i) => `${i + 1}. ${t}`).join('\n'),
+  },
 ];
 
 /** Insert the seed versions that are not stored yet. Safe to call on every start. */
