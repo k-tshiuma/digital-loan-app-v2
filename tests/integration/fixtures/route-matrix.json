@@ -486,6 +486,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/flow/applications/:missing/loan-repaid": {
+      "none": 404,
+      "badToken": 404,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "POST /api/flow/applications/:missing/message": {
       "none": 404,
       "badToken": 404,
@@ -1006,6 +1015,15 @@
       "badToken": 401,
       "borrower": 401,
       "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
+    },
+    "POST /api/flow/applications/:missing/loan-repaid": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
       "credit_reviewer": 404,
       "system_admin": 404,
       "funding_entity": 404
@@ -1534,6 +1552,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/flow/applications/:missing/loan-repaid": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "POST /api/flow/applications/:missing/message": {
       "none": 401,
       "badToken": 401,
@@ -2054,6 +2081,15 @@
       "badToken": 401,
       "borrower": 401,
       "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
+    },
+    "POST /api/flow/applications/:missing/loan-repaid": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
       "credit_reviewer": 404,
       "system_admin": 404,
       "funding_entity": 404

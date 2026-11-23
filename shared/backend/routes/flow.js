@@ -18,11 +18,11 @@ const { dbGet, dbAll, dbRun, newId, sha256, safeJson } = require('../services/db
 const W = require('../services/workflow');
 
 /**
- * An applicant with an approved loan may apply again only once that loan is fully repaid.
- * Repayments are not recorded yet, so an approved loan always counts as ongoing.
+ * An applicant with an approved loan may apply again only once that loan is fully repaid, which staff
+ * record with "Loan repaid" in the Back Office (POST /api/flow/applications/:id/loan-repaid).
  */
 const LOAN_ACTIVE_ERROR = 'You can apply for a new loan once your current loan has been fully repaid.';
-const isLoanRepaid = (_a) => false;
+const isLoanRepaid = (a) => !!(a && a.loanRepaidAt);
 const V = require('../services/flowValidation');
 const { calculateLoanRepayment, buildLoanBreakdown, LOAN_CONFIG } = require('../services/loanCalculator');
 const { getServiceFeeNis, lockedServiceFee } = require('../services/serviceFee');
@@ -370,6 +370,7 @@ module.exports = function createFlowRoutes(ctx) {
       nextAction: W.nextActionFor(a.flowStatus),
       isCompleted: !!a.flowCompletedAt,
       canStartNewApplication: a.flowStatus === W.FLOW_STATUS.LOAN_APPROVED && isLoanRepaid(a),
+      loanRepaidAt: a.loanRepaidAt || null,
       completedAt: a.flowCompletedAt || null,
       status: a.status,
       rejection: a.flowStatus === 'LOAN_REJECTED' ? { atStep: a.rejectedAtStep || null, reason: a.rejectionReason || null } : null,
@@ -969,6 +970,7 @@ module.exports = function createFlowRoutes(ctx) {
         reject: W.canDecide(req.auth.role, 'reject'),
         requestChanges: W.canDecide(req.auth.role, 'request_changes'),
         message: W.MESSAGE_ROLES.includes(req.auth.role),
+        markRepaid: W.REPAID_ROLES.includes(req.auth.role) && a.flowStatus === W.FLOW_STATUS.LOAN_APPROVED && !a.loanRepaidAt,
         finalTransitions: Object.entries(W.FINAL_TRANSITIONS)
           .filter(([from]) => from === a.status)
           .flatMap(([from, rule]) => (rule.roles.includes(req.auth.role) ? rule.to : [])),
@@ -1060,6 +1062,28 @@ module.exports = function createFlowRoutes(ctx) {
       else if (status === 'Rejected') notifier.notifyFlowEvent({ app: saved, event: 'LOAN_REJECTED', reason }).catch((err) => console.error('[FLOW NOTIFY]', err.message));
       else notifyStatusChange(saved, a.status).catch((err) => console.error('[NOTIFY]', err.message));
       res.json({ success: true, flowStatus: saved.flowStatus, status: saved.status, group: W.groupOf(saved.flowStatus) });
+    });
+
+    // "Loan repaid": records once that an approved loan is fully repaid, so the applicant may apply again.
+    app.post('/api/flow/applications/:id/loan-repaid', requireStaff(...W.REPAID_ROLES), async (req, res) => {
+      const note = String((req.body && req.body.note) || '').trim().slice(0, 1000);
+      const a = await getFlowAppById(req.params.id);
+      if (!a) return res.status(404).json({ success: false, error: 'Application not found' });
+      if (a.flowStatus !== W.FLOW_STATUS.LOAN_APPROVED) return res.status(409).json({ success: false, code: 'NOT_APPROVED', error: 'Only an approved loan can be marked as repaid.' });
+      if (a.loanRepaidAt) return res.status(409).json({ success: false, code: 'ALREADY_REPAID', error: 'This loan is already marked as repaid.' });
+      const now = new Date().toISOString();
+      const by = req.auth.name || req.auth.role;
+      // Only these columns, and only if nobody changed the status or marked it meanwhile (the other API may write too).
+      const r = await dbRun(
+        `UPDATE applications SET loanRepaidAt = ?, loanRepaidBy = ?, updatedAt = ?
+         WHERE id = ? AND flowVersion = 2 AND flowStatus = ? AND loanRepaidAt IS NULL`,
+        [now, by, now, a.id, W.FLOW_STATUS.LOAN_APPROVED]
+      );
+      if (!r.changes) return res.status(409).json({ success: false, code: 'CONFLICT', error: 'The application was changed by someone else. Please reload.' });
+      await audit(req, { applicationId: a.id, action: 'LOAN_REPAID', metadata: { note: note || null } });
+      const saved = await getFlowAppById(a.id);
+      notifier.notifyFlowEvent({ app: saved, event: 'LOAN_REPAID' }).catch((err) => console.error('[FLOW NOTIFY]', err.message));
+      res.json({ success: true, loanRepaidAt: now, loanRepaidBy: by });
     });
 
     // Free-text message to the applicant (corrections, extra information). In-app + SMS + email.

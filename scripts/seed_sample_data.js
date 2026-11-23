@@ -2,7 +2,7 @@
 /**
  * Builds a sample database with 100 loan applications in every state of the 3-step workflow:
  * leads, drafts with missing documents, every pending and "changes requested" step, applications
- * in final processing, approved loans (some forwarded to the funding entity) and loans rejected at
+ * in final processing, approved loans (some forwarded to the funding entity, six marked repaid) and loans rejected at
  * Step 1, Step 2 and the final stage. See PLAN below for the exact mix.
  *
  * Everything goes through the real APIs (registration, uploads, step submissions, staff decisions),
@@ -234,7 +234,11 @@ add(25, 'Approved', (i) => {
   const extra = [];
   if (i === 2 || i === 14) extra.push({ type: 'message', role: 'customer_service', text: 'Your loan has been approved. The funds will be transferred to your bank account within 3 business days.', gap: [1, 24] });
   if (i === 4 || i === 10 || i === 20) extra.push({ type: 'reveal', role: 'funding_entity', gap: [1, 48] });
-  return { age: [14, 180], profile: i === 3 ? { nameCorrection: true } : {}, expect: 'LOAN_APPROVED', actions: [...step1, ...step2, S3, ...final, ...extra] };
+  // Six older 3-month loans have been repaid in full ("Loan repaid" in the Back Office), so they may apply again.
+  const repaid = i % 4 === 1;
+  if (repaid) extra.push({ type: 'repaid', role: i % 8 === 1 ? 'funding_entity' : 'credit_reviewer', gap: [24 * 85, 24 * 110] });
+  const profile = { ...(i === 3 ? { nameCorrection: true } : {}), ...(repaid ? { months: 3 } : {}) };
+  return { age: repaid ? [130, 180] : [14, 180], profile, expect: 'LOAN_APPROVED', repaid, actions: [...step1, ...step2, S3, ...final, ...extra] };
 });
 // 11. Rejected: at Step 1, at Step 2 and at the final stage.
 const R1 = [
@@ -648,6 +652,9 @@ async function runCase(c, ctx) {
       case 'message':
         await admin('POST', `/flow/applications/${state.appId}/message`, { message: a.text }, staff[a.role]);
         break;
+      case 'repaid':
+        await admin('POST', `/flow/applications/${state.appId}/loan-repaid`, { note: 'Final instalment received.' }, staff[a.role]);
+        break;
       case 'reveal':
         await admin('GET', `/flow/applications/${state.appId}?revealBank=1`, null, staff[a.role]);
         break;
@@ -662,6 +669,7 @@ async function runCase(c, ctx) {
   const app = detail.application;
   if (app.flowStatus !== c.expect) throw new Error(`expected ${c.expect}, got ${app.flowStatus}`);
   if (c.finalStatus && app.status !== c.finalStatus) throw new Error(`expected final status ${c.finalStatus}, got ${app.status}`);
+  if (!!c.repaid !== !!app.loanRepaidAt) throw new Error(`expected the loan ${c.repaid ? '' : 'not '}to be marked repaid`);
   return { appId: state.appId, requestNumber, flowStatus: app.flowStatus, status: app.status };
 }
 

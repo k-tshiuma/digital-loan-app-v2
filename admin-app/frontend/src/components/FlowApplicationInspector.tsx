@@ -47,6 +47,8 @@ interface FlowApplicationInspectorProps {
   onDownloadJson?: () => void;
   /** Reloads the detail with the full bank account number (audit-logged by the backend). */
   onRevealBank?: () => Promise<void>;
+  /** Marks the approved loan as fully repaid, so the applicant may apply again (audited, cannot be undone). */
+  onMarkLoanRepaid?: () => Promise<void>;
 }
 
 const DECISION_BTN =
@@ -57,6 +59,9 @@ const PUSH_TO_PARTNER_ROLES: ReadonlySet<UserRole> = new Set([
   'credit_reviewer',
   'system_admin',
 ]);
+
+/** Roles that may mark an approved loan as repaid (mirrors REPAID_ROLES in services/workflow.js). */
+const REPAID_ROLES: ReadonlySet<UserRole> = new Set(['credit_reviewer', 'system_admin', 'funding_entity']);
 
 type DecisionStage = 1 | 2 | 'final';
 
@@ -89,6 +94,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   onDownloadPdf,
   onDownloadJson,
   onRevealBank,
+  onMarkLoanRepaid,
 }) => {
   const [activeTab, setActiveTab] = useState<'step1' | 'step2' | 'step3' | 'breakdown' | 'audit'>('step1');
   const [decisionNote, setDecisionNote] = useState('');
@@ -99,12 +105,15 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   const [staffMessage, setStaffMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showRepaidConfirm, setShowRepaidConfirm] = useState(false);
 
   const canApproveOrReject = currentRole === 'credit_reviewer' || currentRole === 'system_admin';
   const canPushToPartner = PUSH_TO_PARTNER_ROLES.has(currentRole);
   const isLoanApproved = detail.flowStatus
     ? detail.flowStatus === 'LOAN_APPROVED'
     : detail.status === 'Approved';
+  const loanRepaidAt: string | null = detail.loanRepaidAt || null;
+  const canMarkRepaid = isLoanApproved && !loanRepaidAt && !!onMarkLoanRepaid && REPAID_ROLES.has(currentRole);
 
   // Which decision the application is at. reviewStage: waiting for staff. waitingStage: waiting for the applicant.
   // Neither (loan approved or rejected): no decision left to make.
@@ -297,6 +306,20 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
     try {
       await onFinalDecision('APPROVE', decisionNote || undefined);
       setDecisionNote('');
+    } catch (err: any) {
+      setActionError(localizeError(err, language));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleMarkRepaid = async () => {
+    if (!onMarkLoanRepaid) return;
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await onMarkLoanRepaid();
+      setShowRepaidConfirm(false);
     } catch (err: any) {
       setActionError(localizeError(err, language));
     } finally {
@@ -1180,6 +1203,30 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             </div>
           )}
 
+          {showRepaidConfirm && canMarkRepaid && (
+            <div className="p-3.5 rounded-xl bg-teal-50 border border-teal-300 text-xs space-y-2 animate-in fade-in">
+              <span className="font-bold text-teal-900 block">{t(language, 'fi.repaid.confirm')}</span>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRepaidConfirm(false)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-bold"
+                >
+                  {t(language, 'fi.cancel')}
+                </button>
+                <button
+                  type="button"
+                  id="fi-confirm-repaid-btn"
+                  disabled={isSubmitting}
+                  onClick={handleMarkRepaid}
+                  className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {t(language, 'fi.repaid.confirmBtn')}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div
               role="status"
@@ -1223,6 +1270,38 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>{t(language, 'fi.approveLoan')}</span>
+                </button>
+              )}
+
+              {isLoanApproved && loanRepaidAt && (
+                <span
+                  id="fi-loan-repaid-badge"
+                  className="px-3 py-2 rounded-xl bg-teal-50 border border-teal-300 text-teal-800 font-bold text-xs flex items-center gap-1"
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>
+                    {t(language, 'fi.repaid.done', {
+                      date: formatDate(loanRepaidAt, language),
+                      name: detail.loanRepaidBy || '—',
+                    })}
+                  </span>
+                </span>
+              )}
+
+              {canMarkRepaid && (
+                <button
+                  type="button"
+                  id="fi-loan-repaid-btn"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setShowRepaidConfirm(true);
+                    setShowRejectForm(false);
+                    setShowChangesForm(false);
+                  }}
+                  className={`${DECISION_BTN} bg-teal-600 hover:bg-teal-700`}
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>{t(language, 'fi.loanRepaid')}</span>
                 </button>
               )}
 

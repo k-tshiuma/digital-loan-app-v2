@@ -772,6 +772,51 @@ async function runTests() {
     assert.strictEqual(stillOne.body.application.flowStatus, 'LOAN_APPROVED');
     console.log('  ✓ PASS: A new application during an ongoing loan is refused (409 LOAN_ACTIVE)\n');
 
+    // Staff mark the loan as repaid ("Loan repaid" in the Back Office); then the applicant may apply again
+    const csRepaid = await request('POST', `/api/flow/applications/${appId}/loan-repaid`, {}, csToken);
+    assert.strictEqual(csRepaid.status, 403, 'Customer service may not mark a loan as repaid');
+    const repaid = await request('POST', `/api/flow/applications/${appId}/loan-repaid`, { note: 'Last instalment received.' }, reviewerToken);
+    assert.strictEqual(repaid.status, 200, `Loan repaid failed: ${JSON.stringify(repaid.body)}`);
+    assert(repaid.body.loanRepaidAt, 'The repayment date is returned');
+    const repaidAgain = await request('POST', `/api/flow/applications/${appId}/loan-repaid`, {}, reviewerToken);
+    assert.strictEqual(repaidAgain.status, 409);
+    assert.strictEqual(repaidAgain.body.code, 'ALREADY_REPAID');
+    const repaidDetail = await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken);
+    assert.strictEqual(repaidDetail.body.application.loanRepaidAt, repaid.body.loanRepaidAt);
+    assert.strictEqual(repaidDetail.body.application.flowStatus, 'LOAN_APPROVED', 'A repaid loan stays approved');
+    assert.strictEqual(repaidDetail.body.permissions.markRepaid, false, 'Nothing left to mark');
+    assert(repaidDetail.body.audit.some((r) => r.action === 'LOAN_REPAID' && r.metadata && r.metadata.note === 'Last instalment received.'), 'Marking a loan as repaid is audited');
+    for (let i = 0; i < 20 && !(await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken)).body.deliveries.some((d) => d.event === 'LOAN_REPAID'); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const repaidDeliveries = (await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken)).body.deliveries.filter((d) => d.event === 'LOAN_REPAID');
+    assert(repaidDeliveries.some((d) => d.channel === 'in_app'), 'The applicant is notified that the loan is repaid');
+    const repaidView = await request('GET', '/api/flow/application', null, applicantToken);
+    assert.strictEqual(repaidView.body.application.canStartNewApplication, true);
+    assert.strictEqual(repaidView.body.application.loanRepaidAt, repaid.body.loanRepaidAt);
+    console.log('  ✓ PASS: Staff mark the loan as repaid (audited, notified, once only, not by customer service)\n');
+
+    // The applicant starts a new application; the repaid one stays as it was
+    const nextApp = await request('POST', '/api/flow/application/steps/1/submit', {
+      newApplication: true,
+      data: {
+        personal: {
+          fullName: 'Somchai Prasert', dateOfBirth: '1988-05-14', address: 'Herzl St 45, Tel Aviv', passportNumber: 'TH7744112',
+          countryOfOrigin: 'Thailand', visaType: 'foreign_expert', visaStartDate: '2025-06-01', visaExpiryDate: '2028-05-31', monthlySalaryNis: 8200,
+        },
+        documents: { passport: passDoc.body.file, visa: visaDoc.body.file, payslip: payslipDoc.body.file },
+        employment: { employerName: 'Yossi Cohen', companyName: 'Cohen Citrus Groves Ltd', manpowerAgent: 'AgroManpower TLV' },
+        loan: { requestedAmountNis: 3000 },
+      },
+    }, applicantToken);
+    assert.strictEqual(nextApp.status, 200, `New application after repayment failed: ${JSON.stringify(nextApp.body)}`);
+    assert.notStrictEqual(nextApp.body.application.id, appId, 'A new application is created');
+    assert.strictEqual(nextApp.body.application.flowStatus, 'PENDING_STEP1_APPROVAL');
+    const oldApp = await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken);
+    assert.strictEqual(oldApp.body.application.flowStatus, 'LOAN_APPROVED');
+    assert.strictEqual(oldApp.body.application.loanRepaidAt, repaid.body.loanRepaidAt);
+    console.log('  ✓ PASS: After repayment the applicant can apply again; the repaid loan is unchanged\n');
+
     // 10. Documents uploaded in the Step 1 form before registration move to the new account
     console.log('--- 10. GUEST UPLOADS ADOPTED AT REGISTRATION ---');
     const { dbGet: ownerDbGet } = require('@quickloan/backend-core/services/dbHelpers');

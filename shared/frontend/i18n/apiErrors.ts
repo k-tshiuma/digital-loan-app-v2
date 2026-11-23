@@ -50,6 +50,8 @@ const KNOWN_ERRORS: Record<string, string> = {
   'A valid email address is required.': 'entry.err.validEmailRequired',
   'Please enter your full name as it appears on your passport.': 'auth.err.enterFullName',
   'You can apply for a new loan once your current loan has been fully repaid.': 'err.loanActive',
+  'Only an approved loan can be marked as repaid.': 'err.loanNotApproved',
+  'This loan is already marked as repaid.': 'err.alreadyRepaid',
 };
 
 function messageOf(err: unknown): string {

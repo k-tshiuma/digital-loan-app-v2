@@ -132,6 +132,14 @@ export const apiService = {
     });
   },
 
+  /** Records that an approved loan is fully repaid (the applicant may then apply again). Audited. */
+  async markLoanRepaid(id: string, note?: string): Promise<any> {
+    return request(`/flow/applications/${id}/loan-repaid`, {
+      method: 'POST',
+      body: { note },
+    });
+  },
+
   async getFlowSummary(): Promise<{ summary: any }> {
     return request('/flow/summary');
   },
