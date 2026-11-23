@@ -24,7 +24,10 @@ interface FlowStatusHubProps {
   language: Language;
   onNavigateToStep: (step: number) => void;
   onResubmitCorrections?: () => void;
-  /** Approved loans only: starts a new application at Step 1 (the approved one is not changed). */
+  /**
+   * Approved loans only: starts a new application at Step 1 (the approved one is not changed). The button
+   * stays disabled while the loan is ongoing (application.canStartNewApplication, decided by the server).
+   */
   onStartNewApplication?: () => void;
 }
 
@@ -36,6 +39,7 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
 }) => {
   const isRejected = application.flowStatus === 'LOAN_REJECTED';
   const isApproved = application.flowStatus === 'LOAN_APPROVED';
+  const canStartNewApplication = isApproved && application.canStartNewApplication === true;
   const isCompleted = application.isCompleted;
 
   const getStepIcon = (state: string) => {
@@ -230,17 +234,28 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
         </div>
       </div>
 
-      {/* Approved: the application above is a read-only record; a new application starts again at Step 1 */}
+      {/* Approved: the application above is a read-only record; a new application starts again at Step 1,
+          but only once the current loan is fully repaid */}
       {isApproved && onStartNewApplication && (
-        <button
-          type="button"
-          id="start-new-application-btn"
-          onClick={onStartNewApplication}
-          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <span>{t(language, 'lead.submitButton')}</span>
-          <ChevronRight className="w-4 h-4 rtl:rotate-180" />
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            id="start-new-application-btn"
+            onClick={canStartNewApplication ? onStartNewApplication : undefined}
+            disabled={!canStartNewApplication}
+            aria-describedby={canStartNewApplication ? undefined : 'new-loan-blocked-note'}
+            className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed"
+          >
+            {!canStartNewApplication && <Lock className="w-4 h-4" />}
+            <span>{t(language, 'lead.submitButton')}</span>
+            {canStartNewApplication && <ChevronRight className="w-4 h-4 rtl:rotate-180" />}
+          </button>
+          {!canStartNewApplication && (
+            <p id="new-loan-blocked-note" className="text-xs text-slate-600 text-center">
+              {t(language, 'err.loanActive')}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

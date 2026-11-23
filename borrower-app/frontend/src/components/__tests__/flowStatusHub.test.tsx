@@ -235,25 +235,38 @@ describe('FlowStatusHub', () => {
       }
     });
 
-    it('shows an active Submit Loan Application button at the bottom that starts a new application', async () => {
+    it('disables Submit Loan Application while the approved loan is ongoing and says why', async () => {
       const user = userEvent.setup();
       const onNew = vi.fn();
       const onNavigate = vi.fn();
       const { container } = render(<FlowStatusHub application={approved()} language="en" onNavigateToStep={onNavigate} onStartNewApplication={onNew} />);
 
       const btn = screen.getByRole('button', { name: 'Submit Loan Application' });
-      expect(btn).toBeEnabled();
+      expect(btn).toBeDisabled();
       const buttons = container.querySelectorAll('button');
       expect(buttons[buttons.length - 1]).toBe(btn);
+      expect(btn).toHaveAccessibleDescription('You can apply for a new loan once your current loan has been fully repaid.');
       await user.click(btn);
-      expect(onNew).toHaveBeenCalledTimes(1);
+      expect(onNew).not.toHaveBeenCalled();
       expect(onNavigate).not.toHaveBeenCalled();
     });
 
-    it('shows the button in Hebrew', () => {
+    it('enables the button once the server says the loan is repaid, and it starts a new application', async () => {
+      const user = userEvent.setup();
+      const onNew = vi.fn();
+      render(<FlowStatusHub application={{ ...approved(), canStartNewApplication: true }} language="en" onNavigateToStep={vi.fn()} onStartNewApplication={onNew} />);
+
+      const btn = screen.getByRole('button', { name: 'Submit Loan Application' });
+      expect(btn).toBeEnabled();
+      expect(screen.queryByText('You can apply for a new loan once your current loan has been fully repaid.')).toBeNull();
+      await user.click(btn);
+      expect(onNew).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the disabled button and the reason in Hebrew', () => {
       render(<FlowStatusHub application={approved()} language="he" onNavigateToStep={vi.fn()} onStartNewApplication={vi.fn()} />);
-      const hebrewSubmitText = "הגשת בקשת הלוואה";
-      expect(screen.getByRole("button", { name: hebrewSubmitText })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'הגשת בקשת הלוואה' })).toBeDisabled();
+      expect(screen.getByText('ניתן להגיש בקשה להלוואה חדשה רק לאחר שההלוואה הנוכחית נפרעה במלואה.')).toBeInTheDocument();
     });
 
     it('does not offer a new application before the loan is approved', () => {

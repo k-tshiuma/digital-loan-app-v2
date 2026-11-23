@@ -49,6 +49,7 @@ const KNOWN_ERRORS: Record<string, string> = {
   'Please accept the regulatory disclaimer first.': 'entry.err.disclaimerRequired',
   'A valid email address is required.': 'entry.err.validEmailRequired',
   'Please enter your full name as it appears on your passport.': 'auth.err.enterFullName',
+  'You can apply for a new loan once your current loan has been fully repaid.': 'err.loanActive',
 };
 
 function messageOf(err: unknown): string {
