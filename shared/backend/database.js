@@ -113,6 +113,9 @@ db.serialize(() => {
     'ALTER TABLE applications ADD COLUMN leadSource TEXT',
     'ALTER TABLE applications ADD COLUMN phoneVerified INTEGER',
     'ALTER TABLE applications ADD COLUMN staffMessage TEXT',
+    // Set once by staff ("Loan repaid" in the Back Office); an approved loan blocks a new application until then.
+    'ALTER TABLE applications ADD COLUMN loanRepaidAt TEXT',
+    'ALTER TABLE applications ADD COLUMN loanRepaidBy TEXT',
   ];
   addedCols.forEach(sql => {
     db.run(sql, (err) => {

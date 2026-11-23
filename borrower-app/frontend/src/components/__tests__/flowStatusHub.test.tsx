@@ -254,11 +254,12 @@ describe('FlowStatusHub', () => {
     it('enables the button once the server says the loan is repaid, and it starts a new application', async () => {
       const user = userEvent.setup();
       const onNew = vi.fn();
-      render(<FlowStatusHub application={{ ...approved(), canStartNewApplication: true }} language="en" onNavigateToStep={vi.fn()} onStartNewApplication={onNew} />);
+      render(<FlowStatusHub application={{ ...approved(), canStartNewApplication: true, loanRepaidAt: '2026-11-20T09:00:00.000Z' }} language="en" onNavigateToStep={vi.fn()} onStartNewApplication={onNew} />);
 
       const btn = screen.getByRole('button', { name: 'Submit Loan Application' });
       expect(btn).toBeEnabled();
       expect(screen.queryByText('You can apply for a new loan once your current loan has been fully repaid.')).toBeNull();
+      expect(screen.getByText('Your loan is fully repaid. You can apply for a new loan.')).toBeInTheDocument();
       await user.click(btn);
       expect(onNew).toHaveBeenCalledTimes(1);
     });

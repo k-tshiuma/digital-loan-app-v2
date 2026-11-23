@@ -20,6 +20,7 @@ const FLOW_EVENTS = {
   STEP3_SUBMITTED: { inApp: true, sms: true, email: true },
   LOAN_APPROVED: { inApp: true, sms: true, email: true },
   LOAN_REJECTED: { inApp: true, sms: true, email: true },
+  LOAN_REPAID: { inApp: true, sms: true, email: true },
   STAFF_MESSAGE: { inApp: true, sms: true, email: true },
 };
 
@@ -107,6 +108,11 @@ const T = {
       body: 'We are sorry: your loan application (ref {ref}) was not approved. Current status: {status}. {reason} No further action is available on this application.',
       sms: 'QuickLoan: your loan application (ref {ref}) was not approved. {reason}',
     },
+    LOAN_REPAID: {
+      title: 'Loan fully repaid',
+      body: 'Thank you! Your loan (ref {ref}) is now fully repaid. Current status: {status}. You can apply for a new loan whenever you need one.',
+      sms: 'QuickLoan: thank you, your loan (ref {ref}) is fully repaid. You can apply for a new loan any time.',
+    },
     STAFF_MESSAGE: {
       title: 'Message about your application',
       body: 'Message from our team about your application (ref {ref}), current status: {status}: "{note}"',
@@ -171,6 +177,11 @@ const T = {
       title: 'ההלוואה לא אושרה',
       body: 'למרבה הצער, בקשת ההלוואה שלך (אסמכתא {ref}) לא אושרה. סטטוס נוכחי: {status}. {reason} אין פעולות נוספות זמינות בבקשה זו.',
       sms: 'QuickLoan: בקשת ההלוואה שלך (אסמכתא {ref}) לא אושרה. {reason}',
+    },
+    LOAN_REPAID: {
+      title: 'ההלוואה נפרעה במלואה',
+      body: 'תודה! ההלוואה שלך (אסמכתא {ref}) נפרעה במלואה. סטטוס נוכחי: {status}. ניתן להגיש בקשה להלוואה חדשה בכל עת.',
+      sms: 'QuickLoan: תודה, ההלוואה שלך (אסמכתא {ref}) נפרעה במלואה. ניתן להגיש בקשה להלוואה חדשה בכל עת.',
     },
     STAFF_MESSAGE: {
       title: 'הודעה בנוגע לבקשתך',

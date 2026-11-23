@@ -566,6 +566,8 @@ export interface FlowApplicationView {
   completedAt: string | null;
   /** Approved loans only: true once the loan is fully repaid, so a new application may start. */
   canStartNewApplication?: boolean;
+  /** When staff marked the approved loan as fully repaid (null while it is ongoing). */
+  loanRepaidAt?: string | null;
   status: CanonicalStatus;
   rejection: { atStep: string | null; reason: string | null } | null;
   staffMessage: { text: string; at: string; byRole: string; step: number } | null;

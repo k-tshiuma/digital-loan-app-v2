@@ -274,6 +274,16 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     setTimeout(() => setActionSuccessMessage(null), 3000);
   };
 
+  const handleMarkLoanRepaid = async () => {
+    if (!selectedApp) return;
+    await apiService.markLoanRepaid(selectedApp.id);
+    setActionSuccessMessage(t(language, 'fi.msg.loanRepaid'));
+    const fresh = await apiService.getFlowApplicationDetail(selectedApp.id);
+    setSelectedFlowDetail(fresh);
+    fetchBackendData();
+    setTimeout(() => setActionSuccessMessage(null), 3000);
+  };
+
   const handleSendApplicantMessage = async (message: string) => {
     if (!selectedApp) return;
     await apiService.sendApplicantStaffMessage(selectedApp.id, message);
@@ -1277,6 +1287,7 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
             }}
             onDownloadJson={handleDownloadSignedJson}
             onRevealBank={handleRevealBank}
+            onMarkLoanRepaid={handleMarkLoanRepaid}
           />
         ) : (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">

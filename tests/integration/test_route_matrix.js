@@ -260,6 +260,7 @@ function routes(ctx) {
     ['GET', `/api/flow/applications/${ownAppId}`, undefined, '/api/flow/applications/:own'],
     ['POST', `/api/flow/applications/${MISSING}/steps/1/decision`, { decision: 'approve' }, '/api/flow/applications/:missing/steps/1/decision'],
     ['POST', `/api/flow/applications/${MISSING}/final-decision`, {}, '/api/flow/applications/:missing/final-decision'],
+    ['POST', `/api/flow/applications/${MISSING}/loan-repaid`, {}, '/api/flow/applications/:missing/loan-repaid'],
     ['POST', `/api/flow/applications/${MISSING}/message`, {}, '/api/flow/applications/:missing/message'],
     ['POST', `/api/flow/applications/${MISSING}/deliveries/${MISSING}/retry`, {}, '/api/flow/applications/:missing/deliveries/:missing/retry'],
     ['GET', `/api/flow/applications/${ownAppId}/audit`, undefined, '/api/flow/applications/:own/audit'],

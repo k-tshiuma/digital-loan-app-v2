@@ -255,6 +255,9 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
               {t(language, 'err.loanActive')}
             </p>
           )}
+          {canStartNewApplication && application.loanRepaidAt && (
+            <p className="text-xs text-emerald-700 font-semibold text-center">{t(language, 'hub.loanRepaid')}</p>
+          )}
         </div>
       )}
     </div>

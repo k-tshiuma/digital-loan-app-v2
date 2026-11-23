@@ -39,6 +39,7 @@ function setup(flowStatus: string, role: UserRole = 'credit_reviewer', extra: Re
     onFinalDecision: vi.fn().mockResolvedValue(undefined),
     onSendMessage: vi.fn().mockResolvedValue(undefined),
     onRevealBank: vi.fn().mockResolvedValue(undefined),
+    onMarkLoanRepaid: vi.fn().mockResolvedValue(undefined),
   };
   const view = render(<FlowApplicationInspector detail={makeDetail(flowStatus, extra)} language="en" currentRole={role} {...handlers} />);
   return { user: userEvent.setup(), unmount: view.unmount, ...handlers };
@@ -160,6 +161,49 @@ describe('FlowApplicationInspector', () => {
       expect(onApproveStep).not.toHaveBeenCalled();
       unmount();
     }
+  });
+
+  it('marks an approved loan as repaid after a confirmation, for the roles allowed to', async () => {
+    for (const role of ['credit_reviewer', 'system_admin', 'funding_entity'] as UserRole[]) {
+      const { user, unmount, onMarkLoanRepaid } = setup('LOAN_APPROVED', role);
+      await user.click(screen.getByRole('button', { name: 'Loan repaid' }));
+      expect(onMarkLoanRepaid).not.toHaveBeenCalled();
+      expect(screen.getByText(/Mark this loan as fully repaid\?/)).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Yes, the loan is repaid' }));
+      expect(onMarkLoanRepaid).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
+
+  it('cancelling the confirmation does not mark the loan as repaid', async () => {
+    const { user, onMarkLoanRepaid } = setup('LOAN_APPROVED');
+    await user.click(screen.getByRole('button', { name: 'Loan repaid' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('button', { name: 'Yes, the loan is repaid' })).toBeNull();
+    expect(onMarkLoanRepaid).not.toHaveBeenCalled();
+  });
+
+  it('does not offer Loan repaid to customer service, before approval or after a rejection', () => {
+    const cases: [string, UserRole][] = [['LOAN_APPROVED', 'customer_service'], ['PENDING_FINAL_PROCESSING', 'credit_reviewer'], ['LOAN_REJECTED', 'system_admin']];
+    for (const [status, role] of cases) {
+      const { unmount } = setup(status, role);
+      expect(screen.queryByRole('button', { name: 'Loan repaid' })).toBeNull();
+      unmount();
+    }
+  });
+
+  it('shows when and by whom a repaid loan was marked, with no button to mark it again', () => {
+    setup('LOAN_APPROVED', 'credit_reviewer', { application: { loanRepaidAt: '2026-11-20T09:00:00.000Z', loanRepaidBy: 'Credit Reviewer' } });
+    expect(screen.queryByRole('button', { name: 'Loan repaid' })).toBeNull();
+    expect(screen.getByText(/Repaid on .* · Credit Reviewer/)).toBeInTheDocument();
+  });
+
+  it('shows the error when marking the loan as repaid fails', async () => {
+    const { user, onMarkLoanRepaid } = setup('LOAN_APPROVED');
+    onMarkLoanRepaid.mockRejectedValueOnce(new Error('This loan is already marked as repaid.'));
+    await user.click(screen.getByRole('button', { name: 'Loan repaid' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, the loan is repaid' }));
+    expect(await screen.findByText('This loan is already marked as repaid.')).toBeInTheDocument();
   });
 
   it('shows no decision buttons once the loan is rejected', () => {
