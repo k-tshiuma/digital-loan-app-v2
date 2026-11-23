@@ -16,6 +16,13 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { dbGet, dbAll, dbRun, newId, sha256, safeJson } = require('../services/dbHelpers');
 const W = require('../services/workflow');
+
+/**
+ * An applicant with an approved loan may apply again only once that loan is fully repaid.
+ * Repayments are not recorded yet, so an approved loan always counts as ongoing.
+ */
+const LOAN_ACTIVE_ERROR = 'You can apply for a new loan once your current loan has been fully repaid.';
+const isLoanRepaid = (_a) => false;
 const V = require('../services/flowValidation');
 const { calculateLoanRepayment, buildLoanBreakdown, LOAN_CONFIG } = require('../services/loanCalculator');
 const { getServiceFeeNis, lockedServiceFee } = require('../services/serviceFee');
@@ -362,6 +369,7 @@ module.exports = function createFlowRoutes(ctx) {
       stepStates: states,
       nextAction: W.nextActionFor(a.flowStatus),
       isCompleted: !!a.flowCompletedAt,
+      canStartNewApplication: a.flowStatus === W.FLOW_STATUS.LOAN_APPROVED && isLoanRepaid(a),
       completedAt: a.flowCompletedAt || null,
       status: a.status,
       rejection: a.flowStatus === 'LOAN_REJECTED' ? { atStep: a.rejectedAtStep || null, reason: a.rejectionReason || null } : null,
@@ -688,6 +696,10 @@ module.exports = function createFlowRoutes(ctx) {
       // A new application after an approved loan: the approved application stays untouched (it is read-only
       // for the applicant) and Step 1 is submitted on a fresh application that reuses the recorded consent.
       if (n === 1 && req.body && req.body.newApplication === true && a.flowStatus === W.FLOW_STATUS.LOAN_APPROVED) {
+        if (!isLoanRepaid(a)) {
+          await audit(req, { applicationId: a.id, action: 'NEW_APPLICATION_REFUSED', metadata: { reason: 'LOAN_ACTIVE' } });
+          return res.status(409).json({ success: false, code: 'LOAN_ACTIVE', error: LOAN_ACTIVE_ERROR });
+        }
         const approved = a;
         a = await createFlowApp(req.user, { leadSource: approved.leadSource || 'manual', language: approved.language, phoneVerified: !!approved.phoneVerified, registration: null, req });
         const reg = (approved.step1Data || {}).registration;

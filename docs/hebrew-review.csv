@@ -496,6 +496,7 @@
 "4 app","app","err.tooManyAttempts","Too many attempts. Please request a new code.","יותר מדי ניסיונות. נא לבקש קוד חדש.","",""
 "4 app","app","err.emailHasPassword","This email is registered with a password. Please sign in with your phone number.","כתובת אימייל זו רשומה עם סיסמה. נא להתחבר עם מספר הטלפון.","",""
 "4 app","app","err.noPassword","This account has no password. Sign in with an SMS code instead.","לחשבון זה אין סיסמה. נא להתחבר עם קוד ב-SMS.","",""
+"4 app","app","err.loanActive","You can apply for a new loan once your current loan has been fully repaid.","ניתן להגיש בקשה להלוואה חדשה רק לאחר שההלוואה הנוכחית נפרעה במלואה.","",""
 "4 app","app","err.verifyPhoneFirst","Please verify this phone number before registering.","נא לאמת את מספר הטלפון לפני ההרשמה.","",""
 "4 app","app","err.invalidPhone","Please enter a valid mobile phone number.","נא להזין מספר טלפון נייד תקין.","",""
 "4 app","app","err.credentialsRequired","Phone/email and password are required.","יש להזין טלפון או אימייל וסיסמה.","",""

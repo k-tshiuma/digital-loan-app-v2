@@ -760,6 +760,18 @@ async function runTests() {
     assert.strictEqual(afterAgain.body.application.loanRequest.serviceFeeNis, 1200, 'The PDF/list figures use the same fee');
     console.log('  ✓ PASS: A second approval of an approved loan is refused (409) and changes nothing\n');
 
+    // An ongoing (approved, not yet repaid) loan blocks a new application
+    const approvedView = await request('GET', '/api/flow/application', null, applicantToken);
+    assert.strictEqual(approvedView.body.application.flowStatus, 'LOAN_APPROVED');
+    assert.strictEqual(approvedView.body.application.canStartNewApplication, false, 'An ongoing loan must not offer a new application');
+    const newWhileActive = await request('POST', '/api/flow/application/steps/1/submit', { newApplication: true, data: {} }, applicantToken);
+    assert.strictEqual(newWhileActive.status, 409, `A new application during an ongoing loan must be refused: ${JSON.stringify(newWhileActive.body)}`);
+    assert.strictEqual(newWhileActive.body.code, 'LOAN_ACTIVE');
+    const stillOne = await request('GET', '/api/flow/application', null, applicantToken);
+    assert.strictEqual(stillOne.body.application.id, approvedView.body.application.id, 'No new application is created');
+    assert.strictEqual(stillOne.body.application.flowStatus, 'LOAN_APPROVED');
+    console.log('  ✓ PASS: A new application during an ongoing loan is refused (409 LOAN_ACTIVE)\n');
+
     // 10. Documents uploaded in the Step 1 form before registration move to the new account
     console.log('--- 10. GUEST UPLOADS ADOPTED AT REGISTRATION ---');
     const { dbGet: ownerDbGet } = require('@quickloan/backend-core/services/dbHelpers');
