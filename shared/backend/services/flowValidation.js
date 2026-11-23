@@ -132,16 +132,17 @@ function validateStep1(d) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 2: sponsors + loan amount & repayment duration
+// Step 2: sponsors (each with a copy of their ID or passport) + loan amount & repayment duration
 // ---------------------------------------------------------------------------
-function cleanStep2(raw) {
+async function cleanStep2(raw, userId) {
   const d = raw || {};
   const loan = d.loan || {};
-  const sponsors = (Array.isArray(d.sponsors) ? d.sponsors : []).slice(0, MAX_SPONSORS + 2).map((s, i) => ({
+  const sponsors = await Promise.all((Array.isArray(d.sponsors) ? d.sponsors : []).slice(0, MAX_SPONSORS + 2).map(async (s, i) => ({
     id: str(s && s.id, 40) || `sp_${i + 1}`,
     fullName: str(s && s.fullName, 120),
     idOrPassportNumber: str(s && s.idOrPassportNumber, 30),
-  }));
+    document: await cleanDocRef(s && s.document, userId),
+  })));
   const amount = Number(loan.requestedAmountNis);
   const months = Number(loan.repaymentPeriodMonths);
   return {
@@ -160,6 +161,7 @@ function validateStep2(d) {
   d.sponsors.forEach((s, i) => {
     if (!s.fullName) e[`sponsors.${i}.fullName`] = 'required';
     if (!/^[A-Za-z0-9][A-Za-z0-9-]{3,29}$/.test(s.idOrPassportNumber)) e[`sponsors.${i}.idOrPassportNumber`] = 'invalid';
+    if (!s.document) e[`sponsors.${i}.document`] = 'required';
   });
   if (!isValidLoanAmount(d.loan.requestedAmountNis)) e.requestedAmountNis = 'invalid';
   if (!isValidRepaymentPeriod(d.loan.repaymentPeriodMonths)) e.repaymentPeriodMonths = 'invalid';

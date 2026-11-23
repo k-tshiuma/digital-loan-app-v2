@@ -260,7 +260,7 @@ module.exports = function createFlowRoutes(ctx) {
     }
 
     const sponsors = Array.isArray(s2.sponsors) ? s2.sponsors : [];
-    a.guarantors = sponsors.map((sp, i) => ({ id: sp.id || `g_${i + 1}`, fullName: sp.fullName, passportOrIdNumber: sp.idOrPassportNumber, mobilePhoneNumber: '', relationship: 'Sponsor' }));
+    a.guarantors = sponsors.map((sp, i) => ({ id: sp.id || `g_${i + 1}`, fullName: sp.fullName, passportOrIdNumber: sp.idOrPassportNumber, mobilePhoneNumber: '', relationship: 'Sponsor', document: sp.document || null }));
     a.guarantor = sponsors.length > 0
       ? { hasGuarantor: true, fullName: sponsors[0].fullName, passportOrIdNumber: sponsors[0].idOrPassportNumber, relationship: 'Sponsor' }
       : { hasGuarantor: false };
@@ -275,6 +275,7 @@ module.exports = function createFlowRoutes(ctx) {
       });
     };
     DOC_STEP_1.forEach(([key, code]) => addDoc(s1.documents && s1.documents[key], code, 1));
+    sponsors.forEach((sp) => addDoc(sp.document, 'GUARANTOR_ID', 2));
     addDoc(s3.bankDocument, 'BANK_ACCOUNT_DOCUMENT', 3);
     (s3.extraDocuments || []).forEach((d) => addDoc(d, 'ADDITIONAL_DOCUMENT', 3));
     a.documents = docs;
@@ -678,7 +679,7 @@ module.exports = function createFlowRoutes(ctx) {
         }
         a.step1Data = { ...data, registration: (a.step1Data || {}).registration };
       }
-      if (n === 2) a.step2Data = V.cleanStep2(body);
+      if (n === 2) a.step2Data = await V.cleanStep2(body, req.user.id);
       if (n === 3) {
         const { terms, ...c } = await V.cleanStep3(body, req.user.id); // terms are accepted only at submit
         a.step3Data = c;
@@ -731,7 +732,7 @@ module.exports = function createFlowRoutes(ctx) {
         // The account name is set (first time) or corrected together with the submission.
         if (identity.correction || !tidyName(req.user.fullName)) nameChange = identity.correction || { previousName: null, correctedName: data.personal.fullName };
       } else if (n === 2) {
-        data = V.cleanStep2(raw || a.step2Data);
+        data = await V.cleanStep2(raw || a.step2Data, req.user.id);
         errors = V.validateStep2(data);
       } else {
         data = await V.cleanStep3(raw || a.step3Data, req.user.id);

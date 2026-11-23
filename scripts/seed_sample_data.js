@@ -20,8 +20,8 @@
  * Options:
  *   --db=<path>     database file (default data/sample.sqlite)
  *   --docs=<dir>    sample documents (default sample-documents/). File names decide the type:
- *                   "passport", "visa", "payslip", "bank"; names with "guarantor"/"sponsor" are skipped
- *                   (Step 2 records a guarantor's name and ID number only, there is no upload for it).
+ *                   "guarantor"/"sponsor" (a guarantor's ID or passport copy, checked first), then
+ *                   "passport", "visa", "payslip", "bank".
  *   --seed=<n>      random seed (default 2026); the same seed gives the same 100 records
  *   --port=<n>      the borrower API listens on n, the admin API on n+1 (default 5091)
  *
@@ -189,10 +189,11 @@ add(6, 'Step 1 changes requested', (i) => ({
   actions: [S1(), CHANGES(1, NOTE[C1[i][0]], i % 2 ? 'credit_reviewer' : 'customer_service'),
     ...(C1[i][1] && i < 2 ? [{ type: 'draft1', missing: [C1[i][1]], gap: [2, 30] }] : [])],
 }));
-// 5. Step 1 approved, Step 2 not submitted (two partial drafts, one without a guarantor).
+// 5. Step 1 approved, Step 2 not submitted (two partial drafts: one without a guarantor, one whose
+// guarantor has no ID or passport copy yet).
 add(4, 'Step 1 approved, Step 2 not submitted', (i) => ({
   age: [3, 14], expect: 'STEP1_APPROVED',
-  actions: [S1(), APPROVE1, ...(i >= 2 ? [{ type: 'draft2', sponsors: i === 2 ? 0 : 1, gap: [1, 30] }] : [])],
+  actions: [S1(), APPROVE1, ...(i >= 2 ? [{ type: 'draft2', sponsors: i === 2 ? 0 : 1, noSponsorDoc: i === 3, gap: [1, 30] }] : [])],
 }));
 // 6. Waiting for Step 2 approval: the loan amount and term limits.
 const P2 = [[500, 3, 1], [10000, 9, 3], [3000, 6, 1], [6000, 9, 2], [8000, 6, 2], [1500, 3, 1]];
@@ -360,12 +361,12 @@ function buildCase(c, index) {
 const MIME = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.heic': 'image/heic' };
 function loadDocuments() {
   if (!fs.existsSync(DOCS_DIR)) throw new Error(`Sample documents folder not found: ${DOCS_DIR} (use --docs=<dir>)`);
-  const docs = { passport: [], visa: [], payslip: [], bank: [] };
+  const docs = { passport: [], visa: [], payslip: [], bank: [], guarantor: [] };
   for (const name of fs.readdirSync(DOCS_DIR)) {
     const ext = path.extname(name).toLowerCase();
     const lower = name.toLowerCase();
-    if (!MIME[ext] || /guarantor|sponsor/.test(lower)) continue;
-    const kind = /passport/.test(lower) ? 'passport' : /visa/.test(lower) ? 'visa' : /pay ?slip|salary/.test(lower) ? 'payslip' : /bank/.test(lower) ? 'bank' : null;
+    if (!MIME[ext]) continue;
+    const kind = /guarantor|sponsor/.test(lower) ? 'guarantor' : /passport/.test(lower) ? 'passport' : /visa/.test(lower) ? 'visa' : /pay ?slip|salary/.test(lower) ? 'payslip' : /bank/.test(lower) ? 'bank' : null;
     if (kind) docs[kind].push({ name, mime: MIME[ext], data: fs.readFileSync(path.join(DOCS_DIR, name)) });
   }
   const missing = Object.keys(docs).filter((k) => docs[k].length === 0);
@@ -589,11 +590,21 @@ async function runCase(c, ctx) {
     };
   };
   let step2Fixed = false;
-  const step2Data = (sponsorCount) => {
+  // Each guarantor's ID or passport copy, uploaded once per application (the same guarantor keeps the same file).
+  const sponsorDocs = {};
+  const sponsorDoc = async (s) => {
+    if (!sponsorDocs[s.idOrPassportNumber]) {
+      const idx = Math.max(0, SPONSORS.findIndex((x) => x[1] === s.idOrPassportNumber));
+      sponsorDocs[s.idOrPassportNumber] = await upload(docs.guarantor[idx % docs.guarantor.length], state.token);
+    }
+    return sponsorDocs[s.idOrPassportNumber];
+  };
+  const step2Data = async (sponsorCount, withoutDocs = false) => {
     const loan = { ...c.loan };
     let sponsors = c.sponsors.slice(0, sponsorCount === undefined ? c.sponsors.length : sponsorCount);
     if (step2Fixed === 'amount') { loan.requestedAmountNis = Math.max(500, loan.requestedAmountNis - 3000); loan.repaymentPeriodMonths = 9; }
     if (step2Fixed !== 'sponsor' && c.actions.some((a) => a.fix === 'sponsor')) sponsors = sponsors.map((s, i) => (i === 0 ? { ...s, fullName: s.fullName.split(' ')[0] } : s));
+    sponsors = await Promise.all(sponsors.map(async (s) => ({ ...s, document: withoutDocs ? null : await sponsorDoc(s) })));
     return { loan, sponsors };
   };
 
@@ -617,11 +628,11 @@ async function runCase(c, ctx) {
         break;
       }
       case 'draft2':
-        await borrower('PUT', '/flow/application/steps/2/draft', { data: step2Data(a.sponsors) }, state.token);
+        await borrower('PUT', '/flow/application/steps/2/draft', { data: await step2Data(a.sponsors, a.noSponsorDoc) }, state.token);
         break;
       case 'submit2':
         if (a.fix) step2Fixed = a.fix;
-        await borrower('POST', '/flow/application/steps/2/submit', { data: step2Data() }, state.token);
+        await borrower('POST', '/flow/application/steps/2/submit', { data: await step2Data() }, state.token);
         break;
       case 'draft3':
         await borrower('PUT', '/flow/application/steps/3/draft', { data: { bank: a.withBank ? c.bank : {}, bankDocument: null } }, state.token);

@@ -226,6 +226,13 @@ export const leadFlow: MessageModule = {
     'step2.err.accountNumber': 'Account number is required',
     'step2.err.accountHolder': 'Account holder name is required',
     'step2.err.atLeastOneSponsor': 'At least one sponsor must be added',
+    'step2.err.sponsorIdRequired': "Please enter the sponsor's ID or passport number (at least 4 characters).",
+    'step2.err.sponsorDocRequired': "Please upload a copy of the sponsor's ID or passport.",
+    'step2.err.sponsorDocMissing': 'Each sponsor needs a copy of their ID or passport. Please upload the missing documents.',
+    'step2.sponsorDocLabel': "Copy of the sponsor's ID or passport",
+    'step2.sponsorDocHint': 'A photo or PDF of the ID card or the passport photo page.',
+    'step2.sponsorDocUpload': 'Upload document',
+    'step2.sponsorDocMissing': 'No ID or passport copy yet',
     'step2.err.bankAuthDoc': 'Bank account management authorization document is required',
 
     // Step 3 Messages
@@ -539,6 +546,13 @@ export const leadFlow: MessageModule = {
     'step2.err.accountNumber': 'מספר חשבון הינו שדה חובה',
     'step2.err.accountHolder': 'שם בעל החשבון הינו שדה חובה',
     'step2.err.atLeastOneSponsor': 'יש להוסיף לפחות ערב/ספונסר אחד',
+    'step2.err.sponsorIdRequired': 'נא להזין את מספר תעודת הזהות או הדרכון של הערב (4 תווים לפחות).',
+    'step2.err.sponsorDocRequired': 'נא להעלות צילום של תעודת הזהות או הדרכון של הערב.',
+    'step2.err.sponsorDocMissing': 'לכל ערב נדרש צילום של תעודת זהות או דרכון. נא להעלות את המסמכים החסרים.',
+    'step2.sponsorDocLabel': 'צילום תעודת הזהות או הדרכון של הערב',
+    'step2.sponsorDocHint': 'תמונה או קובץ PDF של תעודת הזהות או של עמוד התמונה בדרכון.',
+    'step2.sponsorDocUpload': 'העלאת מסמך',
+    'step2.sponsorDocMissing': 'עדיין לא הועלה צילום תעודת זהות או דרכון',
     'step2.err.bankAuthDoc': 'נדרש להעלות מסמך אישור ניהול חשבון בנק',
 
     // Step 3 Messages
