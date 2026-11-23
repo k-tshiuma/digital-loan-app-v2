@@ -760,6 +760,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
                         </div>
                         <div><span className="text-slate-400">{t(language, 'fi.fullName')}</span> <span className="font-bold text-slate-800">{sp.fullName}</span></div>
                         <div><span className="text-slate-400">{t(language, 'fi.idOrPassport')}</span> <bdi dir="ltr" className="font-mono font-bold text-slate-800">{sp.idOrPassportNumber || sp.passportOrIdNumber || '—'}</bdi></div>
+                        <div className="pt-1">{renderDocItem(t(language, 'fi.s2.sponsorDoc'), sp.document)}</div>
                       </div>
                     ))}
                   </div>

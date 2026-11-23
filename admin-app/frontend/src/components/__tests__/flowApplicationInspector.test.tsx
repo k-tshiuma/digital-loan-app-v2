@@ -246,6 +246,23 @@ describe('FlowApplicationInspector', () => {
     await user.click(screen.getByRole('button', { name: 'Step 2: Guarantors & term' }));
     expect(screen.getByText('Avi Levi')).toBeInTheDocument();
     expect(screen.getByText('123456789')).toBeInTheDocument();
+    // An older record without the guarantor's ID or passport copy says so
+    expect(screen.getByText('ID / passport copy')).toBeInTheDocument();
+    expect(screen.getByText('Not uploaded')).toBeInTheDocument();
+  });
+
+  it("shows each guarantor's ID or passport copy as a link on the Step 2 tab", async () => {
+    const { user } = setup('PENDING_STEP2_APPROVAL', 'credit_reviewer', {
+      application: {
+        step2Data: {
+          sponsors: [{ fullName: 'Avi Levi', idOrPassportNumber: '123456789', document: { filename: 'g1.pdf', fileUrl: '/api/uploads/g1.pdf', originalName: 'avi-id.pdf', mimeType: 'application/pdf', size: 10 } }],
+          loan: { repaymentPeriodMonths: 6 },
+        },
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Step 2: Guarantors & term' }));
+    const link = screen.getByRole('link', { name: /Open/ });
+    expect(link.getAttribute('href')).toContain('/api/uploads/g1.pdf');
   });
 
   it('shows the masked account on the Step 3 tab and reveals it on request', async () => {

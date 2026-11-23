@@ -590,16 +590,35 @@ async function runTests() {
     }, applicantToken);
     assert.strictEqual(emptySponsors.status, 422, 'Sponsors cannot be empty');
 
-    // Submit with simplified sponsor (Israeli or foreign without distinction: only ID or Passport + Full Name)
+    // Each sponsor needs a copy of their ID or passport; one that isn't the applicant's own upload doesn't count
+    const sponsorDoc = await uploadDummyFile('sponsor-passport.pdf', 'application/pdf', pdfMagic, applicantToken);
+    const noSponsorDoc = await request('POST', '/api/flow/application/steps/2/submit', {
+      data: {
+        loan: { requestedAmountNis: 5000, repaymentPeriodMonths: 6 },
+        sponsors: [{ id: 'sp_1', fullName: 'Anan Sukhumvit', idOrPassportNumber: 'AB9876543', document: { filename: 'someone-elses-file.pdf' } }],
+      },
+    }, applicantToken);
+    assert.strictEqual(noSponsorDoc.status, 422, 'A sponsor without an ID or passport copy is refused');
+    assert.strictEqual(noSponsorDoc.body.fieldErrors['sponsors.0.document'], 'required');
+
+    // Submit with simplified sponsor (Israeli or foreign without distinction: only ID or Passport + Full Name + document)
     const step2SubmitRes = await request('POST', '/api/flow/application/steps/2/submit', {
       data: {
         loan: { requestedAmountNis: 5000, repaymentPeriodMonths: 6 },
         sponsors: [
-          { id: 'sp_1', fullName: 'Anan Sukhumvit', idOrPassportNumber: 'AB9876543' },
+          { id: 'sp_1', fullName: 'Anan Sukhumvit', idOrPassportNumber: 'AB9876543', document: sponsorDoc.body.file },
         ],
       },
     }, applicantToken);
-    assert.strictEqual(step2SubmitRes.status, 200);
+    assert.strictEqual(step2SubmitRes.status, 200, `Step 2 submit failed: ${JSON.stringify(step2SubmitRes.body)}`);
+    assert.strictEqual(step2SubmitRes.body.application.steps[2].data.sponsors[0].document.filename, sponsorDoc.body.file.filename, 'The sponsor document is kept');
+    // Staff see it with the other documents (and the PDF lists it): document type GUARANTOR_ID
+    const s2Detail = await request('GET', `/api/flow/applications/${appId}`, null, reviewerToken);
+    const guarantorDocs = s2Detail.body.application.documents.filter((d) => d.documentTypeCode === 'GUARANTOR_ID');
+    assert.deepStrictEqual(guarantorDocs.map((d) => d.storageKey), [sponsorDoc.body.file.filename], 'The guarantor copy is listed with the documents');
+    assert.strictEqual(s2Detail.body.application.guarantors[0].document.filename, sponsorDoc.body.file.filename);
+    const staffFile = await request('GET', sponsorDoc.body.file.url, null, reviewerToken);
+    assert.strictEqual(staffFile.status, 200, 'Staff can open the guarantor copy');
     assert.strictEqual(step2SubmitRes.body.application.flowStatus, 'PENDING_STEP2_APPROVAL');
     const step2Breakdown = step2SubmitRes.body.application.loanBreakdown;
     assert.strictEqual(step2Breakdown.totalServiceFeeNis, 1200, 'Step 2 takes the configured fee');

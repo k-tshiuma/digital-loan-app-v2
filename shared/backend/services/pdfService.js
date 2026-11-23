@@ -354,6 +354,8 @@ function streamApplicationPdf(app, res, options = {}) {
         phone: ltr(g.mobilePhoneNumber) || EMPTY,
         relationship: L.option('relationship', g.relationship || 'Co-worker'),
       }));
+      // 3-step applications keep a copy of each guarantor's ID or passport (classic ones have no such field).
+      if ('document' in g) row(L.field('guarantorDoc'), g.document ? g.document.originalName || EMPTY : L.field('guarantorDocMissing'));
     });
   } else {
     row(L.field('guarantor'), L.field('noneProvided'));

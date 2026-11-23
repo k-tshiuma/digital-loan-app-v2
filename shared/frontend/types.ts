@@ -435,6 +435,8 @@ export interface SimplifiedSponsor {
   id: string;
   fullName: string;
   idOrPassportNumber: string;
+  /** Copy of the sponsor's ID card or passport (required to submit Step 2). */
+  document?: UploadedDocRef | null;
 }
 
 export interface UploadedDocRef {

@@ -9,12 +9,16 @@ import {
   Sparkles,
   Calendar,
   X,
+  FileText,
 } from 'lucide-react';
 import {
   SimplifiedSponsor,
   Step2FormData,
   Language,
+  UploadedDocRef,
 } from '@quickloan/ui-core/types';
+import { apiService } from '../services/api';
+import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 import {
   calculateLoanRepayment,
   LOAN_PERIOD_OPTIONS,
@@ -53,6 +57,9 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
   const [sponsorName, setSponsorName] = useState('');
   const [sponsorIdOrPassport, setSponsorIdOrPassport] = useState('');
   const [sponsorError, setSponsorError] = useState<string | null>(null);
+  const [sponsorDoc, setSponsorDoc] = useState<UploadedDocRef | null>(null);
+  // 'new' while the add-sponsor form uploads, or the id of a listed sponsor whose missing document is uploading.
+  const [uploadingSponsorDoc, setUploadingSponsorDoc] = useState<string | null>(null);
 
   // 2. Loan Amount & Duration State
   const [requestedAmountNis, setRequestedAmountNis] = useState<number>(
@@ -79,6 +86,44 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
   };
   const sponsorProgress = getSponsorProgressPercent(sponsors.length);
 
+  const uploadSponsorDocument = async (file: File, target: string) => {
+    if (isReadOnly) return;
+    setUploadingSponsorDoc(target);
+    setSponsorError(null);
+    try {
+      const res = await apiService.uploadFile(file);
+      const doc: UploadedDocRef = {
+        filename: res.filename,
+        fileUrl: res.url,
+        originalName: res.originalName,
+        mimeType: res.mimeType,
+        size: res.size,
+      };
+      if (target === 'new') {
+        setSponsorDoc(doc);
+      } else {
+        setSponsors((prev) => prev.map((s) => (s.id === target ? { ...s, document: doc } : s)));
+        setValidationErrors((prev) => {
+          const c = { ...prev };
+          delete c.sponsors;
+          return c;
+        });
+      }
+    } catch (err: any) {
+      const message = localizeError(err, language);
+      if (target === 'new') setSponsorError(message);
+      else setValidationErrors((prev) => ({ ...prev, sponsors: message }));
+    } finally {
+      setUploadingSponsorDoc(null);
+    }
+  };
+
+  const closeSponsorForm = () => {
+    setIsAddingSponsor(false);
+    setSponsorDoc(null);
+    setSponsorError(null);
+  };
+
   const handleAddSponsor = (e: React.FormEvent) => {
     e.preventDefault();
     setSponsorError(null);
@@ -93,7 +138,11 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
       return;
     }
     if (!sponsorIdOrPassport.trim() || sponsorIdOrPassport.trim().length < 4) {
-      setSponsorError(t(language, 'step3.sponsorIdOrPassport') + ' is required');
+      setSponsorError(t(language, 'step2.err.sponsorIdRequired'));
+      return;
+    }
+    if (!sponsorDoc) {
+      setSponsorError(t(language, 'step2.err.sponsorDocRequired'));
       return;
     }
 
@@ -101,11 +150,13 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
       id: `sp_${Date.now()}_${sponsors.length + 1}`,
       fullName: sponsorName.trim(),
       idOrPassportNumber: sponsorIdOrPassport.trim(),
+      document: sponsorDoc,
     };
 
     setSponsors([...sponsors, newSponsor]);
     setSponsorName('');
     setSponsorIdOrPassport('');
+    setSponsorDoc(null);
     setIsAddingSponsor(false);
     setValidationErrors((prev) => {
       const c = { ...prev };
@@ -123,6 +174,8 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
     const errs: Record<string, string> = {};
     if (sponsors.length === 0) {
       errs.sponsors = t(language, 'step2.err.atLeastOneSponsor');
+    } else if (sponsors.some((s) => !s.document)) {
+      errs.sponsors = t(language, 'step2.err.sponsorDocMissing');
     }
     if (![3, 6, 9].includes(repaymentMonths)) {
       errs.repaymentMonths = t(language, 'step2.err.invalidRepaymentPeriod');
@@ -228,6 +281,33 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
                   <div className="text-[11px] text-slate-500 font-mono" dir="ltr">
                     {t(language, 'step3.sponsorIdOrPassport')}: {sp.idOrPassportNumber}
                   </div>
+                  {sp.document ? (
+                    <div className="text-[11px] text-emerald-700 flex items-center gap-1">
+                      <FileText className="w-3 h-3 shrink-0" />
+                      <bdi className="truncate">{sp.document.originalName}</bdi>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-amber-700 flex flex-wrap items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>{t(language, 'step2.sponsorDocMissing')}</span>
+                      {!isReadOnly && (
+                        <label className="cursor-pointer font-bold text-blue-700 underline">
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            aria-label={t(language, 'step2.sponsorDocUpload')}
+                            disabled={uploadingSponsorDoc === sp.id}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadSponsorDocument(file, sp.id);
+                            }}
+                          />
+                          {uploadingSponsorDoc === sp.id ? t(language, 'lead.uploading') : t(language, 'step2.sponsorDocUpload')}
+                        </label>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {!isReadOnly && (
@@ -267,7 +347,7 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
                 </span>
                 <button
                   type="button"
-                  onClick={() => setIsAddingSponsor(false)}
+                  onClick={closeSponsorForm}
                   className="text-slate-400 hover:text-slate-600 p-1"
                 >
                   <X className="w-4 h-4" />
@@ -301,6 +381,41 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
                 />
               </div>
 
+              <div>
+                <span className="block text-[11px] font-bold text-slate-700 mb-1">
+                  {t(language, 'step2.sponsorDocLabel')} <span className="text-red-500">*</span>
+                </span>
+                <label
+                  className={`cursor-pointer block text-center p-3 rounded-xl border border-dashed transition-colors hover:border-blue-400 ${
+                    sponsorDoc ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    data-testid="sponsor-doc-input"
+                    aria-label={t(language, 'step2.sponsorDocLabel')}
+                    disabled={uploadingSponsorDoc === 'new'}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadSponsorDocument(file, 'new');
+                    }}
+                  />
+                  <FileText className={`w-5 h-5 mx-auto mb-1 ${sponsorDoc ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <span className="text-[11px] text-slate-600 truncate block font-medium">
+                    {uploadingSponsorDoc === 'new' ? (
+                      t(language, 'lead.uploading')
+                    ) : sponsorDoc ? (
+                      <bdi>{sponsorDoc.originalName}</bdi>
+                    ) : (
+                      t(language, 'step2.sponsorDocUpload')
+                    )}
+                  </span>
+                </label>
+                <p className="text-[10px] text-slate-500 mt-1">{t(language, 'step2.sponsorDocHint')}</p>
+              </div>
+
               {sponsorError && (
                 <p className="text-[11px] text-red-500 font-medium">{sponsorError}</p>
               )}
@@ -308,7 +423,7 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsAddingSponsor(false)}
+                  onClick={closeSponsorForm}
                   className="py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100"
                 >
                   {t(language, 'step2.cancel')}
@@ -316,7 +431,8 @@ export const Step2ApplicationCompletion: React.FC<Step2ApplicationCompletionProp
                 <button
                   type="button"
                   onClick={handleAddSponsor}
-                  className="py-1.5 px-3 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700"
+                  disabled={uploadingSponsorDoc === 'new'}
+                  className="py-1.5 px-3 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {t(language, 'step2.saveSponsor')}
                 </button>
