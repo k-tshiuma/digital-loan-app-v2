@@ -12,3 +12,8 @@ data/uploads/*
 # SQLite WAL side files (database.js turns on WAL mode)
 data/database.sqlite-wal
 data/database.sqlite-shm
+# Sample data (scripts/seed_sample_data.js): the generated database and the documents it uploads
+data/sample.sqlite
+data/sample.sqlite-wal
+data/sample.sqlite-shm
+sample-documents/
