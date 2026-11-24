@@ -43,6 +43,29 @@
 5. לאישורך הדיגיטלי אותו תוקף משפטי כמו לחתימה פיזית, בהתאם לדין החל.
 6. כל המסמכים שהועלו מאושרים כהעתקים נאמנים למקור.
 7. ידוע לך שבקשה זו כפופה לאישור סופי של ועדת האשראי.","",""
+"1 legal","backend terms","general v2.0","1. By submitting this application, you declare that all provided information is accurate and truthful.
+2. You authorize the funding entity to perform background and credit history checks.
+3. You agree to the proposed repayment schedule, which includes processing fees and interest rates as specified in the estimate.
+4. In the event of default, you agree that your employer may be contacted, and late fees may be applied.
+5. Your digital acceptance carries the same legal weight as a physical signature under applicable laws.
+6. All documents uploaded are certified as true copies of the originals.
+7. You understand that this application is subject to final approval by the credit committee.
+8. Once your loan is approved, QuickLoan will transfer your application to a licensed bank or lending institution (the ""funding partner"") that grants and funds the loan. The transfer includes your personal details, your passport and visa details, your employment and salary details, your bank account details, the details of your sponsors, copies of the documents you uploaded (passport, visa, payslip, your sponsors' ID or passport copies and your bank document) and the loan terms.
+9. The funding partner uses this information to verify your identity, to run its own compliance checks (identity, anti-money-laundering and credit checks) and to grant, manage and collect the loan. As a result of these checks, the funding partner may decline to fund the loan.
+10. You confirm that each of your sponsors has agreed that their details and the copy of their ID or passport may be transferred to the funding partner for the same purposes.
+11. The information is sent only over encrypted and authenticated connections. QuickLoan keeps your information for as long as the law requires, including under the Prohibition on Money Laundering Law. The funding partner keeps the information it receives under its own privacy policy and legal obligations.
+12. Under the Protection of Privacy Law you may ask QuickLoan to see or correct your information. If you withdraw this consent before the transfer, the transfer will not take place, and the loan cannot then be funded.","1. בהגשת בקשה זו, הנך מצהיר/ה שכל המידע שנמסר מדויק ואמיתי.
+2. הנך מתיר/ה לגוף המממן לבצע בדיקות רקע והיסטוריית אשראי.
+3. הנך מסכים/ה ללוח ההחזרים המוצע, הכולל עמלות טיפול ושיעורי ריבית כמפורט בהערכה.
+4. במקרה של אי-תשלום, הנך מסכים/ה שניתן יהיה לפנות למעסיק שלך ושיחולו דמי פיגורים.
+5. לאישורך הדיגיטלי אותו תוקף משפטי כמו לחתימה פיזית, בהתאם לדין החל.
+6. כל המסמכים שהועלו מאושרים כהעתקים נאמנים למקור.
+7. ידוע לך שבקשה זו כפופה לאישור סופי של ועדת האשראי.
+8. לאחר אישור ההלוואה, QuickLoan תעביר את בקשתך לבנק או לגוף הלוואות מורשה (""הגוף המממן"") המעניק ומממן את ההלוואה. ההעברה כוללת את פרטיך האישיים, פרטי הדרכון והוויזה, פרטי התעסוקה והשכר, פרטי חשבון הבנק, פרטי הערבים, העתקי המסמכים שהעלית (דרכון, ויזה, תלוש שכר, העתקי תעודת הזהות או הדרכון של הערבים ומסמך הבנק) ואת תנאי ההלוואה.
+9. הגוף המממן משתמש במידע זה כדי לאמת את זהותך, לבצע בדיקות ציות משלו (בדיקות זהות, איסור הלבנת הון ואשראי) וכדי להעניק, לנהל ולגבות את ההלוואה. בעקבות בדיקות אלה, הגוף המממן רשאי לסרב לממן את ההלוואה.
+10. הנך מאשר/ת שכל אחד מהערבים שלך הסכים שפרטיו והעתק תעודת הזהות או הדרכון שלו יועברו לגוף המממן לאותן מטרות.
+11. המידע נשלח רק בחיבורים מוצפנים ומאומתים. QuickLoan שומרת את המידע שלך כל עוד הדין מחייב זאת, לרבות לפי חוק איסור הלבנת הון. הגוף המממן שומר את המידע שהוא מקבל בהתאם למדיניות הפרטיות שלו ולחובותיו לפי דין.
+12. לפי חוק הגנת הפרטיות, באפשרותך לבקש מ-QuickLoan לעיין במידע שלך או לתקנו. אם תחזור/י בך מהסכמה זו לפני ההעברה, ההעברה לא תתבצע, ולא ניתן יהיה לממן את ההלוואה.","",""
 "1 legal","backend terms","service_fee v1.0","1. The service fee is a one-time, tiered fee set by the requested loan amount. It is separate from the loan principal and the loan interest.
 2. The service fee is paid in equal monthly instalments together with the loan repayment, over the same repayment period.
 3. The exact service fee, the monthly service fee and the loan repayment amounts are shown to you before you submit, and are recorded with your application.
@@ -119,6 +142,18 @@
 "2 sms","backend workflow messages","LOAN_REPAID.title","Loan fully repaid","ההלוואה נפרעה במלואה","",""
 "2 sms","backend workflow messages","LOAN_REPAID.body","Thank you! Your loan (ref {ref}) is now fully repaid. Current status: {status}. You can apply for a new loan whenever you need one.","תודה! ההלוואה שלך (אסמכתא {ref}) נפרעה במלואה. סטטוס נוכחי: {status}. ניתן להגיש בקשה להלוואה חדשה בכל עת.","",""
 "2 sms","backend workflow messages","LOAN_REPAID.sms","QuickLoan: thank you, your loan (ref {ref}) is fully repaid. You can apply for a new loan any time.","QuickLoan: תודה, ההלוואה שלך (אסמכתא {ref}) נפרעה במלואה. ניתן להגיש בקשה להלוואה חדשה בכל עת.","",""
+"2 sms","backend workflow messages","FUNDING_SENT.title","Sent to our funding partner","הבקשה נשלחה לגוף המממן","",""
+"2 sms","backend workflow messages","FUNDING_SENT.body","Your approved loan (ref {ref}) has been sent to our funding partner, a licensed bank, for its compliance checks. We will tell you as soon as it answers.","ההלוואה שאושרה לך (אסמכתא {ref}) נשלחה לגוף המממן שלנו, בנק מורשה, לבדיקות הציות שלו. נעדכן אותך ברגע שתתקבל תשובה.","",""
+"2 sms","backend workflow messages","FUNDING_SENT.sms","QuickLoan: your approved loan (ref {ref}) was sent to our funding partner for its compliance checks. We will update you.","QuickLoan: ההלוואה שאושרה לך (אסמכתא {ref}) נשלחה לגוף המממן לבדיקות הציות שלו. נעדכן אותך.","",""
+"2 sms","backend workflow messages","FUNDING_APPROVED.title","Your loan is being funded","ההלוואה שלך בתהליך מימון","",""
+"2 sms","backend workflow messages","FUNDING_APPROVED.body","Good news! Our funding partner has completed its checks and approved the funding of your loan (ref {ref}). The money will be transferred to the bank account you gave us.","חדשות טובות! הגוף המממן השלים את בדיקותיו ואישר את מימון ההלוואה שלך (אסמכתא {ref}). הכסף יועבר לחשבון הבנק שמסרת לנו.","",""
+"2 sms","backend workflow messages","FUNDING_APPROVED.sms","QuickLoan: our funding partner approved the funding of your loan (ref {ref}). The money will be transferred to your bank account.","QuickLoan: הגוף המממן אישר את מימון ההלוואה שלך (אסמכתא {ref}). הכסף יועבר לחשבון הבנק שלך.","",""
+"2 sms","backend workflow messages","FUNDING_REJECTED.title","Update about the funding of your loan","עדכון בנוגע למימון ההלוואה","",""
+"2 sms","backend workflow messages","FUNDING_REJECTED.body","Our funding partner could not fund your loan (ref {ref}) after its checks. Our team will contact you about the next steps.","לאחר בדיקותיו, הגוף המממן לא יכול לממן את ההלוואה שלך (אסמכתא {ref}). הצוות שלנו ייצור איתך קשר לגבי ההמשך.","",""
+"2 sms","backend workflow messages","FUNDING_REJECTED.sms","QuickLoan: our funding partner could not fund your loan (ref {ref}). Our team will contact you.","QuickLoan: הגוף המממן לא יכול לממן את ההלוואה שלך (אסמכתא {ref}). הצוות שלנו ייצור איתך קשר.","",""
+"2 sms","backend workflow messages","PARTNER_CONSENT_REQUESTED.title","Please accept the updated terms","נא לאשר את התנאים המעודכנים","",""
+"2 sms","backend workflow messages","PARTNER_CONSENT_REQUESTED.body","Your loan (ref {ref}) is approved. Before we can send it to our funding partner, please open the app and accept the updated terms and conditions.","ההלוואה שלך (אסמכתא {ref}) אושרה. לפני שנוכל לשלוח אותה לגוף המממן, נא להיכנס לאפליקציה ולאשר את התנאים המעודכנים.","",""
+"2 sms","backend workflow messages","PARTNER_CONSENT_REQUESTED.sms","QuickLoan: your loan (ref {ref}) is approved. Please open the app and accept the updated terms so we can send it to our funding partner.","QuickLoan: ההלוואה שלך (אסמכתא {ref}) אושרה. נא להיכנס לאפליקציה ולאשר את התנאים המעודכנים כדי שנוכל לשלוח אותה לגוף המממן.","",""
 "2 sms","backend workflow messages","STAFF_MESSAGE.title","Message about your application","הודעה בנוגע לבקשתך","",""
 "2 sms","backend workflow messages","STAFF_MESSAGE.body","Message from our team about your application (ref {ref}), current status: {status}: ""{note}""","הודעה מהצוות שלנו בנוגע לבקשתך (אסמכתא {ref}), סטטוס נוכחי: {status}: ""{note}""","",""
 "2 sms","backend workflow messages","STAFF_MESSAGE.sms","QuickLoan (ref {ref}): {note}","QuickLoan (אסמכתא {ref}): {note}","",""
@@ -1283,6 +1318,13 @@
 "4 app","app","hub.months","{n} months","{n} חודשים","",""
 "4 app","app","hub.loanRepaid","Your loan is fully repaid. You can apply for a new loan.","ההלוואה שלך נפרעה במלואה. ניתן להגיש בקשה להלוואה חדשה.","",""
 "4 app","app","hub.state.locked","Locked","נעול","",""
+"4 app","app","hub.partnerConsent.title","Please accept the updated terms","נא לאשר את התנאים המעודכנים","",""
+"4 app","app","hub.partnerConsent.intro","Your loan is approved. To fund it, we send your application to our funding partner, a licensed bank, which runs its own checks. Our terms and conditions now describe this transfer. Please read and accept them so we can send your loan.","ההלוואה שלך אושרה. כדי לממן אותה, אנו שולחים את בקשתך לגוף המממן שלנו, בנק מורשה, שמבצע בדיקות משלו. התנאים וההגבלות שלנו מתארים כעת העברה זו. נא לקרוא ולאשר אותם כדי שנוכל לשלוח את ההלוואה.","",""
+"4 app","app","hub.partnerConsent.textLabel","Terms and conditions, version {version}","תנאים והגבלות, גרסה {version}","",""
+"4 app","app","hub.partnerConsent.checkbox","I have read and accept the terms and conditions (version {version}), including the transfer of my application to the funding partner.","קראתי ואני מאשר/ת את התנאים וההגבלות (גרסה {version}), לרבות העברת בקשתי לגוף המממן.","",""
+"4 app","app","hub.partnerConsent.accept","Accept the updated terms","אישור התנאים המעודכנים","",""
+"4 app","app","hub.partnerConsent.saving","Saving…","שומר…","",""
+"4 app","app","hub.partnerConsent.changed","The terms were updated again. Please read the new version and accept it.","התנאים עודכנו שוב. נא לקרוא את הגרסה החדשה ולאשר אותה.","",""
 "4 app","app","hub.state.available","Ready to fill in","זמין למילוי","",""
 "4 app","app","hub.state.draft","Draft saved","טיוטה נשמרה","",""
 "4 app","app","hub.state.changes_requested","Changes requested","נדרשים תיקונים","",""
@@ -1336,7 +1378,6 @@
 "4 app","app","entry.err.nameInvalid","Use letters, spaces, hyphens and apostrophes only.","יש להשתמש באותיות, רווחים, מקפים וגרשים בלבד.","",""
 "4 app","app","entry.err.accountIncomplete","Your account is missing a phone number or email. Please complete your account first.","בחשבון שלך חסרים מספר טלפון או אימייל. יש להשלים תחילה את פרטי החשבון.","",""
 "4 app","app","bo.msg.statusUpdated","Application status updated to {status}","סטטוס הבקשה עודכן ל{status}","",""
-"4 app","app","bo.msg.pushedToFunding","Application successfully sent to the funding partner gateway!","הבקשה נשלחה בהצלחה לשער הגוף המממן!","",""
 "4 app","app","bo.msg.configSaved","System configuration and credit policy updated successfully.","הגדרות המערכת ומדיניות האשראי עודכנו בהצלחה.","",""
 "4 app","app","bo.msg.pdfFailed","PDF export failed: {error}","ייצוא ה-PDF נכשל: {error}","",""
 "4 app","app","bo.portal","Back-office portal","פורטל ניהול","",""
@@ -1499,6 +1540,68 @@
 "4 app","app","fi.repaid.confirm","Mark this loan as fully repaid? The applicant will be notified and can then apply for a new loan. This cannot be undone.","לסמן את ההלוואה כנפרעה במלואה? המבקש יקבל הודעה ויוכל להגיש בקשה להלוואה חדשה. לא ניתן לבטל פעולה זו.","",""
 "4 app","app","fi.repaid.confirmBtn","Yes, the loan is repaid","כן, ההלוואה נפרעה","",""
 "4 app","app","fi.repaid.done","Repaid on {date} · {name}","נפרעה ב-{date} · {name}","",""
+"4 app","app","fund.tab","Funding","מימון","",""
+"4 app","app","fund.loading","Loading the funding details…","טוען את פרטי המימון…","",""
+"4 app","app","fund.partner","Funding partner","גוף מממן","",""
+"4 app","app","fund.sandbox","Sandbox","סביבת בדיקות","",""
+"4 app","app","fund.notConfigured","The connection to the funding partner is not set up on the server.","החיבור לגוף המממן לא הוגדר בשרת.","",""
+"4 app","app","fund.consent","Applicant's consent to the transfer","הסכמת המבקש להעברה","",""
+"4 app","app","fund.consent.given","Accepted terms version {version} on {date}","אישר/ה את גרסת התנאים {version} ב-{date}","",""
+"4 app","app","fund.consent.missing","The applicant accepted an older version of the terms, which does not cover sending their data to the funding partner. They must accept the updated terms in the app first.","המבקש אישר גרסה קודמת של התנאים, שאינה מכסה את העברת פרטיו לגוף המממן. עליו לאשר תחילה את התנאים המעודכנים באפליקציה.","",""
+"4 app","app","fund.consent.remind","Ask the applicant to accept","לבקש מהמבקש לאשר","",""
+"4 app","app","fund.retry","Try again","לנסות שוב","",""
+"4 app","app","fund.pushNotAllowed","Only a credit reviewer or a system admin can send a loan to the funding partner.","רק בודק/ת אשראי או מנהל/ת מערכת יכולים לשלוח הלוואה לגוף המממן.","",""
+"4 app","app","fund.confirm.title","Send this loan to {partner}?","לשלוח את ההלוואה אל {partner}?","",""
+"4 app","app","fund.confirm.personal","Personal details, passport and visa","פרטים אישיים, דרכון וויזה","",""
+"4 app","app","fund.confirm.employment","Employer and salary","מעסיק ושכר","",""
+"4 app","app","fund.confirm.bank","The full bank account number","מספר חשבון הבנק המלא","",""
+"4 app","app","fund.confirm.sponsors","The sponsors and their ID or passport details","הערבים ופרטי תעודת הזהות או הדרכון שלהם","",""
+"4 app","app","fund.confirm.documents","Copies of all uploaded documents","העתקי כל המסמכים שהועלו","",""
+"4 app","app","fund.confirm.loan","The approved loan terms and the terms acceptance","תנאי ההלוואה שאושרו ואישור התנאים","",""
+"4 app","app","fund.confirm.note","The partner runs its own compliance checks and may decline the loan. This is recorded in the audit log and the applicant is notified.","הגוף המממן מבצע בדיקות ציות משלו ועשוי לסרב להלוואה. הפעולה נרשמת ביומן הביקורת והמבקש מקבל הודעה.","",""
+"4 app","app","fund.cancel","Cancel","ביטול","",""
+"4 app","app","fund.confirm.send","Yes, send it","כן, לשלוח","",""
+"4 app","app","fund.sending","Sending…","שולח…","",""
+"4 app","app","fund.history","Hand-offs to the partner","העברות לגוף המממן","",""
+"4 app","app","fund.check","Check status","בדיקת סטטוס","",""
+"4 app","app","fund.none","This loan has not been sent yet.","ההלוואה עדיין לא נשלחה.","",""
+"4 app","app","fund.msg.sent","Sent to the funding partner (reference {ref}).","נשלח לגוף המממן (אסמכתא {ref}).","",""
+"4 app","app","fund.msg.checked","Status checked with the funding partner.","הסטטוס נבדק מול הגוף המממן.","",""
+"4 app","app","fund.msg.consentRequested","The applicant was asked to accept the updated terms (in the app, by SMS and by email).","נשלחה למבקש בקשה לאשר את התנאים המעודכנים (באפליקציה, ב-SMS ובדואר אלקטרוני).","",""
+"4 app","app","fund.status.SENDING","Sending","בשליחה","",""
+"4 app","app","fund.status.SENT","Received by the partner","התקבל אצל הגוף המממן","",""
+"4 app","app","fund.status.IN_REVIEW","In compliance review","בבדיקת ציות","",""
+"4 app","app","fund.status.APPROVED","Funding approved","המימון אושר","",""
+"4 app","app","fund.status.REJECTED","Declined by the partner","נדחה על ידי הגוף המממן","",""
+"4 app","app","fund.status.FAILED","Failed","נכשל","",""
+"4 app","app","fund.reference","Partner reference:","אסמכתת הגוף המממן:","",""
+"4 app","app","fund.fundingReference","Funding reference:","אסמכתת מימון:","",""
+"4 app","app","fund.pushedBy","Sent by {name} on {date}","נשלח על ידי {name} ב-{date}","",""
+"4 app","app","fund.attempts","Attempts: {count}","ניסיונות: {count}","",""
+"4 app","app","fund.lastChecked","last checked {date}","נבדק לאחרונה ב-{date}","",""
+"4 app","app","fund.decisionReason","Partner's reason:","נימוק הגוף המממן:","",""
+"4 app","app","fund.documentsSent","Documents sent:","מסמכים שנשלחו:","",""
+"4 app","app","fund.doc.PASSPORT","passport","דרכון","",""
+"4 app","app","fund.doc.WORK_VISA","visa","ויזה","",""
+"4 app","app","fund.doc.PAY_SLIP","payslip","תלוש שכר","",""
+"4 app","app","fund.doc.GUARANTOR_ID","sponsor ID","תעודה מזהה של ערב","",""
+"4 app","app","fund.doc.BANK_ACCOUNT_DOCUMENT","bank document","מסמך בנק","",""
+"4 app","app","fund.doc.ADDITIONAL_DOCUMENT","additional document","מסמך נוסף","",""
+"4 app","app","fund.err.FUNDING_PARTNER_NOT_CONFIGURED","The connection to the funding partner is not set up on the server.","החיבור לגוף המממן לא הוגדר בשרת.","",""
+"4 app","app","fund.err.NOT_APPROVED","Only an approved loan can be sent to the funding partner.","רק הלוואה שאושרה ניתנת לשליחה לגוף המממן.","",""
+"4 app","app","fund.err.LOAN_REPAID","This loan is already repaid.","ההלוואה כבר נפרעה.","",""
+"4 app","app","fund.err.PARTNER_CONSENT_REQUIRED","The applicant has not yet accepted the terms that allow the transfer.","המבקש עדיין לא אישר את התנאים המאפשרים את ההעברה.","",""
+"4 app","app","fund.err.HANDOFF_IN_PROGRESS","This loan is being sent right now.","ההלוואה נשלחת ממש עכשיו.","",""
+"4 app","app","fund.err.ALREADY_SENT","This loan was already sent to the funding partner.","ההלוואה כבר נשלחה לגוף המממן.","",""
+"4 app","app","fund.err.PARTNER_UNREACHABLE","The funding partner could not be reached. Try again later.","לא ניתן היה להתחבר לגוף המממן. נסו שוב מאוחר יותר.","",""
+"4 app","app","fund.err.PARTNER_TIMEOUT","The funding partner did not answer in time. Try again later.","הגוף המממן לא ענה בזמן. נסו שוב מאוחר יותר.","",""
+"4 app","app","fund.err.PARTNER_ERROR","The funding partner had a temporary error. Try again later.","אירעה תקלה זמנית אצל הגוף המממן. נסו שוב מאוחר יותר.","",""
+"4 app","app","fund.err.PARTNER_AUTH_FAILED","The funding partner refused our credentials. Check the connection settings.","הגוף המממן דחה את פרטי ההתחברות שלנו. יש לבדוק את הגדרות החיבור.","",""
+"4 app","app","fund.err.PARTNER_VALIDATION","The funding partner says the application is incomplete. See the details below.","לפי הגוף המממן הבקשה אינה מלאה. הפרטים מופיעים למטה.","",""
+"4 app","app","fund.err.PARTNER_REFUSED","The funding partner refused the request.","הגוף המממן דחה את הבקשה.","",""
+"4 app","app","fund.err.DOCUMENT_MISSING","A document file is missing on the server.","קובץ של אחד המסמכים חסר בשרת.","",""
+"4 app","app","fund.err.NOTHING_TO_CHECK","There is nothing waiting for the funding partner.","אין דבר שממתין לגוף המממן.","",""
+"4 app","app","fund.err.CONSENT_ALREADY_GIVEN","The applicant has already accepted the updated terms.","המבקש כבר אישר את התנאים המעודכנים.","",""
 "4 app","app","fi.err.changesRequired","Describe the changes the applicant needs to make.","תארו את התיקונים שהמבקש צריך לבצע.","",""
 "4 app","app","fi.err.reasonRequired","Enter a reason for the rejection.","הזינו את סיבת הדחייה.","",""
 "4 app","app","fi.msg.stepApproved","Step {step} approved","שלב {step} אושר","",""

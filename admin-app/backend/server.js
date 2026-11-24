@@ -20,6 +20,7 @@ const adminAnalytics = require('./routes/analytics');
 const adminConfig = require('./routes/config');
 const adminAccount = require('./routes/account');
 const adminApplicationDetail = require('./routes/applicationDetail');
+const adminFunding = require('./routes/funding');
 
 const PORT = process.env.ADMIN_PORT || 5100;
 // ADMIN_ALLOWED_IPS: optional office/VPN networks; other addresses get 403 (core/ipAllowlist.js).
@@ -42,6 +43,7 @@ adminApplications.register(app, { flowRoutes });
 adminNotifications.register(app);
 adminAnalytics.register(app);
 adminConfig.register(app);
+const funding = adminFunding.register(app, { flowRoutes });
 
 finishApp(app);
 
@@ -49,6 +51,11 @@ if (require.main === module) {
   prefixConsole('admin');
   // LISTEN_HOST=127.0.0.1 in production, so the API is reachable only through the proxy. Unset: all interfaces.
   const host = process.env.LISTEN_HOST || undefined;
+  // Checks hand-offs waiting for the funding partner every FUNDING_POLL_MS (services/funding/).
+  funding.startPoller();
+  const partner = funding.config();
+  if (!partner.configured) console.warn(`[FUNDING] "Push to partner" is not available: ${partner.problem}`);
+  else console.log(`[FUNDING] partner ${partner.name} at ${partner.url}${partner.sandbox ? ' (sandbox defaults)' : ''}`);
   app.listen(PORT, host, () => {
     console.log(`API on ${host ? `${host}:` : 'port '}${PORT}${DEMO_MODE ? ' (demo mode)' : ''}`);
   });

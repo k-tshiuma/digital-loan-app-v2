@@ -17,3 +17,6 @@ data/sample.sqlite
 data/sample.sqlite-wal
 data/sample.sqlite-shm
 sample-documents/
+# Partner-bank sandbox (sandbox/partner-bank): its generated test certificates and what it has received
+sandbox/partner-bank/certs/
+sandbox/partner-bank/data/

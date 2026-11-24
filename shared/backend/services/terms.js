@@ -34,6 +34,43 @@ const SEED_TERMS = [
     ].map((t, i) => `${i + 1}. ${t}`).join('\n'),
   },
   {
+    // 2.0: adds the transfer of the application to the funding partner (a licensed bank or lender) once the
+    // loan is approved: what is sent, why, how, and the sponsors' agreement. A loan is pushed to the partner
+    // only with an acceptance of a version marked partnerSharing (services/funding/consent.js).
+    type: 'general',
+    version: '2.0',
+    effectiveFrom: '2026-11-24T00:00:00.000Z',
+    partnerSharing: true,
+    textEn: [
+      'By submitting this application, you declare that all provided information is accurate and truthful.',
+      'You authorize the funding entity to perform background and credit history checks.',
+      'You agree to the proposed repayment schedule, which includes processing fees and interest rates as specified in the estimate.',
+      'In the event of default, you agree that your employer may be contacted, and late fees may be applied.',
+      'Your digital acceptance carries the same legal weight as a physical signature under applicable laws.',
+      'All documents uploaded are certified as true copies of the originals.',
+      'You understand that this application is subject to final approval by the credit committee.',
+      'Once your loan is approved, QuickLoan will transfer your application to a licensed bank or lending institution (the "funding partner") that grants and funds the loan. The transfer includes your personal details, your passport and visa details, your employment and salary details, your bank account details, the details of your sponsors, copies of the documents you uploaded (passport, visa, payslip, your sponsors\' ID or passport copies and your bank document) and the loan terms.',
+      'The funding partner uses this information to verify your identity, to run its own compliance checks (identity, anti-money-laundering and credit checks) and to grant, manage and collect the loan. As a result of these checks, the funding partner may decline to fund the loan.',
+      'You confirm that each of your sponsors has agreed that their details and the copy of their ID or passport may be transferred to the funding partner for the same purposes.',
+      'The information is sent only over encrypted and authenticated connections. QuickLoan keeps your information for as long as the law requires, including under the Prohibition on Money Laundering Law. The funding partner keeps the information it receives under its own privacy policy and legal obligations.',
+      'Under the Protection of Privacy Law you may ask QuickLoan to see or correct your information. If you withdraw this consent before the transfer, the transfer will not take place, and the loan cannot then be funded.',
+    ].map((t, i) => `${i + 1}. ${t}`).join('\n'),
+    textHe: [
+      'בהגשת בקשה זו, הנך מצהיר/ה שכל המידע שנמסר מדויק ואמיתי.',
+      'הנך מתיר/ה לגוף המממן לבצע בדיקות רקע והיסטוריית אשראי.',
+      'הנך מסכים/ה ללוח ההחזרים המוצע, הכולל עמלות טיפול ושיעורי ריבית כמפורט בהערכה.',
+      'במקרה של אי-תשלום, הנך מסכים/ה שניתן יהיה לפנות למעסיק שלך ושיחולו דמי פיגורים.',
+      'לאישורך הדיגיטלי אותו תוקף משפטי כמו לחתימה פיזית, בהתאם לדין החל.',
+      'כל המסמכים שהועלו מאושרים כהעתקים נאמנים למקור.',
+      'ידוע לך שבקשה זו כפופה לאישור סופי של ועדת האשראי.',
+      'לאחר אישור ההלוואה, QuickLoan תעביר את בקשתך לבנק או לגוף הלוואות מורשה ("הגוף המממן") המעניק ומממן את ההלוואה. ההעברה כוללת את פרטיך האישיים, פרטי הדרכון והוויזה, פרטי התעסוקה והשכר, פרטי חשבון הבנק, פרטי הערבים, העתקי המסמכים שהעלית (דרכון, ויזה, תלוש שכר, העתקי תעודת הזהות או הדרכון של הערבים ומסמך הבנק) ואת תנאי ההלוואה.',
+      'הגוף המממן משתמש במידע זה כדי לאמת את זהותך, לבצע בדיקות ציות משלו (בדיקות זהות, איסור הלבנת הון ואשראי) וכדי להעניק, לנהל ולגבות את ההלוואה. בעקבות בדיקות אלה, הגוף המממן רשאי לסרב לממן את ההלוואה.',
+      'הנך מאשר/ת שכל אחד מהערבים שלך הסכים שפרטיו והעתק תעודת הזהות או הדרכון שלו יועברו לגוף המממן לאותן מטרות.',
+      'המידע נשלח רק בחיבורים מוצפנים ומאומתים. QuickLoan שומרת את המידע שלך כל עוד הדין מחייב זאת, לרבות לפי חוק איסור הלבנת הון. הגוף המממן שומר את המידע שהוא מקבל בהתאם למדיניות הפרטיות שלו ולחובותיו לפי דין.',
+      'לפי חוק הגנת הפרטיות, באפשרותך לבקש מ-QuickLoan לעיין במידע שלך או לתקנו. אם תחזור/י בך מהסכמה זו לפני ההעברה, ההעברה לא תתבצע, ולא ניתן יהיה לממן את ההלוואה.',
+    ].map((t, i) => `${i + 1}. ${t}`).join('\n'),
+  },
+  {
     type: 'service_fee',
     version: '1.0',
     effectiveFrom: '2026-01-01T00:00:00.000Z',
@@ -124,4 +161,10 @@ async function getAllCurrentTerms() {
   return out;
 }
 
-module.exports = { TERMS_TYPES, SEED_TERMS, seedTerms, ensureSeeded, getCurrentTerms, getAllCurrentTerms };
+/** General terms versions whose wording covers sending the application to the funding partner. */
+const PARTNER_SHARING_VERSIONS = SEED_TERMS.filter((t) => t.type === 'general' && t.partnerSharing).map((t) => t.version);
+const coversPartnerSharing = (version) => PARTNER_SHARING_VERSIONS.includes(String(version || ''));
+
+module.exports = {
+  TERMS_TYPES, SEED_TERMS, PARTNER_SHARING_VERSIONS, coversPartnerSharing, seedTerms, ensureSeeded, getCurrentTerms, getAllCurrentTerms,
+};

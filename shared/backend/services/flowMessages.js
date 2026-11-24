@@ -21,6 +21,12 @@ const FLOW_EVENTS = {
   LOAN_APPROVED: { inApp: true, sms: true, email: true },
   LOAN_REJECTED: { inApp: true, sms: true, email: true },
   LOAN_REPAID: { inApp: true, sms: true, email: true },
+  // Funding partner hand-off (services/funding/): sent, the partner's decision, and the request to accept
+  // the terms version that covers the transfer.
+  FUNDING_SENT: { inApp: true, sms: true, email: 'optional' },
+  FUNDING_APPROVED: { inApp: true, sms: true, email: true },
+  FUNDING_REJECTED: { inApp: true, sms: true, email: true },
+  PARTNER_CONSENT_REQUESTED: { inApp: true, sms: true, email: true },
   STAFF_MESSAGE: { inApp: true, sms: true, email: true },
 };
 
@@ -113,6 +119,26 @@ const T = {
       body: 'Thank you! Your loan (ref {ref}) is now fully repaid. Current status: {status}. You can apply for a new loan whenever you need one.',
       sms: 'QuickLoan: thank you, your loan (ref {ref}) is fully repaid. You can apply for a new loan any time.',
     },
+    FUNDING_SENT: {
+      title: 'Sent to our funding partner',
+      body: 'Your approved loan (ref {ref}) has been sent to our funding partner, a licensed bank, for its compliance checks. We will tell you as soon as it answers.',
+      sms: 'QuickLoan: your approved loan (ref {ref}) was sent to our funding partner for its compliance checks. We will update you.',
+    },
+    FUNDING_APPROVED: {
+      title: 'Your loan is being funded',
+      body: 'Good news! Our funding partner has completed its checks and approved the funding of your loan (ref {ref}). The money will be transferred to the bank account you gave us.',
+      sms: 'QuickLoan: our funding partner approved the funding of your loan (ref {ref}). The money will be transferred to your bank account.',
+    },
+    FUNDING_REJECTED: {
+      title: 'Update about the funding of your loan',
+      body: 'Our funding partner could not fund your loan (ref {ref}) after its checks. Our team will contact you about the next steps.',
+      sms: 'QuickLoan: our funding partner could not fund your loan (ref {ref}). Our team will contact you.',
+    },
+    PARTNER_CONSENT_REQUESTED: {
+      title: 'Please accept the updated terms',
+      body: 'Your loan (ref {ref}) is approved. Before we can send it to our funding partner, please open the app and accept the updated terms and conditions.',
+      sms: 'QuickLoan: your loan (ref {ref}) is approved. Please open the app and accept the updated terms so we can send it to our funding partner.',
+    },
     STAFF_MESSAGE: {
       title: 'Message about your application',
       body: 'Message from our team about your application (ref {ref}), current status: {status}: "{note}"',
@@ -182,6 +208,26 @@ const T = {
       title: 'ההלוואה נפרעה במלואה',
       body: 'תודה! ההלוואה שלך (אסמכתא {ref}) נפרעה במלואה. סטטוס נוכחי: {status}. ניתן להגיש בקשה להלוואה חדשה בכל עת.',
       sms: 'QuickLoan: תודה, ההלוואה שלך (אסמכתא {ref}) נפרעה במלואה. ניתן להגיש בקשה להלוואה חדשה בכל עת.',
+    },
+    FUNDING_SENT: {
+      title: 'הבקשה נשלחה לגוף המממן',
+      body: 'ההלוואה שאושרה לך (אסמכתא {ref}) נשלחה לגוף המממן שלנו, בנק מורשה, לבדיקות הציות שלו. נעדכן אותך ברגע שתתקבל תשובה.',
+      sms: 'QuickLoan: ההלוואה שאושרה לך (אסמכתא {ref}) נשלחה לגוף המממן לבדיקות הציות שלו. נעדכן אותך.',
+    },
+    FUNDING_APPROVED: {
+      title: 'ההלוואה שלך בתהליך מימון',
+      body: 'חדשות טובות! הגוף המממן השלים את בדיקותיו ואישר את מימון ההלוואה שלך (אסמכתא {ref}). הכסף יועבר לחשבון הבנק שמסרת לנו.',
+      sms: 'QuickLoan: הגוף המממן אישר את מימון ההלוואה שלך (אסמכתא {ref}). הכסף יועבר לחשבון הבנק שלך.',
+    },
+    FUNDING_REJECTED: {
+      title: 'עדכון בנוגע למימון ההלוואה',
+      body: 'לאחר בדיקותיו, הגוף המממן לא יכול לממן את ההלוואה שלך (אסמכתא {ref}). הצוות שלנו ייצור איתך קשר לגבי ההמשך.',
+      sms: 'QuickLoan: הגוף המממן לא יכול לממן את ההלוואה שלך (אסמכתא {ref}). הצוות שלנו ייצור איתך קשר.',
+    },
+    PARTNER_CONSENT_REQUESTED: {
+      title: 'נא לאשר את התנאים המעודכנים',
+      body: 'ההלוואה שלך (אסמכתא {ref}) אושרה. לפני שנוכל לשלוח אותה לגוף המממן, נא להיכנס לאפליקציה ולאשר את התנאים המעודכנים.',
+      sms: 'QuickLoan: ההלוואה שלך (אסמכתא {ref}) אושרה. נא להיכנס לאפליקציה ולאשר את התנאים המעודכנים כדי שנוכל לשלוח אותה לגוף המממן.',
     },
     STAFF_MESSAGE: {
       title: 'הודעה בנוגע לבקשתך',

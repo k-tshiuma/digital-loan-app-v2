@@ -31,6 +31,7 @@ import { statusLabel, flowGroupLabel, optionLabel, step1VisaTypeLabel } from '@q
 import { formatCurrency, formatDate, formatDateTime } from '@quickloan/ui-core/i18n/format';
 import { t } from '@quickloan/ui-core/i18n/translations';
 import { apiService } from '../services/api';
+import { FundingPanel } from './FundingPanel';
 import { localizeError } from '@quickloan/ui-core/i18n/apiErrors';
 
 interface FlowApplicationInspectorProps {
@@ -49,16 +50,17 @@ interface FlowApplicationInspectorProps {
   onRevealBank?: () => Promise<void>;
   /** Marks the approved loan as fully repaid, so the applicant may apply again (audited, cannot be undone). */
   onMarkLoanRepaid?: () => Promise<void>;
+  /** Called after the loan was sent to the funding partner (its status changes), so the detail is reloaded. */
+  onFundingChanged?: () => void;
+  /** Opens on this tab (the list's "Push to Partner" button opens the Funding tab). */
+  initialTab?: 'funding';
 }
 
 const DECISION_BTN =
   'px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none';
 
-const PUSH_TO_PARTNER_ROLES: ReadonlySet<UserRole> = new Set([
-  'customer_service',
-  'credit_reviewer',
-  'system_admin',
-]);
+/** Roles that may send a loan to the funding partner (mirrors FUNDING_PUSH_ROLES in services/workflow.js). */
+const FUNDING_PUSH_ROLES: ReadonlySet<UserRole> = new Set(['credit_reviewer', 'system_admin']);
 
 /** Roles that may mark an approved loan as repaid (mirrors REPAID_ROLES in services/workflow.js). */
 const REPAID_ROLES: ReadonlySet<UserRole> = new Set(['credit_reviewer', 'system_admin', 'funding_entity']);
@@ -95,8 +97,10 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   onDownloadJson,
   onRevealBank,
   onMarkLoanRepaid,
+  onFundingChanged,
+  initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'step1' | 'step2' | 'step3' | 'breakdown' | 'audit'>('step1');
+  const [activeTab, setActiveTab] = useState<'step1' | 'step2' | 'step3' | 'breakdown' | 'funding' | 'audit'>(initialTab || 'step1');
   const [decisionNote, setDecisionNote] = useState('');
   const [correctionsText, setCorrectionsText] = useState('');
   const [rejectReason, setRejectReason] = useState('');
@@ -108,7 +112,7 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
   const [showRepaidConfirm, setShowRepaidConfirm] = useState(false);
 
   const canApproveOrReject = currentRole === 'credit_reviewer' || currentRole === 'system_admin';
-  const canPushToPartner = PUSH_TO_PARTNER_ROLES.has(currentRole);
+  const canPushToPartner = FUNDING_PUSH_ROLES.has(currentRole);
   const isLoanApproved = detail.flowStatus
     ? detail.flowStatus === 'LOAN_APPROVED'
     : detail.status === 'Approved';
@@ -599,6 +603,22 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             <span>{t(language, 'fi.tab.breakdown')}</span>
           </button>
 
+          {isLoanApproved && (
+            <button
+              type="button"
+              id="fi-tab-funding"
+              onClick={() => setActiveTab('funding')}
+              className={`py-1.5 px-3 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'funding'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{t(language, 'fund.tab')}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setActiveTab('audit')}
@@ -1049,6 +1069,11 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             </div>
           )}
 
+          {/* FUNDING: hand-off to the funding partner (approved loans) */}
+          {activeTab === 'funding' && isLoanApproved && (
+            <FundingPanel applicationId={detail.id} language={language} onChanged={onFundingChanged} />
+          )}
+
           {/* TAB 5: AUDIT & MESSAGING */}
           {activeTab === 'audit' && (
             <div className="space-y-4">
@@ -1248,10 +1273,11 @@ export const FlowApplicationInspector: React.FC<FlowApplicationInspectorProps> =
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {canPushToPartner && isLoanApproved && (
+              {canPushToPartner && isLoanApproved && !loanRepaidAt && activeTab !== 'funding' && (
                 <button
                   type="button"
-                  onClick={() => {}}
+                  id="fi-push-to-partner-btn"
+                  onClick={() => setActiveTab('funding')}
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />

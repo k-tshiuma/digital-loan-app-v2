@@ -19,7 +19,8 @@
     "dev:admin": "npm run dev -w @quickloan/admin-frontend",
     "test:frontend": "npm test -w @quickloan/ui-core -w @quickloan/borrower-frontend -w @quickloan/admin-frontend",
     "test:contracts": "vitest run --config tests/contracts/vitest.config.ts",
-    "seed:staff": "npm run seed:staff -w @quickloan/admin-backend"
+    "seed:staff": "npm run seed:staff -w @quickloan/admin-backend",
+    "partner:sandbox": "node sandbox/partner-bank/server.js"
   },
   "devDependencies": {
     "docx": "^9.10.0",

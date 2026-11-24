@@ -205,6 +205,15 @@ export const apiService = {
     return res.application;
   },
 
+  /** Accepts the updated General T&C that allow sending the approved loan to the funding partner. */
+  async acceptPartnerConsent(version: string, language: string): Promise<import('@quickloan/ui-core/types').FlowApplicationView> {
+    const res = await request<{ application: import('@quickloan/ui-core/types').FlowApplicationView }>(
+      '/flow/application/partner-consent',
+      { method: 'POST', body: { accepted: true, version, language } }
+    );
+    return res.application;
+  },
+
   async getCurrentTerms(): Promise<{ terms: Record<string, import('@quickloan/ui-core/types').TermsVersionRecord> }> {
     return request('/flow/terms/current');
   },

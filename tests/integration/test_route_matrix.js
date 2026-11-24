@@ -250,6 +250,8 @@ function routes(ctx) {
     ['GET', '/api/flow/terms/current'],
     ['GET', '/api/flow/application'],
     ['POST', '/api/flow/application/registration-consent', {}],
+    // Not ticked: a borrower gets 422, so the matrix never records a consent.
+    ['POST', '/api/flow/application/partner-consent', {}],
     ['POST', '/api/flow/account/contact', {}],
     ['PUT', '/api/flow/application/steps/9/draft', {}, '/api/flow/application/steps/:bad/draft'],
     ['POST', '/api/flow/application/steps/9/submit', {}, '/api/flow/application/steps/:bad/submit'],
@@ -264,6 +266,11 @@ function routes(ctx) {
     ['POST', `/api/flow/applications/${MISSING}/message`, {}, '/api/flow/applications/:missing/message'],
     ['POST', `/api/flow/applications/${MISSING}/deliveries/${MISSING}/retry`, {}, '/api/flow/applications/:missing/deliveries/:missing/retry'],
     ['GET', `/api/flow/applications/${ownAppId}/audit`, undefined, '/api/flow/applications/:own/audit'],
+    // Funding partner hand-off (admin-app/backend/routes/funding.js); unknown applications, so nothing is sent.
+    ['GET', `/api/flow/applications/${ownAppId}/funding`, undefined, '/api/flow/applications/:own/funding'],
+    ['POST', `/api/flow/applications/${MISSING}/funding/push`, {}, '/api/flow/applications/:missing/funding/push'],
+    ['POST', `/api/flow/applications/${MISSING}/funding/refresh`, {}, '/api/flow/applications/:missing/funding/refresh'],
+    ['POST', `/api/flow/applications/${MISSING}/funding/consent-request`, {}, '/api/flow/applications/:missing/funding/consent-request'],
     // Catch-all
     ['GET', '/api/route-matrix-unknown'],
   ];
