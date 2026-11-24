@@ -27,6 +27,7 @@ const V = require('../services/flowValidation');
 const { calculateLoanRepayment, buildLoanBreakdown, LOAN_CONFIG } = require('../services/loanCalculator');
 const { getServiceFeeNis, lockedServiceFee } = require('../services/serviceFee');
 const { getAllCurrentTerms } = require('../services/terms');
+const { partnerConsentPrompt, acceptPartnerConsent } = require('../services/funding/consent');
 // Sign-in responses also set the HttpOnly session cookie (the browser apps use it instead of the token).
 const { setSessionCookie } = require('../core/sessionCookie');
 const { createFlowNotifier } = require('../services/flowNotifications');
@@ -376,6 +377,8 @@ module.exports = function createFlowRoutes(ctx) {
       status: a.status,
       rejection: a.flowStatus === 'LOAN_REJECTED' ? { atStep: a.rejectedAtStep || null, reason: a.rejectionReason || null } : null,
       staffMessage: a.staffMessage || null,
+      // The terms version that allows sending the loan to the funding partner, when this application still needs it.
+      partnerConsent: await partnerConsentPrompt(a),
       needsRegistrationConsent: !(s1.registration && s1.registration.disclaimerAcceptedAt),
       steps,
       loanBreakdown: a.loanBreakdown || null,
@@ -598,6 +601,21 @@ module.exports = function createFlowRoutes(ctx) {
     app.get('/api/flow/application', requireApplicant, async (req, res) => {
       const a = await ensureFlowApp(req.user, { leadSource: req.user.authProvider === 'google' ? 'google' : 'manual', language: req.user.preferredLanguage, phoneVerified: !!req.user.phoneVerifiedAt && req.user.authProvider !== 'google', registration: null, req });
       res.json({ success: true, application: await applicantView(a, req.user) });
+    });
+
+    // Accepts the General T&C version that covers sending the application to the funding partner, for an
+    // application that accepted an older version in Step 3 (services/funding/consent.js).
+    app.post('/api/flow/application/partner-consent', requireApplicant, async (req, res) => {
+      const body = req.body || {};
+      if (body.accepted !== true) return res.status(422).json({ success: false, code: 'VALIDATION', fieldErrors: { accepted: 'required' }, error: 'Please accept the terms.' });
+      const a = await getFlowAppByUser(req.user.id);
+      if (!a) return res.status(404).json({ success: false, error: 'Application not found' });
+      const r = await acceptPartnerConsent(a, req.user, { version: body.version, language: body.language || a.language, ip: req.ip, userAgent: req.headers['user-agent'] });
+      if (!r.ok) return res.status(r.status).json({ success: false, code: r.code, error: r.error, terms: r.terms });
+      if (r.created) {
+        await audit(req, { applicationId: a.id, action: 'TERMS_ACCEPTED', metadata: { general: { version: r.acceptance.version, sha256: r.acceptance.textSha256, acceptedAt: r.acceptance.acceptedAt }, purpose: 'partner_sharing' } });
+      }
+      res.json({ success: true, application: await applicantView(await getFlowAppById(a.id), req.user) });
     });
 
     // Records the location request + regulatory disclaimer for accounts that signed in (not registered) here.
@@ -1119,5 +1137,9 @@ module.exports = function createFlowRoutes(ctx) {
     });
   }
 
-  return { registerApplicantPublic, registerStaffPublic, registerApplicant, registerStaff, notifier, mirrorLegacy, maskBank };
+  return {
+    registerApplicantPublic, registerStaffPublic, registerApplicant, registerStaff, notifier, mirrorLegacy, maskBank,
+    // For routes outside this file (admin-app/backend/routes/funding.js)
+    audit, getFlowAppById, updateFlowApp,
+  };
 };

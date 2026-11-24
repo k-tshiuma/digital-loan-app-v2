@@ -72,12 +72,8 @@ export function maskAccountNumber(value: string | undefined | null): string {
 /** Flow statuses where a staff decision is due. */
 const NEEDS_REVIEW = new Set(['PENDING_STEP1_APPROVAL', 'PENDING_STEP2_APPROVAL', 'PENDING_FINAL_PROCESSING']);
 
-/** Staff roles authorized to see the "Push to Partner" action on approved loans. */
-const PUSH_TO_PARTNER_ROLES: ReadonlySet<UserRole> = new Set([
-  'customer_service',
-  'credit_reviewer',
-  'system_admin',
-]);
+/** Staff roles that may send approved loans to the funding partner (mirrors FUNDING_PUSH_ROLES in services/workflow.js). */
+const PUSH_TO_PARTNER_ROLES: ReadonlySet<UserRole> = new Set(['credit_reviewer', 'system_admin']);
 
 /** Whether an application has reached final loan approval. */
 export function isLoanApproved(app: { status?: string; flowStatus?: string } | null | undefined): boolean {
@@ -111,6 +107,8 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
   );
   const [selectedApp, setSelectedApp] = useState<LoanApplication | null>(null);
   const [selectedFlowDetail, setSelectedFlowDetail] = useState<any | null>(null);
+  // Which inspector tab to open on (the list's "Push to Partner" button opens the Funding tab).
+  const [inspectorTab, setInspectorTab] = useState<'funding' | undefined>(undefined);
   const [flowGroupFilter, setFlowGroupFilter] = useState<string>('ALL');
   const canPushToPartner = PUSH_TO_PARTNER_ROLES.has(currentRole);
 
@@ -208,7 +206,8 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     fetchBackendData();
   };
 
-  const handleSelectApp = (app: LoanApplication) => {
+  const handleSelectApp = (app: LoanApplication, tab?: 'funding') => {
+    setInspectorTab(tab);
     setSelectedApp(app);
     setShowClassicAccount(false);
     if ((app as any).flowStatus || (app as any).flowVersion === 2 || String((app as any).flowVersion) === '2') {
@@ -223,6 +222,17 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     } else {
       setSelectedFlowDetail(null);
     }
+  };
+
+  // After a push to the funding partner: the status changed, so reload the detail and the list.
+  const handleFundingChanged = async () => {
+    if (!selectedApp) return;
+    try {
+      setSelectedFlowDetail(await apiService.getFlowApplicationDetail(selectedApp.id));
+    } catch {
+      /* the panel shows its own result */
+    }
+    fetchBackendData();
   };
 
   // Loads the full bank account number. Only on request: the backend audit-logs every reveal.
@@ -380,18 +390,6 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
     setShowDocNoteInput(false);
     reloadData();
     setTimeout(() => setActionSuccessMessage(null), 3000);
-  };
-
-  const handleFundingHandoff = async () => {
-    if (!selectedApp) return;
-    const rec = storageService.simulateFundingHandoff(selectedApp.id, `FundingOfficer (${currentRole})`);
-    try {
-      const fresh = storageService.getApplication(selectedApp.id);
-      if (fresh) await apiService.saveApplication(fresh);
-    } catch {}
-    setActionSuccessMessage(t(language, 'bo.msg.pushedToFunding'));
-    reloadData();
-    setTimeout(() => setActionSuccessMessage(null), 4000);
   };
 
   const handleDownloadSignedJson = () => {
@@ -942,11 +940,12 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
                                   {t(language, 'fi.needsReview')}
                                 </span>
                               )}
-                              {canPushToPartner && isLoanApproved(app as any) && (
+                              {canPushToPartner && isLoanApproved(app as any) && (app as any).flowStatus && !(app as any).loanRepaidAt && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    handleSelectApp(app, 'funding');
                                   }}
                                   className="mt-1 mx-auto w-fit px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#003366] hover:bg-[#002244] text-white flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                                 >
@@ -1266,9 +1265,12 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
       {selectedApp && (
         selectedFlowDetail ? (
           <FlowApplicationInspector
+            key={`${selectedApp?.id || ''}:${inspectorTab || ''}`}
             detail={selectedFlowDetail}
             language={language}
             currentRole={currentRole}
+            initialTab={inspectorTab}
+            onFundingChanged={handleFundingChanged}
             onClose={() => {
               setSelectedApp(null);
               setSelectedFlowDetail(null);
@@ -1726,16 +1728,6 @@ export const BackOffice: React.FC<BackOfficeProps> = ({
 
             {/* Modal Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
-              {canPushToPartner && isLoanApproved(selectedApp as any) && (
-                <button
-                  type="button"
-                  onClick={() => {}}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{t(language, 'bo.pushToPartner')}</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => setSelectedApp(null)}

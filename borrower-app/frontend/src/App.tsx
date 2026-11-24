@@ -649,6 +649,7 @@ export default function App() {
               ) : currentFlowStep === 'hub' && flowApplication ? (
                 <FlowStatusHub
                   application={flowApplication}
+                  onApplicationUpdated={setFlowApplication}
                   onStartNewApplication={() => {
                     setStartingNewApplication(true);
                     setCurrentFlowStep(1);

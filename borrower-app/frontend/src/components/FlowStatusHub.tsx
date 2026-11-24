@@ -18,6 +18,7 @@ import {
 import { statusLabel } from '@quickloan/ui-core/i18n/options';
 import { formatCurrency, formatDate } from '@quickloan/ui-core/i18n/format';
 import { t } from '@quickloan/ui-core/i18n/translations';
+import { PartnerConsentCard } from './PartnerConsentCard';
 
 interface FlowStatusHubProps {
   application: FlowApplicationView;
@@ -29,6 +30,8 @@ interface FlowStatusHubProps {
    * stays disabled while the loan is ongoing (application.canStartNewApplication, decided by the server).
    */
   onStartNewApplication?: () => void;
+  /** The application changed here (the applicant accepted the updated terms). */
+  onApplicationUpdated?: (app: FlowApplicationView) => void;
 }
 
 export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
@@ -36,6 +39,7 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
   language,
   onNavigateToStep,
   onStartNewApplication,
+  onApplicationUpdated,
 }) => {
   const isRejected = application.flowStatus === 'LOAN_REJECTED';
   const isApproved = application.flowStatus === 'LOAN_APPROVED';
@@ -123,6 +127,11 @@ export const FlowStatusHub: React.FC<FlowStatusHubProps> = ({
           {t(language, 'lead.appRef', { id: application.requestNumber })}
         </p>
       </div>
+
+      {/* The updated terms that allow sending the approved loan to the funding partner */}
+      {application.partnerConsent && onApplicationUpdated && (
+        <PartnerConsentCard application={application} language={language} onUpdated={onApplicationUpdated} />
+      )}
 
       {/* Staff message / changes requested alert */}
       {application.staffMessage && (

@@ -16,6 +16,42 @@ export interface ServiceFeeConfig {
 }
 
 // Re-exported so the dashboard imports everything API-related from this file.
+/** Hand-off statuses (shared/backend/services/funding/fundingHandoff.js). */
+export type FundingHandoffStatus = 'SENDING' | 'SENT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'FAILED';
+
+export interface FundingHandoff {
+  id: string;
+  applicationId: string;
+  partnerCode: string;
+  status: FundingHandoffStatus;
+  externalReference: string | null;
+  partnerStatus: string | null;
+  decisionReason: string | null;
+  attemptCount: number;
+  payloadSha256: string | null;
+  requestSummary: { documents?: { type: string; size: number; sha256: string }[]; sponsors?: number } | null;
+  responseSummary: { fundingReference?: string | null } | null;
+  errorCode: string | null;
+  error: string | null;
+  retryable: boolean;
+  pushedByName: string | null;
+  pushedByRole: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  lastAttemptAt: string | null;
+  lastCheckedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface FundingOverview {
+  partner: { code: string; name: string; configured: boolean; sandbox: boolean; problem: string | null };
+  consent: { given: boolean; version: string | null; acceptedAt: string | null };
+  handoffs: FundingHandoff[];
+  permissions: { push: boolean; requestConsent: boolean; refresh: boolean };
+  /** Why the loan can't be pushed now (null when it can). */
+  pushBlockedBy: 'ROLE' | 'NOT_APPROVED' | 'LOAN_REPAID' | 'ALREADY_SENT' | 'PARTNER_CONSENT_REQUIRED' | 'FUNDING_PARTNER_NOT_CONFIGURED' | null;
+}
+
 export { API_BASE_URL, ApiError, isNetworkError, SESSION_EXPIRED_EVENT } from '@quickloan/ui-core/services/apiCore';
 export { staffSession } from './staffSession';
 export type { StaffRole, StaffAccount, StaffSessionData } from './staffSession';
@@ -138,6 +174,26 @@ export const apiService = {
       method: 'POST',
       body: { note },
     });
+  },
+
+  // --- Funding partner ("Push to partner", admin-app/backend/routes/funding.js) ---
+  async getFunding(id: string): Promise<FundingOverview> {
+    return request<FundingOverview>(`/flow/applications/${id}/funding`);
+  },
+
+  /** Sends the approved loan to the funding partner (or again after a failure). */
+  async pushToPartner(id: string): Promise<{ handoff: FundingHandoff }> {
+    return request(`/flow/applications/${id}/funding/push`, { method: 'POST', body: {} });
+  },
+
+  /** Asks the partner for its status now (the server also checks every few seconds). */
+  async refreshFunding(id: string): Promise<{ handoff: FundingHandoff }> {
+    return request(`/flow/applications/${id}/funding/refresh`, { method: 'POST', body: {} });
+  },
+
+  /** Reminds the applicant to accept the terms version that allows the transfer. */
+  async requestPartnerConsent(id: string): Promise<unknown> {
+    return request(`/flow/applications/${id}/funding/consent-request`, { method: 'POST', body: {} });
   },
 
   async getFlowSummary(): Promise<{ summary: any }> {

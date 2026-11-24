@@ -381,22 +381,6 @@ export interface User {
   updatedAt: string;
 }
 
-export interface FundingIntegrationRecord {
-  id: string;
-  applicationId: string;
-  providerCode: string;
-  operation: 'submit_application' | 'send_document' | 'status_update';
-  externalReference?: string;
-  status: 'pending' | 'processing' | 'success' | 'failed';
-  attemptCount: number;
-  requestMetadata?: Record<string, unknown>;
-  responseMetadata?: Record<string, unknown>;
-  errorMessage?: string;
-  lastAttemptAt?: string;
-  completedAt?: string;
-  createdAt: string;
-}
-
 // ----------------------------------------------------
 // 3-Step Approval Workflow Types
 // ----------------------------------------------------
@@ -573,6 +557,11 @@ export interface FlowApplicationView {
   status: CanonicalStatus;
   rejection: { atStep: string | null; reason: string | null } | null;
   staffMessage: { text: string; at: string; byRole: string; step: number } | null;
+  /**
+   * Set when the applicant still has to accept the General T&C version that allows sending the application
+   * to the funding partner (they accepted an older one in Step 3). null when nothing is needed.
+   */
+  partnerConsent?: { required: true; terms: { type: 'general'; version: string; sha256: string; textEn: string; textHe: string; effectiveFrom: string } } | null;
   needsRegistrationConsent: boolean;
   steps: {
     1: StepStateSummary<Step1FormData>;

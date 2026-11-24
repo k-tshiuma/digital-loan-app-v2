@@ -61,6 +61,11 @@ services:
     environment:
       <<: *container-env
       DB_INIT: "false" # the borrower API owns the schema
+    volumes:
+      - data:/var/lib/quickloan
+      - ${BACKUP_DIR:-/var/backups/quickloan}:/var/backups/quickloan
+      # Funding partner client certificate, key and CA (FUNDING_PARTNER_* in admin.env)
+      - ${QUICKLOAN_ENV_DIR:-/etc/quickloan}/funding:/etc/quickloan/funding:ro
     depends_on:
       borrower-api: { condition: service_healthy }
     healthcheck:

@@ -62,7 +62,8 @@ Related: [financial-workflows.md](financial-workflows.md) · [transaction-state-
 - **Failure scenario:** A borrower uploads a requested document (status moves to Under Review). Shortly after, a reviewer whose screen is stale clicks Approve. The reviewer's PUT overwrites `documents` and `statusHistory` with the older copy, so the uploaded document disappears from the record.
 - **Recommendation:** Use a version or `updatedAt` precondition (`If-Match`) and field-scoped endpoints (status change, document add) instead of full-document PUT.
 
-### FIN-07: The funding hand-off is simulated but presented as real · **High** · Verified
+### FIN-07: The funding hand-off is simulated but presented as real · **High** · Fixed for 3-step loans (Nov 2026)
+- **Update:** the browser simulation (`simulateFundingHandoff`) is removed. "Push to partner" now runs on the admin API against a partner API (today the partner-bank sandbox), with persisted hand-off records, retries, idempotency and audit entries. See "Funding partner" in [integrations.md](integrations.md). Still open: the `exportSignedJson` "digest" below, and reconciliation with a real partner.
 - **Where:** `storage.ts:1233-1266` (`simulateFundingHandoff`) fabricates `providerCode: 'BANK_LEUMI_FINTECH_DIRECT'`, a random external reference, `status: 'success'` and a fake handoff token. `BackOffice.tsx:158-168` shows "Application successfully pushed to Bank Leumi FinTech Gateway!" No network call happens. The resulting status `Forwarded to Funding Entity` is then synced to the server like a real event.
 - **Related:** `exportSignedJson` (`storage.ts:1268-1279`) produces a `cryptographicDigest: "SHA256:<Math.random()>"` and an `authorizedSigner` field. **It is neither a hash nor a signature.**
 - **Impact:** Staff or auditors may believe an application was transmitted or signed when it was not. The text uses a real bank's name.

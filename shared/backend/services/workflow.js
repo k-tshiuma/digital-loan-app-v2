@@ -92,6 +92,9 @@ const MESSAGE_ROLES = ['customer_service', 'credit_reviewer', 'system_admin'];
 /** Roles that may mark an approved loan as fully repaid (which lets the applicant apply again). */
 const REPAID_ROLES = ['credit_reviewer', 'system_admin', 'funding_entity'];
 
+/** Roles that may send an approved loan to the funding partner ("Push to partner", services/funding/). */
+const FUNDING_PUSH_ROLES = ['credit_reviewer', 'system_admin'];
+
 /** Roles that may read the full applicant record. */
 const VIEW_ROLES = ['customer_service', 'credit_reviewer', 'system_admin', 'funding_entity'];
 
@@ -201,6 +204,7 @@ module.exports = {
   DECISION_ROLES,
   MESSAGE_ROLES,
   REPAID_ROLES,
+  FUNDING_PUSH_ROLES,
   VIEW_ROLES,
   FINAL_STAGE_STATUSES,
   FINAL_TRANSITIONS,

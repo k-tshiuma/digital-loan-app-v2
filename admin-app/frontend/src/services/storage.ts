@@ -1,52 +1,16 @@
 // Admin dashboard: the browser-storage model (shared part in @quickloan/ui-core/services/storageCore) plus the
-// Back Office's own operations: the audit list, the simulated funding handoff, exports and the config.
-import { AuditEvent, ApplicationConfig, FundingIntegrationRecord } from '@quickloan/ui-core/types';
+// Back Office's own operations: the audit list, exports and the config. (The funding partner hand-off is on the
+// server: admin-app/backend/routes/funding.js.)
+import { AuditEvent, ApplicationConfig } from '@quickloan/ui-core/types';
 import { StorageCore } from '@quickloan/ui-core/services/storageCore';
 
 class AdminStorageService extends StorageCore {
-  private memoryFundingIntegrations: FundingIntegrationRecord[] = [];
-
   public getAuditEvents(entityId?: string): AuditEvent[] {
     if (!entityId) return this.memoryAuditEvents;
     return this.memoryAuditEvents.filter((e) => e.entityId === entityId);
   }
 
-  // --- Funding Entity Integration & Export ---
-  public simulateFundingHandoff(appId: string, actorName = 'Funding Dispatcher'): FundingIntegrationRecord {
-    const app = this.memoryApps.get(appId);
-    if (!app) throw new Error('Application not found');
-
-    const record: FundingIntegrationRecord = {
-      id: `fund_${Date.now()}`,
-      applicationId: app.id,
-      providerCode: 'BANK_LEUMI_FINTECH_DIRECT',
-      operation: 'submit_application',
-      externalReference: `EXT-LEUMI-${Math.floor(100000 + Math.random() * 900000)}`,
-      status: 'success',
-      attemptCount: 1,
-      requestMetadata: {
-        requestNumber: app.requestNumber,
-        borrowerName: app.borrowerDetails?.fullName,
-        loanAmountNIS: app.loanRequest?.requestedAmountNis,
-        repaymentMonths: app.loanRequest?.repaymentPeriodMonths,
-        documentsCount: app.documents.length,
-      },
-      responseMetadata: {
-        statusCode: 200,
-        decisionEngine: 'LEUMI_CREDIT_V4',
-        handoffToken: `tok_${Math.random().toString(36).substr(2, 12)}`,
-      },
-      lastAttemptAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    this.memoryFundingIntegrations.unshift(record);
-    this.updateApplicationStatus(appId, 'Forwarded to Funding Entity', 'funding_entity', actorName, 'Real-time API push completed to funding partner gateway.');
-
-    return record;
-  }
-
+  // --- Export ---
   public exportSignedJson(appId: string): string {
     const app = this.memoryApps.get(appId);
     if (!app) return '{}';

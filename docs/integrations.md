@@ -8,7 +8,7 @@ Only integrations with evidence in source are listed.
 | SMTP email (Nodemailer) | Implemented. **Optional**: mocked when `SMTP_USER` is missing | `shared/backend/services/emailService.js` |
 | pdfkit (local library, not a service) | Implemented | `shared/backend/services/pdfService.js` |
 | Google sign-in | **Mock only.** No OAuth | `server.js:522-542`, `Step2Auth.tsx:182-199` |
-| Funding partner / bank ("Bank Leumi FinTech Gateway") | **Simulated in browser.** No network | `storage.ts:1233-1266` |
+| Funding partner / bank ("Push to partner") | **Implemented on the admin API** against the partner-bank **sandbox** (mutual TLS, OAuth2 client credentials, idempotent submission, status checks). No real partner connected yet | `shared/backend/services/funding/`, `admin-app/backend/routes/funding.js`, `sandbox/partner-bank/` |
 | OCR / document quality | **Simulated** with `Math.random` | `Step8DocumentUpload.tsx:148-171` |
 | Google Gemini (`@google/genai`) | **Declared dependency, never used** | `borrower-app/frontend/package.json` |
 | Object storage (S3 etc.) | Not implemented. The `s3://` string is cosmetic | `Step11StatusTimeline.tsx:130` |
@@ -52,9 +52,30 @@ Only integrations with evidence in source are listed.
 - The server returns 404 unless DEMO_MODE is on. If the call fails, the client logs in locally anyway (`Step2Auth.tsx:194-198`).
 - To make this real: an OAuth 2.0 / OIDC authorization-code flow with server-side ID-token verification, and account linking rules.
 
-## Simulated funding partner
+## Funding partner ("Push to partner")
 
-See FIN-07 in [financial-integrity-risks.md](financial-integrity-risks.md). The `FundingIntegrationRecord` type (`types.ts:371`) is a reasonable sketch of a real outbound-integration log (attempt count, request and response metadata, external reference). A real implementation belongs on the server, with persistence, retries, idempotency and reconciliation.
+Approved 3-step loans are sent to the funding partner from the admin API. Staff press "Push to Partner" in the
+Back Office (Funding tab of the application), confirm, and the server does the rest:
+
+| | |
+|---|---|
+| Who | `credit_reviewer`, `system_admin` (`FUNDING_PUSH_ROLES` in `services/workflow.js`). Every staff role can see the Funding tab |
+| When | `LOAN_APPROVED`, not repaid, and the applicant accepted a General T&C version with the partner-sharing clauses (2.0 on). Applicants who accepted 1.0 are asked to accept 2.0 in the app (`POST /api/flow/application/partner-consent`); staff can send a reminder |
+| What is sent | `quickloan.loan-application.v1` (`services/funding/payload.js`): applicant, passport and visa, employment and salary, loan terms, the full bank account, sponsors, the terms acceptance and signature, every document as base64 with its SHA-256 and size |
+| Transport | HTTPS with mutual TLS (our client certificate, the partner's CA only), OAuth2 client-credentials token cached until shortly before it expires |
+| Retries | Network errors, timeouts, 429 and 5xx are retried (`FUNDING_MAX_ATTEMPTS`, waits doubling from `FUNDING_RETRY_BASE_MS`); other errors stop at once. A failed hand-off can be pushed again: after a temporary error with the same idempotency key (the partner may have received it), after a permanent one with a new key |
+| No double sends | One hand-off per application and partner that is not failed (unique index); two clicks at once give one push and a 409 |
+| Follow-up | The admin API asks the partner for open hand-offs every `FUNDING_POLL_MS`; staff can press "Check status". The partner's decision is audited and told to the applicant once |
+| Records | `funding_handoffs`: status, partner reference, attempts, error, the package's SHA-256 and a summary (amounts, document types and hashes). Never personal data or file contents. `audit_log`: `FUNDING_SENT`, `FUNDING_PUSH_FAILED`, `FUNDING_APPROVED`, `FUNDING_REJECTED`, `PARTNER_CONSENT_REQUESTED` |
+| Status | When the partner receives the loan, the application's status becomes "Forwarded to Funding Entity" (`flowStatus` stays `LOAN_APPROVED`) |
+
+Settings are `FUNDING_PARTNER_*` (`services/funding/config.js`, `.env.example`, `deploy/env/admin.env.example`). In
+demo mode with none set, the admin API uses the sandbox (`npm run partner:sandbox`, see
+`sandbox/partner-bank/README.md`). The partner answers are mapped in `services/funding/partnerClient.js`; a real
+partner (bank or licensed lender) needs its own mapping if its API differs from the sandbox's.
+
+Not done yet: a webhook from the partner (we ask it instead, so the VPN-limited admin API needs no inbound
+access), reconciliation of funded amounts, and more than one partner at a time.
 
 ## Google Fonts
 

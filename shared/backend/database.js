@@ -322,6 +322,41 @@ db.serialize(() => {
       if (err) console.warn('[DB] Duplicate request numbers in this database; the unique index was not created:', err.message);
     }
   );
+
+  // Hand-offs of approved loans to the funding partner (services/funding/). One row per push; retries of a
+  // failed push reuse the row and its idempotency key, so the partner never opens the same loan twice.
+  // The full request (personal data, documents) is never stored here: only its hash and a summary.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS funding_handoffs (
+      id TEXT PRIMARY KEY,
+      applicationId TEXT NOT NULL,
+      partnerCode TEXT NOT NULL,
+      status TEXT NOT NULL,
+      idempotencyKey TEXT NOT NULL,
+      externalReference TEXT,
+      partnerStatus TEXT,
+      decisionReason TEXT,
+      attemptCount INTEGER DEFAULT 0,
+      payloadSha256 TEXT,
+      requestSummary TEXT,
+      responseStatus INTEGER,
+      responseSummary TEXT,
+      errorCode TEXT,
+      error TEXT,
+      pushedById TEXT,
+      pushedByName TEXT,
+      pushedByRole TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT,
+      lastAttemptAt TEXT,
+      lastCheckedAt TEXT,
+      completedAt TEXT
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_funding_handoffs_app ON funding_handoffs (applicationId, createdAt)');
+  // At most one hand-off per application and partner that is not failed: two clicks (or two staff) at the same
+  // moment can't send the loan twice.
+  db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_funding_handoffs_open ON funding_handoffs (applicationId, partnerCode) WHERE status <> 'FAILED'");
 });
 
 module.exports = db;

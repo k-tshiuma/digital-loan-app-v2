@@ -405,6 +405,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/flow/application/partner-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 422,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
@@ -514,6 +523,42 @@
       "funding_entity": 401
     },
     "GET /api/flow/applications/:own/audit": {
+      "none": 404,
+      "badToken": 404,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "GET /api/flow/applications/:own/funding": {
+      "none": 404,
+      "badToken": 404,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/flow/applications/:missing/funding/push": {
+      "none": 404,
+      "badToken": 404,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/flow/applications/:missing/funding/refresh": {
+      "none": 404,
+      "badToken": 404,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/flow/applications/:missing/funding/consent-request": {
       "none": 404,
       "badToken": 404,
       "borrower": 404,
@@ -938,6 +983,15 @@
       "system_admin": 404,
       "funding_entity": 404
     },
+    "POST /api/flow/application/partner-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
+    },
     "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
@@ -1054,6 +1108,42 @@
       "credit_reviewer": 200,
       "system_admin": 200,
       "funding_entity": 200
+    },
+    "GET /api/flow/applications/:own/funding": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 200,
+      "credit_reviewer": 200,
+      "system_admin": 200,
+      "funding_entity": 200
+    },
+    "POST /api/flow/applications/:missing/funding/push": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 403
+    },
+    "POST /api/flow/applications/:missing/funding/refresh": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 403
+    },
+    "POST /api/flow/applications/:missing/funding/consent-request": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 403
     },
     "GET /api/route-matrix-unknown": {
       "none": 401,
@@ -1471,6 +1561,15 @@
       "system_admin": 401,
       "funding_entity": 401
     },
+    "POST /api/flow/application/partner-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 422,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
     "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
@@ -1580,6 +1679,42 @@
       "funding_entity": 401
     },
     "GET /api/flow/applications/:own/audit": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "GET /api/flow/applications/:own/funding": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/flow/applications/:missing/funding/push": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/flow/applications/:missing/funding/refresh": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 404,
+      "customer_service": 401,
+      "credit_reviewer": 401,
+      "system_admin": 401,
+      "funding_entity": 401
+    },
+    "POST /api/flow/applications/:missing/funding/consent-request": {
       "none": 401,
       "badToken": 401,
       "borrower": 404,
@@ -2004,6 +2139,15 @@
       "system_admin": 404,
       "funding_entity": 404
     },
+    "POST /api/flow/application/partner-consent": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 404,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 404
+    },
     "POST /api/flow/account/contact": {
       "none": 401,
       "badToken": 401,
@@ -2120,6 +2264,42 @@
       "credit_reviewer": 200,
       "system_admin": 200,
       "funding_entity": 200
+    },
+    "GET /api/flow/applications/:own/funding": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 200,
+      "credit_reviewer": 200,
+      "system_admin": 200,
+      "funding_entity": 200
+    },
+    "POST /api/flow/applications/:missing/funding/push": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 403
+    },
+    "POST /api/flow/applications/:missing/funding/refresh": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 403
+    },
+    "POST /api/flow/applications/:missing/funding/consent-request": {
+      "none": 401,
+      "badToken": 401,
+      "borrower": 401,
+      "customer_service": 403,
+      "credit_reviewer": 404,
+      "system_admin": 404,
+      "funding_entity": 403
     },
     "GET /api/route-matrix-unknown": {
       "none": 401,

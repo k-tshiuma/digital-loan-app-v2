@@ -46,6 +46,18 @@ function setup(flowStatus: string, role: UserRole = 'credit_reviewer', extra: Re
 
 }
 
+/** The Funding panel's overview, as GET /flow/applications/:id/funding returns it. */
+function fundingOverview(extra: Record<string, any> = {}) {
+  return {
+    partner: { code: 'sandbox_bank', name: 'Partner Bank (sandbox)', configured: true, sandbox: true, problem: null },
+    consent: { given: true, version: '2.0', acceptedAt: '2026-11-24T10:00:00.000Z' },
+    handoffs: [],
+    permissions: { push: true, requestConsent: false, refresh: false },
+    pushBlockedBy: null,
+    ...extra,
+  };
+}
+
 describe('FlowApplicationInspector', () => {
   it('shows the applicant header and Step 1 details', () => {
     setup('PENDING_STEP1_APPROVAL');
@@ -413,21 +425,31 @@ describe('FlowApplicationInspector', () => {
     expect(screen.getByText('גאנה')).toBeInTheDocument();
   });
 
-  it('displays Push to Partner at the bottom of the popup for approved loans across Agent, Credit Reviewer, and System Admin roles and does nothing on click', async () => {
-    const roles: UserRole[] = ['customer_service', 'credit_reviewer', 'system_admin'];
-    for (const role of roles) {
+  it('Push to Partner at the bottom of an approved loan opens the Funding tab, for credit reviewers and system admins only', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true, ...fundingOverview() }), { status: 200 })));
+    for (const role of ['credit_reviewer', 'system_admin'] as UserRole[]) {
       const { user, unmount, onClose, onApproveStep, onRejectStep, onFinalDecision } = setup('LOAN_APPROVED', role);
-      const pushBtn = screen.getByRole('button', { name: 'Push to Partner' });
-      expect(pushBtn).toBeInTheDocument();
-      expect(pushBtn).toBeEnabled();
-
-      await user.click(pushBtn);
+      await user.click(screen.getByRole('button', { name: 'Push to Partner' }));
+      // The panel shows the partner and asks for a confirmation before anything is sent
+      expect(await screen.findByText('Partner Bank (sandbox)')).toBeInTheDocument();
+      expect(document.getElementById('funding-panel')).not.toBeNull();
+      expect(document.getElementById('fi-push-to-partner-btn')).toBeNull();
       expect(onClose).not.toHaveBeenCalled();
       expect(onApproveStep).not.toHaveBeenCalled();
       expect(onRejectStep).not.toHaveBeenCalled();
       expect(onFinalDecision).not.toHaveBeenCalled();
       unmount();
     }
+    const cs = setup('LOAN_APPROVED', 'customer_service');
+    expect(screen.queryByRole('button', { name: 'Push to Partner' })).toBeNull();
+    // Customer service can still open the Funding tab to see what happened
+    await cs.user.click(screen.getByRole('button', { name: 'Funding' }));
+    expect(await screen.findByText('Partner Bank (sandbox)')).toBeInTheDocument();
+    cs.unmount();
+    const repaid = setup('LOAN_APPROVED', 'credit_reviewer', { application: { loanRepaidAt: '2026-11-20T10:00:00.000Z', loanRepaidBy: 'Credit Reviewer' } });
+    expect(screen.queryByRole('button', { name: 'Push to Partner' })).toBeNull();
+    repaid.unmount();
+    vi.unstubAllGlobals();
   });
 
   it('hides Push to Partner in the popup when the loan is not approved', () => {
@@ -461,7 +483,7 @@ describe('FlowApplicationInspector', () => {
     }
   });
 
-  it('displays Push to Partner under Loan Approved in the admin panel only for approved loans and opens the popup with Push to Partner when clicking Inspect or Loan Approved', async () => {
+  it('shows Push to Partner in the list only on approved 3-step loans, for the roles that may push, and opens the loan on its Funding tab', async () => {
     const approvedApp = {
       id: 'app_approved_1',
       requestNumber: 'REQ-2026-100343',
@@ -505,6 +527,7 @@ describe('FlowApplicationInspector', () => {
       const ok = (body: object) => new Response(JSON.stringify({ success: true, ...body }), { status: 200 });
       if (path === '/auth/staff-token') return ok({ token: 'staff.jwt.token' });
       if (path === '/applications') return ok({ applications: [approvedApp, pendingApp] });
+      if (path === '/flow/applications/app_approved_1/funding') return ok(fundingOverview());
       if (path === '/flow/applications/app_approved_1') {
         return ok({
           application: approvedApp,
@@ -523,29 +546,25 @@ describe('FlowApplicationInspector', () => {
     const { rerender } = render(
       <BackOffice language="en" currentRole="customer_service" onRoleChange={() => {}} onCloseBackOffice={() => {}} />
     );
-
     await waitFor(() => expect(screen.getByText('REQ-2026-100343')).toBeInTheDocument());
+    // Customer service may not push: no button in the list
+    expect(screen.queryByRole('button', { name: 'Push to Partner' })).toBeNull();
 
-    // Only 1 "Push to Partner" button in the table (for the approved row, not the pending row)
-    expect(screen.getAllByRole('button', { name: 'Push to Partner' })).toHaveLength(1);
-
-    // Clicking the table's "Push to Partner" button does nothing (does not open the modal)
-    await user.click(screen.getByRole('button', { name: 'Push to Partner' }));
-    expect(screen.queryByRole('status')).toBeNull();
-
-    // Clicking "Loan Approved" in the row opens the popup with "Push to Partner" at the bottom
-    const statusBadges = screen.getAllByText('Loan Approved');
-    const rowBadge = statusBadges.find((el) => el.closest('tr'));
-    expect(screen.getByRole('button', { name: 'Push to Partner' }).closest('td')).toBe(rowBadge!.closest('td'));
-    await user.click(rowBadge!);
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Push to Partner' })).toHaveLength(2));
-
-    // Also accessible for credit_reviewer and system_admin
     rerender(<BackOffice language="en" currentRole="credit_reviewer" onRoleChange={() => {}} onCloseBackOffice={() => {}} />);
-    expect(screen.getAllByRole('button', { name: 'Push to Partner' })).toHaveLength(2);
+    // One button, on the approved row (not the pending one)
+    const listBtn = await screen.findByRole('button', { name: 'Push to Partner' });
+    const rowBadge = screen.getAllByText('Loan Approved').find((el) => el.closest('tr'));
+    expect(listBtn.closest('td')).toBe(rowBadge!.closest('td'));
+
+    // It opens the loan on its Funding tab, where the push is confirmed
+    await user.click(listBtn);
+    expect(await screen.findByText('Partner Bank (sandbox)')).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([u]) => String(u).endsWith('/flow/applications/app_approved_1/funding'))).toBe(true);
+    // Nothing was sent yet
+    expect(fetchSpy.mock.calls.some(([u]) => String(u).endsWith('/funding/push'))).toBe(false);
 
     rerender(<BackOffice language="en" currentRole="system_admin" onRoleChange={() => {}} onCloseBackOffice={() => {}} />);
-    expect(screen.getAllByRole('button', { name: 'Push to Partner' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Push to Partner' }).length).toBeGreaterThanOrEqual(1);
 
     vi.unstubAllGlobals();
   });
