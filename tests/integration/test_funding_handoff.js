@@ -143,7 +143,7 @@ async function startApis() {
 // ---------------------------------------------------------------------------
 // An application from registration to the final decision
 // ---------------------------------------------------------------------------
-async function approvedLoan(staff, label, { approve = true } = {}) {
+async function approvedLoan(staff, label, { approve = true, bankCode = '12' } = {}) {
   const phone = `054${Math.floor(1000000 + Math.random() * 9000000)}`;
   const otp = await borrower('POST', '/api/users/request-otp', { phoneNumber: phone });
   const reg = await borrower('POST', '/api/flow/register', {
@@ -177,7 +177,7 @@ async function approvedLoan(staff, label, { approve = true } = {}) {
   const terms = (await borrower('GET', '/api/flow/terms/current', null, token)).body.terms;
   const s3 = await borrower('POST', '/api/flow/application/steps/3/submit', {
     data: {
-      bank: { bankName: 'Bank Hapoalim', bankCode: '12', branchNumber: '612', accountNumber: '33445566', accountHolderName: `Funding ${label}` },
+      bank: { bankName: 'Bank Hapoalim', bankCode, branchNumber: '612', accountNumber: '33445566', accountHolderName: `Funding ${label}` },
       bankDocument,
       terms: { generalVersion: terms.general.version, serviceFeeVersion: terms.service_fee.version, generalAccepted: true, serviceFeeAccepted: true },
       signature: { signatureMethod: 'typed_name', signatureValue: `Funding ${label}` },
@@ -348,9 +348,13 @@ async function run() {
     assert.notStrictEqual(keyAfter, keyBefore, 'New idempotency key after a permanent error');
     assert((await dbAll("SELECT action FROM audit_log WHERE applicationId = ? AND action = 'FUNDING_PUSH_FAILED'", [loan2.appId])).length === 1);
     console.log('  ✓ Permanent error: one attempt, FAILED, pushed again with a new idempotency key');
+    // Settle it, so no hand-off is left waiting for this test's sandbox (the real admin API would keep asking).
+    await sandbox('POST', `/sandbox/applications/${ok2.body.handoff.externalReference}/decision`, { body: { decision: 'APPROVED' } });
+    await admin('POST', `/api/flow/applications/${loan2.appId}/funding/refresh`, {}, staff.admin);
 
     // --- loan 3: temporary errors until the attempts run out, then two pushes at once --------
-    const loan3 = await approvedLoan(staff, 'three');
+    // No bank code, only the bank's name (older applications, API clients): the package fills in the code.
+    const loan3 = await approvedLoan(staff, 'three', { bankCode: '' });
     await sandbox('POST', '/sandbox/faults', { body: { next: [{ status: 503 }, { status: 502 }, { status: 500 }] } });
     const down = await admin('POST', `/api/flow/applications/${loan3.appId}/funding/push`, {}, staff.reviewer);
     assert.strictEqual(down.status, 502);
@@ -367,6 +371,7 @@ async function run() {
     const atBank3 = (await sandbox('GET', '/sandbox/applications')).body.applications.filter((x) => x.externalId === loan3.appId);
     assert.strictEqual(atBank3.length, 1, 'The partner has the loan once');
     console.log('  ✓ Temporary errors: 3 attempts then FAILED; pushed again with the same key; two pushes at once send it once');
+    console.log('  ✓ A loan with only the bank name (no code) is sent with the code filled in (the partner requires it)');
 
     // The partner declines; staff press "Check status"
     await sandbox('POST', `/sandbox/applications/${sent3.externalReference}/decision`, { body: { decision: 'REJECTED', reason: 'Sponsor could not be verified.' } });

@@ -13,6 +13,32 @@ const crypto = require('crypto');
 const SCHEMA_VERSION = 'quickloan.loan-application.v1';
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
+/**
+ * Israeli bank codes by name, the same list as ISRAELI_BANKS in shared/frontend/config/appConfig.ts (keep both
+ * in step). The Step 3 screen always sends the code, but older applications and API clients may have only the
+ * name, and the partner needs the code.
+ */
+const BANK_CODES = [
+  ['12', 'Bank Hapoalim', 'בנק הפועלים'],
+  ['10', 'Bank Leumi', 'בנק לאומי'],
+  ['11', 'Israel Discount Bank', 'בנק דיסקונט'],
+  ['20', 'Mizrahi Tefahot Bank', 'בנק מזרחי טפחות'],
+  ['31', 'First International Bank of Israel (FIBI)', 'הבנק הבינלאומי'],
+  ['54', 'Bank of Jerusalem', 'בנק ירושלים'],
+  ['09', 'Postal Bank (Doar Israel)', 'בנק הדואר'],
+  ['28', 'One Zero Digital Bank', 'וואן זירו'],
+];
+const normName = (v) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** The bank code given, or else the one for the bank's name; null when neither is known. */
+function bankCodeFor(bank) {
+  const given = String((bank && bank.bankCode) || '').trim();
+  if (given && given !== 'other') return given;
+  const name = normName(bank && bank.bankName);
+  const hit = name && BANK_CODES.find(([, en, he]) => normName(en) === name || normName(he) === name);
+  return hit ? hit[0] : null;
+}
+
 class PayloadError extends Error {
   constructor(code, message) { super(message); this.code = code; }
 }
@@ -97,7 +123,7 @@ function buildPayload(a, user, acceptance, uploadDir, handoff) {
     },
     bankAccount: {
       bankName: bank.bankName || null,
-      bankCode: bank.bankCode || null,
+      bankCode: bankCodeFor(bank),
       branchNumber: bank.branchNumber || null,
       accountNumber: bank.accountNumber || null,
       accountHolderName: bank.accountHolderName || null,
@@ -130,4 +156,4 @@ function summarize(payload) {
 
 const payloadHash = (payload) => sha256(Buffer.from(JSON.stringify(payload)));
 
-module.exports = { SCHEMA_VERSION, buildPayload, summarize, payloadHash, PayloadError };
+module.exports = { SCHEMA_VERSION, buildPayload, summarize, payloadHash, bankCodeFor, PayloadError };
